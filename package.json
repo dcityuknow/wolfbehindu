@@ -1,0 +1,17 @@
+{
+  "name": "space-impostor-fhe",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "compile": "node scripts/deploy.mjs --compile-only",
+    "deploy": "node scripts/deploy.mjs",
+    "serve": "serve web -l 3000"
+  },
+  "dependencies": {
+    "@fhevm/solidity": "^0.13.4",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4",
+    "serve": "^14.2.4",
+    "solc": "0.8.27"
+  }
+}

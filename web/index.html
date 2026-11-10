@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Space Impostor · FHE</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#000;color:#eef;font:14px system-ui,sans-serif}canvas{display:block;width:100vw;height:100vh}
+.ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(4,6,20,.9);z-index:9;text-align:center}
+.pn{background:#10163a;border:1px solid #34407a;border-radius:12px;padding:18px;min-width:340px;max-width:92vw}
+button{background:#3a4bd6;color:#fff;border:0;border-radius:8px;padding:9px 14px;margin:3px;cursor:pointer;font-size:14px}button:hover{background:#5666f0}button:disabled{opacity:.35;cursor:default}
+button.r{background:#c0392b}button.g{background:#3b4160}#hud{position:fixed;inset:0;pointer-events:none;z-index:2}#hud *{pointer-events:auto}
+#top{position:absolute;left:12px;top:10px;background:#0009;padding:8px 12px;border-radius:8px;line-height:1.6}
+#prompt{position:absolute;bottom:90px;width:100%;text-align:center;font-size:18px;text-shadow:0 0 6px #000;pointer-events:none}
+#btns{position:absolute;right:16px;bottom:16px}#btns button{font-size:16px;padding:14px 18px}
+#toast{position:absolute;right:12px;top:10px;width:300px;font:12px monospace;color:#9fb0ff;text-align:right;pointer-events:none;text-shadow:0 0 4px #000}
+#fx{position:fixed;inset:0;background:#f00;opacity:0;pointer-events:none;z-index:8;transition:opacity .35s}
+.rw{display:flex;align-items:center;gap:8px;padding:6px;margin:3px 0;background:#1a2252;border-radius:8px;text-align:left}.rw.dd{opacity:.35}.rw.sl{outline:2px solid #ffd24d}.dot{width:16px;height:16px;border-radius:50%}
+#chat{height:110px;overflow:auto;background:#0b0f2a;border-radius:8px;padding:6px;margin:8px 0;text-align:left;font-size:13px}input{padding:8px;border-radius:6px;border:1px solid #34407a;background:#141a40;color:#fff}
+.wire{display:inline-block;width:64px;height:30px;margin:5px;border-radius:6px;cursor:pointer;border:3px solid transparent}.wire.on{border-color:#fff}.wire.ok{opacity:.2;pointer-events:none}
+.bar{height:18px;background:#222;border-radius:9px;overflow:hidden;margin:12px 0}.bar i{display:block;height:100%;width:0;background:#4f8}
+</style></head><body>
+<canvas id="c"></canvas><div id="fx"></div>
+<div id="hud" style="display:none">
+ <div id="top"><div id="role">Vai trò: ?</div><div id="tk">Nhiệm vụ: 0/3</div><div id="rd">Round 1</div></div>
+ <div id="toast"></div><div id="prompt"></div>
+ <div id="btns"><button id="bKill" class="r" disabled>🔪 Kill (Q)</button><button id="bChk" class="g">🏁 Kiểm tra thắng</button></div>
+</div>
+<div id="menu" class="ov" style="display:flex"><div class="pn"><h1>🚀 Space Impostor</h1><p>WASD di chuyển · Space nhảy · E tương tác · Q kill<br><small>Vai trò, kill, phiếu bầu được mã hoá bằng Zama FHE</small></p>
+ <button id="bPlay">Kết nối ví & Chơi Solo (1 + 3 Bot)</button><div id="mlog" style="font:12px monospace;color:#9fb0ff;margin-top:10px;white-space:pre-wrap"></div></div></div>
+<div id="splash" class="ov" style="background:rgba(0,0,0,.8)"><h1 id="sp" style="font-size:54px"></h1><p id="sp2"></p></div>
+<div id="mini" class="ov"><div class="pn"><div id="mbody"></div><button id="mx" class="g">Đóng</button></div></div>
+<div id="meet" class="ov" style="background:rgba(4,6,20,.55)"><div class="pn"><h2>🚨 <span id="mwhy"></span> <small id="mt"></small></h2><div id="mrow"></div>
+ <div id="chat"></div><input id="ci" placeholder="Chat…"><button id="cs" class="g">Gửi</button><button id="skip">Skip vote</button><div id="mstat" style="color:#ffd24d;margin-top:6px"></div></div></div>
+<div id="end" class="ov"><h1 id="et"></h1><p id="ed"></p><button onclick="location.reload()">Chơi lại</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<script src="https://cdn.zama.org/relayer-sdk-js/0.3.0-8/relayer-sdk-js.umd.cjs"></script>
+<script>
+const $=s=>document.querySelector(s),NO=255,COL=[0xff4d4d,0x4da6ff,0x4dff88,0xffd24d],NAMES=['Bạn','Bot-1','Bot-2','Bot-3'],CEN=[-13.5,0,13.5],VIS=11;
+const G={phase:'menu',slot:0,role:null,round:1,acted:false,killUsed:false,tasks:0,dead:new Set(),mini:false,voted:false,ghost:false,cp:-1};
+let CFG,signer,account,inst,game,roomId,permit,chain=Promise.resolve(),shake=0,anim=null,K={};
+const toast=m=>{const t=$('#toast');t.innerHTML=m+'<br>'+t.innerHTML.split('<br>').slice(0,5).join('<br>');$('#mlog').textContent=m+'\n'+$('#mlog').textContent};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ══════ 3D WORLD ══════ */
+const R=new THREE.WebGLRenderer({canvas:$('#c'),antialias:true}),S=new THREE.Scene(),Cam=new THREE.PerspectiveCamera(55,1,.1,80);
+S.background=new THREE.Color(0x02030a);S.fog=new THREE.FogExp2(0x02030a,.06);S.add(new THREE.AmbientLight(0x8899ff,.35));
+const torch=new THREE.PointLight(0xfff2cc,1.5,17);S.add(torch);
+const WALLS=[[0,-20.5,42,1],[0,20.5,42,1],[-20.5,0,1,42],[20.5,0,1,42]],WM=[],cells=[[-20,-7],[-7,7],[7,20]];
+for(const L of[-7,7])for(const[a,b]of cells){const c=(a+b)/2;WALLS.push([L,(a+c-2)/2,1,c-2-a],[L,(c+2+b)/2,1,b-c-2],[(a+c-2)/2,L,c-2-a,1],[(c+2+b)/2,L,b-c-2,1])}
+const wmat=new THREE.MeshStandardMaterial({color:0x39407a});
+WALLS.forEach(([x,z,w,d])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,3,d),wmat);m.position.set(x,1.5,z);S.add(m);WM.push(m)});
+WALLS.push([0,0,2.4,2.4]);
+for(let i=0;i<3;i++)for(let j=0;j<3;j++){const f=new THREE.Mesh(new THREE.PlaneGeometry(13,13),new THREE.MeshStandardMaterial({color:(i+j)%2?0x141a3a:0x1c2350}));f.rotation.x=-Math.PI/2;f.position.set(CEN[i],0,CEN[j]);S.add(f)}
+const table=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,.9,24),new THREE.MeshStandardMaterial({color:0x888ecc}));table.position.y=.45;S.add(table);
+const ebtn=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,.2,16),new THREE.MeshStandardMaterial({color:0xff2222,emissive:0xaa0000}));ebtn.position.y=1;S.add(ebtn);
+const T=[[-13.5,-13.5,'wires'],[13.5,-13.5,'code'],[-13.5,13.5,'hold'],[13.5,13.5,'wires'],[0,-13.5,'code']].map(([x,z,type])=>{
+ const m=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.7,.6),new THREE.MeshStandardMaterial({color:0x222,emissive:0x332200}));m.position.set(x,.85,z);S.add(m);return{x,z,type,m,active:false,done:false}});
+[...T].sort(()=>Math.random()-.5).slice(0,3).forEach(t=>{t.active=true;t.m.material.emissive.setHex(0xffaa00)});
+const VENTS=[[13.5,0],[-13.5,0],[0,13.5]];VENTS.forEach(([x,z])=>{const v=new THREE.Mesh(new THREE.CylinderGeometry(.9,.9,.1,6),new THREE.MeshStandardMaterial({color:0x000}));v.position.set(x,.06,z);S.add(v)});
+const stars=new Float32Array(1200);for(let i=0;i<1200;i++)stars[i]=(Math.random()-.5)*160;const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(stars,3));S.add(new THREE.Points(sg,new THREE.PointsMaterial({size:.2})));
+
+function mk(i){const g=new THREE.Group(),m=new THREE.MeshStandardMaterial({color:COL[i]}),add=(geo,mat,x,y,z)=>{const o=new THREE.Mesh(geo,mat);o.position.set(x,y,z);g.add(o)};
+ add(new THREE.CylinderGeometry(.45,.45,.9,16),m,0,.55,0);add(new THREE.SphereGeometry(.45,16,12),m,0,1,0);
+ add(new THREE.BoxGeometry(.55,.28,.3),new THREE.MeshStandardMaterial({color:0x9be7ff,emissive:0x224455}),0,1.05,.32);add(new THREE.BoxGeometry(.3,.6,.25),m,0,.6,-.45);
+ g.userData.m=m;S.add(g);return g}
+const E=[0,1,2,3].map(i=>({i,g:mk(i),x:0,z:0,rot:0,vy:0,y:0,dead:false,out:false,wait:0,tx:0,tz:0})),B=[];
+const cellOf=v=>v<-7?0:v>7?2:1,me=()=>E[G.slot];
+function spawnAll(){E.forEach(e=>{if(e.dead||e.out)return;e.x=CEN[Math.random()*3|0]+(Math.random()-.5)*1.6;e.z=CEN[Math.random()*3|0]+(Math.random()-.5)*1.6;e.tx=CEN[cellOf(e.x)];e.tz=CEN[cellOf(e.z)];e.g.visible=true})}
+function collide(e){for(const[cx,cz,w,d]of WALLS){const nx=Math.max(cx-w/2,Math.min(e.x,cx+w/2)),nz=Math.max(cz-d/2,Math.min(e.z,cz+d/2));let dx=e.x-nx,dz=e.z-nz,l=Math.hypot(dx,dz);if(l<.5){if(l<1e-4){dx=1;dz=0;l=1}e.x+=dx/l*(.5-l);e.z+=dz/l*(.5-l)}}}
+const RC=new THREE.Raycaster();
+function canSee(o){const m=me(),dx=o.x-m.x,dz=o.z-m.z,L=Math.hypot(dx,dz);if(L>VIS)return false;
+ const df=Math.abs(((Math.atan2(dx,dz)-m.rot+Math.PI*3)%(Math.PI*2))-Math.PI);if(L>3&&df>1.5)return false; // nón nhìn ~170°
+ RC.set(new THREE.Vector3(m.x,1,m.z),new THREE.Vector3(dx,0,dz).normalize());RC.far=L;return RC.intersectObjects(WM).length===0}
+function kill(i){if(G.dead.has(i))return;G.dead.add(i);const e=E[i];
+ if(i===G.slot){G.ghost=true;const b=mk(i);b.position.set(e.x,.3,e.z);b.rotation.z=Math.PI/2;b.userData.m.color.setHex(0x666666);B.push({x:e.x,z:e.z,g:b,own:true});e.g.userData.m.transparent=true;e.g.userData.m.opacity=.35;toast('💀 Bạn đã bị giết — giờ bạn là hồn ma')}
+ else{e.dead=true;e.g.rotation.z=Math.PI/2;e.g.position.y=.3;e.g.userData.m.color.setHex(0x666666);B.push({x:e.x,z:e.z,g:e.g})}}
+
+/* ══════ WEB3 + FHE ══════ */
+function tx(label,fn){const p=chain.then(async()=>{toast(label+'…');try{const r=await(await fn()).wait();toast('✓ '+label);return r}catch(e){toast('✗ '+label+': '+(e.shortMessage||e.reason||e.message||'').slice(0,80));throw e}});chain=p.catch(()=>{});return p}
+async function connect(){CFG=await(await fetch('config.json')).json();if(!CFG.address)throw Error('Chưa deploy: npm run deploy');
+ await ethereum.request({method:'eth_requestAccounts'});try{await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0xaa36a7'}]})}catch{}
+ signer=await new ethers.BrowserProvider(ethereum).getSigner();account=await signer.getAddress();game=new ethers.Contract(CFG.address,CFG.abi,signer);
+ toast('Khởi tạo Zama SDK…');const L=window.relayerSDK;await L.initSDK();inst=await L.createInstance({...L.SepoliaConfig,network:window.ethereum})}
+async function enc(v){const b=inst.createEncryptedInput(CFG.address,account);b.add8(v);return b.encrypt()}
+async function dec(hs){if(!permit||permit.exp<Date.now()/1e3){const kp=inst.generateKeypair(),start=String(Math.floor(Date.now()/1e3)),days='1',eip=inst.createEIP712(kp.publicKey,[CFG.address],start,days);
+  const sig=await signer.signTypedData(eip.domain,{UserDecryptRequestVerification:eip.types.UserDecryptRequestVerification},eip.message);permit={kp,start,days,sig,exp:Date.now()/1e3+80000}}
+ const p=permit;return inst.userDecrypt(hs.map(h=>({handle:h,contractAddress:CFG.address})),p.kp.privateKey,p.kp.publicKey,p.sig.replace('0x',''),[CFG.address],account,p.start,p.days)}
+const pubDec=async()=>inst.publicDecrypt([...await game.getPendingHandles(roomId)]);
+const evs=r=>r.logs.map(l=>{try{return game.interface.parseLog(l)}catch{}}).filter(Boolean);
+async function act(t){const e=await enc(t);return tx('Hành động (mã hoá)',()=>game.executeSecretKill(roomId,e.handles[0],e.inputProof))}
+async function ensureActed(){if(!G.acted){G.acted=true;try{await act(NO)}catch{}}}
+function schedule(){clearTimeout(G.st);G.st=setTimeout(()=>{if(G.phase==='play'&&G.role===0)ensureActed()},12e3+Math.random()*25e3)} // Crew gửi "act" giả vào lúc ngẫu nhiên để che Impostor
+
+async function start(){try{$('#bPlay').disabled=true;await connect();
+ const r=await tx('Tạo phòng Solo',()=>game.createRoom(true));roomId=evs(r).find(e=>e.name==='RoomCreated').args.roomId;
+ await tx('Chia vai trò (FHE)',()=>game.startGame(roomId));
+ const h=await game.getRoleHandle(roomId,account);G.role=Number((await dec([h]))[h]);
+ $('#menu').style.display='none';$('#hud').style.display='block';$('#role').innerHTML=G.role?'Vai trò: <b style="color:#f55">🔪 IMPOSTOR</b>':'Vai trò: <b style="color:#5f9">🧑‍🚀 CREWMATE</b>';
+ const s=$('#splash');s.style.display='flex';$('#sp').textContent=G.role?'BẠN LÀ IMPOSTOR':'BẠN LÀ CREWMATE';$('#sp').style.color=G.role?'#f55':'#5f9';
+ $('#sp2').textContent=G.role?'Rình lúc ai đó đi lẻ rồi Q để kill. Vent: E.':'Làm 3 nhiệm vụ, tìm ra Impostor trong 3 người kia.';await sleep(3500);s.style.display='none';
+ spawnAll();G.phase='play';schedule();setInterval(pollSelf,9000)}catch(e){toast('✗ '+(e.message||e));$('#bPlay').disabled=false}}
+async function pollSelf(){if(G.phase!=='play'||G.ghost)return;try{const h=await game.getStatusHandle(roomId,G.slot);if(Number((await dec([h]))[h])===0)kill(G.slot)}catch{}}
+
+/* ══════ TASKS (mini-games) ══════ */
+function mini(type,ok){const m=$('#mini'),b=$('#mbody');m.style.display='flex';G.mini=true;K={};const close=w=>{m.style.display='none';G.mini=false;if(w)ok()};$('#mx').onclick=()=>close(false);
+ if(type==='wires'){const cs=['#f44','#4af','#4f8','#fd4'].sort(()=>Math.random()-.5).slice(0,3),rs=[...cs].sort(()=>Math.random()-.5);let pick=null,n=0;b.innerHTML='<h3>🔌 Nối dây điện</h3><div id="L"></div><div id="Rr"></div>';
+  cs.forEach(c=>{const d=document.createElement('div');d.className='wire';d.style.background=c;d.onclick=()=>{document.querySelectorAll('#L .wire').forEach(x=>x.classList.remove('on'));d.classList.add('on');pick=c;d._c=c};d.dataset.c=c;$('#L').appendChild(d)});
+  rs.forEach(c=>{const d=document.createElement('div');d.className='wire';d.style.background=c;d.onclick=()=>{if(pick!==c)return;document.querySelectorAll('.wire').forEach(x=>{if(x.dataset.c===c||x.style.background.length&&x.style.background===d.style.background)x.classList.add('ok')});d.classList.add('ok');pick=null;if(++n===3)setTimeout(()=>close(true),300)};d.dataset.c=c;$('#Rr').appendChild(d)})}
+ else if(type==='code'){const code=String(1000+Math.random()*9000|0);let v='';b.innerHTML='<h3>⌨ Nhập mã: <b style="color:#ffd24d">'+code+'</b></h3><h2 id="cv">----</h2><div id="kp"></div>';
+  for(let d=0;d<10;d++){const k=document.createElement('button');k.textContent=d;k.onclick=()=>{v+=d;$('#cv').textContent=v.padEnd(4,'-');if(v.length===4){if(v===code)setTimeout(()=>close(true),200);else{v='';$('#cv').textContent='SAI'}}};$('#kp').appendChild(k)}}
+ else{let p=0,iv=null;b.innerHTML='<h3>💨 Bơm oxy — giữ nút</h3><div class="bar"><i id="bi"></i></div><button id="hb" style="font-size:20px;padding:18px">GIỮ</button>';const hb=$('#hb');
+  const go=()=>{clearInterval(iv);iv=setInterval(()=>{p+=2;$('#bi').style.width=p+'%';if(p>=100){clearInterval(iv);close(true)}},50)},st=()=>{clearInterval(iv);iv=setInterval(()=>{p=Math.max(0,p-3);$('#bi').style.width=p+'%'},50)};
+  hb.onmousedown=go;hb.onmouseup=st;hb.onmouseleave=st}}
+function doTask(t){mini(t.type,()=>{t.done=true;t.m.material.emissive.setHex(0x00aa44);G.tasks++;$('#tk').textContent='Nhiệm vụ: '+G.tasks+'/3';
+ tx('Hoàn thành task (on-chain)',()=>game.completeTask(roomId)).then(()=>{if(G.tasks===3)checkpoint()}).catch(()=>{})})}
+
+/* ══════ KILL / REPORT / VENT ══════ */
+const near=(o,r)=>Math.hypot(o.x-me().x,o.z-me().z)<r;
+const killTarget=()=>E.find(e=>e.i!==G.slot&&!e.dead&&!e.out&&near(e,2.2));
+function doKill(){if(G.role!==1||G.ghost||G.killUsed||G.phase!=='play'||G.mini)return;const t=killTarget();if(!t)return;G.killUsed=G.acted=true;
+ $('#fx').style.opacity=.55;setTimeout(()=>$('#fx').style.opacity=0,350);shake=.4;kill(t.i);
+ act(t.i).then(()=>checkpoint()).catch(()=>{})}
+$('#bKill').onclick=doKill;$('#bChk').onclick=()=>checkpoint(true);
+function interact(){if(G.phase!=='play'||G.mini)return;const bd=B.find(b=>b.g.visible&&!b.own&&near(b,2.5));
+ if(bd&&!G.ghost)return meeting('Xác chết được báo cáo!');
+ const st=T.find(t=>t.active&&!t.done&&near(t,2));if(st)return doTask(st);
+ if(G.role===1&&!G.ghost){const vi=VENTS.findIndex(v=>near({x:v[0],z:v[1]},1.8));if(vi>=0){const n=VENTS[(vi+1)%3];const m=me();m.x=n[0];m.z=n[1]+1.5;toast('🕳 Chui vent!');return}}
+ if(near({x:0,z:0},2.8)&&!G.ghost)meeting('Họp khẩn!')}
+function prompt(){let t='';if(G.mini||G.phase!=='play')t='';else if(B.find(b=>b.g.visible&&!b.own&&near(b,2.5))&&!G.ghost)t='[E] 🚨 Báo cáo xác';
+ else if(T.find(x=>x.active&&!x.done&&near(x,2)))t='[E] Làm nhiệm vụ';else if(G.role===1&&!G.ghost&&VENTS.some(v=>near({x:v[0],z:v[1]},1.8)))t='[E] Chui vent';else if(near({x:0,z:0},2.8)&&!G.ghost)t='[E] Họp khẩn';$('#prompt').textContent=t;
+ $('#bKill').style.display=G.role===1?'':'none';$('#bKill').disabled=!(G.role===1&&!G.ghost&&!G.killUsed&&killTarget());$('#bKill').textContent=G.killUsed?'🔪 Đã dùng (round này)':'🔪 Kill (Q)'}
+
+/* ══════ MEETING / ENCRYPTED VOTE / EJECT ══════ */
+const SAY=['Mình thấy {n} đi một mình khá lâu.','{n} cứ lảng vảng gần phòng điện…','Mình nghi {n}.','Mình đang làm task, {n} đâu rồi?','Chưa đủ bằng chứng, skip đi.','{n} im lặng đáng ngờ đấy.'];
+const chat=(n,t)=>{const c=$('#chat');c.innerHTML+='<div><b>'+n+':</b> '+t+'</div>';c.scrollTop=1e9};
+async function meeting(why){if(G.phase!=='play')return;G.phase='meet';G.voted=false;clearTimeout(G.st);$('#mini').style.display='none';G.mini=false;toast('🚨 '+why);
+ try{await ensureActed();await tx('Mở họp (on-chain)',()=>game.callMeeting(roomId));
+  const hs=await Promise.all(E.map(e=>game.getStatusHandle(roomId,e.i)));const r=await dec(hs);hs.forEach((h,i)=>{if(Number(r[h])===0)kill(i)})}catch(e){G.phase='play';return}
+ const rm=await game.getRoom(roomId),dl=Number(rm.voteDeadline);
+ E.forEach((e,i)=>{e.g.visible=!e.dead&&!e.out;if(e.g.visible){const a=i/4*Math.PI*2;e.x=Math.cos(a)*3.4;e.z=Math.sin(a)*3.4;e.rot=Math.atan2(-e.x,-e.z);e.g.position.set(e.x,0,e.z);e.g.rotation.set(0,e.rot,0)}});B.forEach(b=>{if(!E.some(e=>e.g===b.g))b.g.visible=false});
+ $('#mwhy').textContent=why;$('#chat').innerHTML='';$('#mstat').textContent='';$('#meet').style.display='flex';
+ let sel=null;const row=()=>{$('#mrow').innerHTML=E.map(e=>'<div class="rw '+(e.dead||e.out?'dd':'')+(sel===e.i?' sl':'')+'" data-i="'+e.i+'"><span class="dot" style="background:#'+COL[e.i].toString(16).padStart(6,'0')+'"></span>'+NAMES[e.i]+(e.i===G.slot?' (bạn)':'')+(e.dead||e.out?' 💀':'')+'</div>').join('')};row();
+ $('#mrow').onclick=ev=>{const d=ev.target.closest('.rw');if(!d||G.voted||G.ghost)return;const i=+d.dataset.i;if(E[i].dead||E[i].out)return;sel=i;row();$('#mstat').innerHTML='Đã chọn '+NAMES[i]+' <button id="ok">Xác nhận vote</button>';$('#ok').onclick=()=>vote(i)};
+ $('#skip').onclick=()=>vote(NO);$('#cs').onclick=()=>{const v=$('#ci').value.trim();if(v){chat('Bạn',v);$('#ci').value=''}};
+ const alive=E.filter(e=>!e.dead&&!e.out);const bt=setInterval(()=>{if(G.phase!=='meet')return clearInterval(bt);const b=alive.filter(e=>e.i!==G.slot)[Math.random()*(alive.length-1)|0],o=alive[Math.random()*alive.length|0];if(b&&o)chat(NAMES[b.i],SAY[Math.random()*SAY.length|0].replace('{n}',NAMES[o.i]))},3500);
+ const tm=setInterval(()=>{if(G.phase!=='meet')return clearInterval(tm);const l=dl-Math.floor(Date.now()/1e3);$('#mt').textContent='⏱ '+Math.max(0,l)+'s';if(l<=0&&!G.voted)vote(NO)},1000);
+ if(G.ghost)vote(NO)}
+async function vote(t){if(G.voted)return;G.voted=true;$('#mstat').textContent='🔐 Đang mã hoá & gửi phiếu…';
+ try{const e=await enc(t);await tx('Vote kín',()=>game.castShieldedVote(roomId,e.handles[0],e.inputProof));chat('Hệ thống','Phiếu của bạn đã được mã hoá on-chain. Không ai thấy bạn bầu ai.');
+  $('#mstat').textContent='📊 Bot bỏ phiếu & kiểm phiếu FHE…';await tx('Kiểm phiếu',()=>game.tallyVotes(roomId));const d=await pubDec();
+  const r=await tx('Nộp proof giải mã',()=>game.finalizeTally(roomId,d.abiEncodedClearValues,d.decryptionProof));const ev=evs(r),ej=ev.find(x=>x.name==='PlayerEjected'),end=ev.find(x=>x.name==='GameEnded');
+  $('#meet').style.display='none';await eject(ej?Number(ej.args.slotId):null,ej&&ej.args.wasImpostor);
+  if(end)return finish(Number(end.args.winner));nextRound()}catch(e){toast('✗ '+(e.message||e));G.voted=false}}
+function eject(slot,imp){return new Promise(res=>{const s=$('#splash');s.style.display='flex';s.style.background='rgba(0,0,0,.35)';$('#sp').style.fontSize='34px';$('#sp').style.color='#fff';
+ if(slot===null){$('#sp').textContent='Không ai bị loại (hoà / skip)';$('#sp2').textContent='';return setTimeout(()=>{s.style.display='none';res()},2500)}
+ const e=E[slot];if(slot===G.slot)G.ghost=true;G.dead.add(slot);$('#sp').textContent=NAMES[slot]+(imp?' LÀ IMPOSTOR 🔪':' KHÔNG phải Impostor 🧑‍🚀');$('#sp').style.color=imp?'#5f9':'#f55';$('#sp2').textContent='';
+ anim={e,t:0,dx:Math.cos(slot/4*Math.PI*2),dz:Math.sin(slot/4*Math.PI*2),res:()=>{e.out=true;e.g.visible=false;s.style.display='none';res()}}})}
+function nextRound(){G.round++;G.acted=G.killUsed=G.voted=false;B.forEach(b=>b.g.visible=false);B.length=0;E.forEach(e=>{if(e.dead)e.out=true});spawnAll();$('#rd').textContent='Round '+G.round;G.phase='play';schedule()}
+async function checkpoint(manual){if(G.phase!=='play'||G.cp===G.round)return;G.cp=G.round;
+ try{await tx('Kiểm tra thắng (FHE)',()=>game.requestCheckpoint(roomId));const d=await pubDec();await tx('Nộp proof',()=>game.submitCheckpoint(roomId,d.abiEncodedClearValues,d.decryptionProof));
+  const r=await game.getRoom(roomId);if(Number(r.phase)===4)finish(Number(r.winner));else if(manual)toast('Chưa ai thắng.')}catch{}}
+function finish(w){G.phase='end';const win=(w===2)===(G.role===1);$('#end').style.display='flex';$('#et').textContent=(w===1?'🧑‍🚀 CREWMATES':'🔪 IMPOSTORS')+' THẮNG';$('#ed').textContent=win?'🎉 Bạn thắng!':'Bạn thua.'}
+
+/* ══════ LOOP ══════ */
+addEventListener('keydown',e=>{K[e.code]=1;if(e.target.tagName==='INPUT')return;if(e.code==='KeyE')interact();if(e.code==='KeyQ')doKill();if(e.code==='Space'&&G.phase==='play'){const m=me();if(m.y<=0)m.vy=5}});addEventListener('keyup',e=>K[e.code]=0);
+function resize(){R.setSize(innerWidth,innerHeight,false);Cam.aspect=innerWidth/innerHeight;Cam.updateProjectionMatrix()}addEventListener('resize',resize);resize();
+let last=performance.now();
+function update(dt){const m=me();
+ if(G.phase==='play'){
+  if(!G.mini){const dx=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0),dz=(K.KeyS||K.ArrowDown?1:0)-(K.KeyW||K.ArrowUp?1:0),l=Math.hypot(dx,dz);if(l){m.x+=dx/l*6*dt;m.z+=dz/l*6*dt;m.rot=Math.atan2(dx,dz)}}
+  m.vy-=14*dt;m.y=Math.max(0,m.y+m.vy*dt);if(m.y===0)m.vy=0;collide(m);
+  E.forEach(e=>{if(e.i===G.slot||e.dead||e.out)return;if(e.wait>0)e.wait-=dt;else{const dx=e.tx-e.x,dz=e.tz-e.z,l=Math.hypot(dx,dz);if(l<.3){e.wait=1+Math.random()*3;const ci=cellOf(e.tx),cj=cellOf(e.tz),opts=[];if(ci>0)opts.push([ci-1,cj]);if(ci<2)opts.push([ci+1,cj]);if(cj>0)opts.push([ci,cj-1]);if(cj<2)opts.push([ci,cj+1]);const o=opts[Math.random()*opts.length|0];e.tx=CEN[o[0]];e.tz=CEN[o[1]]}else{e.x+=dx/l*3.2*dt;e.z+=dz/l*3.2*dt;e.rot=Math.atan2(dx,dz)}}collide(e)});
+  const V=[...E.filter(e=>e.i!==G.slot&&!e.out),...B.filter(b=>b.own)];V.forEach(o=>{const v=G.ghost||canSee(o);(o.g||o).visible=v;});
+  B.forEach(b=>{if(b.g.visible&&!b.own&&!G.reporting)E.forEach(e=>{if(e.i!==G.slot&&!e.dead&&!e.out&&Math.hypot(e.x-b.x,e.z-b.z)<3){G.reporting=1;setTimeout(()=>{G.reporting=0;meeting('🤖 '+NAMES[e.i]+' báo cáo xác!')},900)}})});
+  if(B.some(b=>b.own&&Math.hypot(b.x-0,b.z-0)>=0)&&G.ghost)B.filter(b=>b.own).forEach(b=>b.g.visible=true);
+  prompt()}
+ E.forEach(e=>{if(e.dead&&!(e.i===G.slot))return;const g=e.g;if(G.phase==='meet'||anim&&anim.e===e)return;g.position.set(e.x,e.y||0,e.z);g.rotation.y=e.rot});
+ if(anim){anim.t+=dt;const e=anim.e;e.g.position.set(e.x+anim.dx*anim.t*5,anim.t*2,e.z+anim.dz*anim.t*5);e.g.rotation.y+=dt*12;e.g.scale.setScalar(Math.max(.01,1-anim.t/3));if(anim.t>3){e.g.scale.setScalar(1);const r=anim.res;anim=null;r()}}
+ shake=Math.max(0,shake-dt);const sx=(Math.random()-.5)*shake,sz=(Math.random()-.5)*shake;
+ if(G.phase==='meet'||anim){Cam.position.set(0,11,9);Cam.lookAt(0,0,0)}else{Cam.position.lerp(new THREE.Vector3(m.x+sx,12,m.z+9+sz),.12);Cam.lookAt(m.x,0,m.z)}
+ torch.position.set(m.x,2.5,m.z);S.fog.density=G.ghost?.015:.06}
+$('#bPlay').onclick=start;
+(function loop(now){const dt=Math.min(.05,(now-last)/1e3);last=now;update(dt);R.render(S,Cam);requestAnimationFrame(loop)})(last);
+</script></body></html>
