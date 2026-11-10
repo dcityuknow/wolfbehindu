@@ -12,5 +12,5 @@ export const CHAT_LINES = [
   "Mình thấy {n} đi một mình khá lâu.", "{n} cứ lảng vảng gần phòng điện…", "Mình nghi {n}.",
   "Mình đang làm task, {n} đâu rồi?", "Chưa đủ bằng chứng, skip đi.", "{n} im lặng đáng ngờ đấy.",
 ];
-// Ánh sáng (three >= r155 dùng đơn vị vật lý, nên giá trị lớn hơn bản cũ)
-export const LIGHT = { ambient: 1.2, torch: 90, torchRange: 18, fogPlay: 0.06, fogGhost: 0.015 };
+// Ánh sáng ngoài trời (three >= r155, đơn vị vật lý). Tối/sáng quá thì chỉnh ở đây.
+export const LIGHT = { ambient: 1.6, sun: 3.2, torch: 18, torchRange: 12, fogPlay: 0.011, fogGhost: 0.006 };

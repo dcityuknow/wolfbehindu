@@ -1,4 +1,5 @@
 import { ctx } from "./context";
+import { toast } from "../ui/dom";
 
 /** Mã hoá 1 giá trị uint8 phía client (vote / mục tiêu kill). */
 export async function encrypt8(v: number) {
@@ -7,13 +8,14 @@ export async function encrypt8(v: number) {
   return b.encrypt(); // { handles, inputProof }
 }
 
-let permit: { kp: any; start: string; days: string; sig: string; exp: number } | null = null;
+let permit: { kp: any; start: number; days: number; sig: string; exp: number } | null = null;
 
 /** User-decrypt: ký EIP-712 một lần (cache 1 ngày) rồi giải mã các handle mà ví này được ACL cho phép. */
 export async function userDecrypt(handles: string[]): Promise<Record<string, bigint>> {
   if (!permit || permit.exp < Date.now() / 1e3) {
-    const kp = ctx.inst.generateKeypair(), start = String(Math.floor(Date.now() / 1e3)), days = "1";
+    const kp = ctx.inst.generateKeypair(), start = Math.floor(Date.now() / 1e3), days = 1;
     const eip = ctx.inst.createEIP712(kp.publicKey, [ctx.address], start, days);
+    toast("✍ Ký EIP-712 để giải mã (không tốn gas)…");
     const sig = await ctx.signer.signTypedData(eip.domain, { UserDecryptRequestVerification: eip.types.UserDecryptRequestVerification }, eip.message);
     permit = { kp, start, days, sig, exp: Date.now() / 1e3 + 80000 };
   }

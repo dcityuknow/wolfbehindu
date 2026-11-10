@@ -14,3 +14,52 @@ button.r{background:#c0392b}button.g{background:#3b4160}#hud{position:fixed;inse
 #chat{height:110px;overflow:auto;background:#0b0f2a;border-radius:8px;padding:6px;margin:8px 0;text-align:left;font-size:13px}input{padding:8px;border-radius:6px;border:1px solid #34407a;background:#141a40;color:#fff}
 .wire{display:inline-block;width:64px;height:30px;margin:5px;border-radius:6px;cursor:pointer;border:3px solid transparent}.wire.on{border-color:#fff}.wire.ok{opacity:.2;pointer-events:none}
 .bar{height:18px;background:#222;border-radius:9px;overflow:hidden;margin:12px 0}.bar i{display:block;height:100%;width:0;background:#4f8}
+
+/* ── Onboarding (menu 3 bước) ── */
+#menu{background:radial-gradient(ellipse at 50% 0,#1a2260,#04061a 70%);justify-content:flex-start}
+#ob{width:min(980px,96vw);max-height:100vh;overflow:auto;padding:14px 0 24px;text-align:left}
+#obTop{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.logo{font-size:20px;font-weight:700}
+#obSteps{display:flex;gap:6px;flex-wrap:wrap}#obSteps b{padding:6px 12px;border-radius:999px;background:#1a2252;color:#9fb0ff;cursor:pointer;font-weight:500;font-size:13px}
+#obSteps b.a{background:#3a4bd6;color:#fff}
+#ob h2{margin:6px 0 12px}#ob section{display:none}
+#obNav{display:flex;justify-content:space-between;margin-top:14px}
+.tv{background:#0b0f2a;border:1px solid #34407a;border-radius:14px;overflow:hidden}
+.stage{display:block;width:100%;height:auto;max-height:52vh;background:#070a24}
+.tbar{height:4px;background:#1a2252}.tbar i{display:block;height:100%;width:0;background:#5666f0}
+.tcap{padding:10px 16px 0;min-height:92px}.tcap b{color:#ffd24d}.tcap p{margin:6px 0 0;font-size:16px;line-height:1.5}
+.tctl{display:flex;align-items:center;gap:4px;padding:6px 12px 12px}#tdots{margin-left:auto;display:flex;gap:6px}
+#tdots u{width:10px;height:10px;border-radius:50%;background:#34407a;cursor:pointer;display:block}#tdots u.a{background:#ffd24d}
+.rg{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}.rg.two{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:#10163a;border:1px solid #34407a;border-radius:12px;padding:14px 16px;line-height:1.55}
+.card h3{margin:0 0 8px;font-size:16px}.card p{margin:6px 0}.card ul{margin:6px 0;padding-left:18px}.card li{margin:5px 0}
+.dim{color:#8f9bd6;font-size:12px}
+kbd{display:inline-block;min-width:24px;padding:1px 7px;margin:1px 2px;border-radius:6px;background:#26306e;border:1px solid #5566c0;border-bottom-width:3px;font:600 12px system-ui;text-align:center;color:#fff}
+button.big{font-size:16px;padding:14px 18px;width:100%;margin:10px 0 0}
+a{color:#8fb0ff}
+.pn.wide{max-width:min(960px,96vw);max-height:92vh;overflow:auto;text-align:left}#howto{background:rgba(4,6,20,.88);z-index:10}
+#bHelp{position:absolute;left:12px;top:78px}
+.t{fill:#eef;text-anchor:middle;font:600 15px system-ui}.t.big{font-size:22px}.t.sm{font-size:13px;font-weight:500}
+/* trailer animations (chỉ chạy khi cảnh có class .on) */
+.scene{opacity:0;pointer-events:none;transition:opacity .35s}.scene.on{opacity:1}
+.bob{animation:bob .6s ease-in-out infinite alternate}@keyframes bob{to{transform:translateY(-5px)}}
+.on .walk{animation:walkin 1.8s cubic-bezier(.2,.7,.3,1) both;animation-delay:calc(var(--d)*.25s)}@keyframes walkin{from{transform:translateX(-560px)}to{transform:none}}
+.screen{fill:#ffa31a}.on .screen{animation:pulse .9s ease-in-out infinite alternate}@keyframes pulse{to{fill:#ffd37a}}
+.pb{transform-box:fill-box;transform-origin:left;transform:scaleX(0)}.on .pb{animation:grow .9s ease forwards;animation-delay:calc(var(--d)*1.2s)}@keyframes grow{to{transform:scaleX(1)}}
+.on .q{animation:pop .5s ease both;animation-delay:calc(var(--d)*.15s)}
+.pop{opacity:0}.on .pop{animation:pop .6s ease forwards;animation-delay:calc(var(--d)*1s)}@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.on .slide{animation:slide 1.6s ease-in-out forwards}@keyframes slide{to{transform:translateX(200px)}}
+.fall{transform-box:fill-box;transform-origin:50% 100%}.on .fall{animation:fall .5s ease-in forwards;animation-delay:1.7s}@keyframes fall{to{transform:rotate(88deg) translateY(10px);filter:grayscale(1) brightness(.6)}}
+.flash{opacity:0}.on .flash{animation:flash .5s ease-out 1.7s}@keyframes flash{0%{opacity:.55}100%{opacity:0}}
+.stab{opacity:0}.on .stab{animation:pop .3s ease 1.6s forwards}
+.on .siren{animation:blink .5s steps(2) 3.4s infinite}.siren{opacity:0}@keyframes blink{0%{opacity:1}100%{opacity:.2}}
+.vote{opacity:0}.on .vote{animation:vote 1s ease-in forwards;animation-delay:calc(var(--d)*.4s + .4s)}@keyframes vote{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(calc(var(--vx,0px)),120px)}}
+.eject{transform-box:fill-box;transform-origin:center}.on .eject{animation:eject 1.6s ease-in 2.4s forwards}@keyframes eject{to{transform:translate(260px,-120px) rotate(900deg) scale(0)}}
+@media (prefers-reduced-motion:reduce){.bob,.screen,.siren{animation:none!important}}
+
+/* ── HUD camera ── */
+#bView{position:absolute;left:12px;top:116px}
+#cross{display:none;position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:none;
+ background:linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat;opacity:.75;filter:drop-shadow(0 0 2px #000)}
+#lockhint{display:none;position:absolute;left:50%;bottom:130px;transform:translateX(-50%);background:#000a;padding:6px 14px;border-radius:999px;font-size:13px;pointer-events:none;white-space:nowrap}
+#menu{background:linear-gradient(180deg,rgba(6,10,36,.5),rgba(6,10,36,.72));backdrop-filter:blur(2px)}

@@ -1,7 +1,7 @@
 import "./styles.css";
 import * as THREE from "three";
 import { G } from "./state";
-import { camera, torch, scene, render } from "./world/scene";
+import { torch, scene, render } from "./world/scene";
 import "./world/map";
 import { entities, bodies, me, collide } from "./world/characters";
 import { canSee } from "./world/visibility";
@@ -12,18 +12,26 @@ import { ejecting, startMeeting } from "./gameplay/meeting";
 import { startSolo } from "./gameplay/session";
 import { PLAYER_SPEED, LIGHT } from "./config";
 import { $ } from "./ui/dom";
+import { rig, cycleView, bindMouse, updateCamera } from "./world/camera";
+import { updateMap } from "./world/map";
+import { updateTerrain } from "./world/terrain";
+import { followSun } from "./world/scene";
+import { animateCrew } from "./world/characters";
+import { initIntro, initHowTo } from "./ui/intro";
 
-bindInput({ onInteract: interact, onKill: doKill, onJump: () => { const m = me(); if (G.phase === "play" && m.y <= 0) m.vy = 5; } });
-$("#bPlay").onclick = startSolo;
-$("#bKill").onclick = doKill;
+bindInput({ onInteract: interact, onKill: doKill, onView: cycleView, onJump: () => { const m = me(); if (G.phase === "play" && m.y <= 0) m.vy = 5; } });
+initIntro(startSolo); initHowTo();
+$("#bKill").onclick = doKill; $("#bView").onclick = cycleView; bindMouse();
 
 function update(dt: number) {
   const m = me();
   if (G.phase === "play") {
     if (!G.mini) {
-      const dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-      const dz = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0), l = Math.hypot(dx, dz);
-      if (l) { m.x += (dx / l) * PLAYER_SPEED * dt; m.z += (dz / l) * PLAYER_SPEED * dt; m.rot = Math.atan2(dx, dz); }
+      const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0), r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+      // di chuyển theo hướng camera: W = tiến về phía đang nhìn
+      const vx = Math.sin(rig.yaw) * f - Math.cos(rig.yaw) * r, vz = Math.cos(rig.yaw) * f + Math.sin(rig.yaw) * r, l = Math.hypot(vx, vz);
+      if (l) { m.x += (vx / l) * PLAYER_SPEED * dt; m.z += (vz / l) * PLAYER_SPEED * dt; m.rot = rig.mode === "first" ? rig.yaw : Math.atan2(vx, vz); }
+      else if (rig.mode === "first") m.rot = rig.yaw;
     }
     m.vy -= 14 * dt; m.y = Math.max(0, m.y + m.vy * dt); if (m.y === 0) m.vy = 0;
     collide(m); updateBots(dt);
@@ -50,13 +58,13 @@ function update(dt: number) {
     if (ej.t > 3) { e.g.scale.setScalar(1); ejecting.cur = null; ej.done(); }
   }
   shake.v = Math.max(0, shake.v - dt);
-  const sx = (Math.random() - 0.5) * shake.v, sz = (Math.random() - 0.5) * shake.v;
-  if (G.phase === "meet" || ej) { camera.position.set(0, 11, 9); camera.lookAt(0, 0, 0); }
-  else { camera.position.lerp(new THREE.Vector3(m.x + sx, 12, m.z + 9 + sz), 0.12); camera.lookAt(m.x, 0, m.z); }
-  torch.position.set(m.x, 2.5, m.z);
+  tNow += dt; animateCrew(dt, tNow); updateMap(tNow, dt); updateTerrain(tNow, dt);
+  updateCamera(dt, tNow, shake.v);
+  followSun(m.x, m.z); torch.position.set(m.x, 3, m.z);
   (scene.fog as THREE.FogExp2).density = G.ghost ? LIGHT.fogGhost : LIGHT.fogPlay;
 }
 
+let tNow = 0;
 let last = performance.now();
 (function loop(now: number) {
   update(Math.min(0.05, (now - last) / 1e3)); last = now;
