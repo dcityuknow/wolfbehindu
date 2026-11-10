@@ -1,0 +1,16 @@
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#000;color:#eef;font:14px system-ui,sans-serif}canvas{display:block;width:100vw;height:100vh}
+.ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(4,6,20,.9);z-index:9;text-align:center}
+#splash{background:rgba(0,0,0,.8)}#meet{background:rgba(4,6,20,.55)}
+.pn{background:#10163a;border:1px solid #34407a;border-radius:12px;padding:18px;min-width:340px;max-width:92vw}
+button{background:#3a4bd6;color:#fff;border:0;border-radius:8px;padding:9px 14px;margin:3px;cursor:pointer;font-size:14px}button:hover{background:#5666f0}button:disabled{opacity:.35;cursor:default}
+button.r{background:#c0392b}button.g{background:#3b4160}#hud{position:fixed;inset:0;pointer-events:none;z-index:2}#hud *{pointer-events:auto}
+#top{position:absolute;left:12px;top:10px;background:#0009;padding:8px 12px;border-radius:8px;line-height:1.6}
+#prompt{position:absolute;bottom:90px;width:100%;text-align:center;font-size:18px;text-shadow:0 0 6px #000;pointer-events:none}
+#btns{position:absolute;right:16px;bottom:16px}#btns button{font-size:16px;padding:14px 18px}
+#toast{position:absolute;right:12px;top:10px;width:300px;font:12px monospace;color:#9fb0ff;text-align:right;pointer-events:none;text-shadow:0 0 4px #000}
+#fx{position:fixed;inset:0;background:#f00;opacity:0;pointer-events:none;z-index:8;transition:opacity .35s}
+#mlog{font:12px monospace;color:#9fb0ff;margin-top:10px;white-space:pre-wrap}#mstat{color:#ffd24d;margin-top:6px}
+.rw{display:flex;align-items:center;gap:8px;padding:6px;margin:3px 0;background:#1a2252;border-radius:8px;text-align:left}.rw.dd{opacity:.35}.rw.sl{outline:2px solid #ffd24d}.dot{width:16px;height:16px;border-radius:50%}
+#chat{height:110px;overflow:auto;background:#0b0f2a;border-radius:8px;padding:6px;margin:8px 0;text-align:left;font-size:13px}input{padding:8px;border-radius:6px;border:1px solid #34407a;background:#141a40;color:#fff}
+.wire{display:inline-block;width:64px;height:30px;margin:5px;border-radius:6px;cursor:pointer;border:3px solid transparent}.wire.on{border-color:#fff}.wire.ok{opacity:.2;pointer-events:none}
+.bar{height:18px;background:#222;border-radius:9px;overflow:hidden;margin:12px 0}.bar i{display:block;height:100%;width:0;background:#4f8}
