@@ -14,7 +14,7 @@ export function splash(title: string, sub: string, color: string, size = 54, bg 
 }
 export const hideSplash = () => hide("#splash");
 export async function roleSplash(role: 0 | 1) {
-  splash(role ? "BẠN LÀ IMPOSTOR" : "BẠN LÀ CREWMATE", role ? "Rình lúc ai đó đi lẻ rồi Q để kill. Vent: E." : "Làm 3 nhiệm vụ, tìm ra Impostor trong 3 người kia.", role ? "#f55" : "#5f9");
+  splash(role ? "BẠN LÀ IMPOSTOR" : "BẠN LÀ CREWMATE", role ? "Rình lúc ai đó đi lẻ rồi Q để kill. Hang bí mật: E." : "Làm 3 nhiệm vụ, tìm ra Impostor trong 3 người kia.", role ? "#f55" : "#5f9");
   await sleep(3500); hideSplash();
 }
 export function flashRed() { $("#fx").style.opacity = ".55"; setTimeout(() => ($("#fx").style.opacity = "0"), 350); }

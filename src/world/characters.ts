@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { scene } from "./scene";
 import { WALLS } from "./map";
+import { cellOf, keepOnIsland } from "./island";
 import { voxMat } from "./voxel";
 import { COLORS, CEN, NAMES } from "../config";
 import { G } from "../state";
@@ -38,7 +39,7 @@ export function makeCrew(i: number) {
 export const entities: Entity[] = [0, 1, 2, 3].map((i) => ({ i, g: (() => { const g = makeCrew(i); g.visible = false; return g; })(), x: 0, z: 0, rot: 0, vy: 0, y: 0, dead: false, out: false, wait: 0, tx: 0, tz: 0 }));
 export const bodies: Body[] = [];
 export const me = () => entities[G.slot];
-export const cellOf = (v: number) => (v < -7 ? 0 : v > 7 ? 2 : 1);
+export { cellOf };
 const suitMat = (g: THREE.Group) => g.userData.m as THREE.MeshStandardMaterial;
 
 export function spawnAll() {
@@ -56,6 +57,7 @@ export function collide(e: { x: number; z: number }) {
     let dx = e.x - nx, dz = e.z - nz, l = Math.hypot(dx, dz);
     if (l < 0.5) { if (l < 1e-4) { dx = 1; dz = 0; l = 1; } e.x += (dx / l) * (0.5 - l); e.z += (dz / l) * (0.5 - l); }
   }
+  keepOnIsland(e);   // không lội xuống biển
 }
 const gray = (g: THREE.Group) => { suitMat(g).color.setHex(0x666666); (g.userData.mats[3] as THREE.MeshStandardMaterial).color.setHex(0x555555); g.userData.tag.visible = false; };
 /** Đánh dấu người chơi `i` đã chết: Bot thành xác tại chỗ; người chơi thật thành hồn ma + để lại xác. */

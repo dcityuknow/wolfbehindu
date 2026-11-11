@@ -37,7 +37,7 @@ export function interact() {
     completeTask().then(() => { if (G.tasks === TASKS_PER_PLAYER) checkpoint(); }).catch(() => {}); // Impostor cũng gọi: "fake task"
   });
   const vi = ventNear();
-  if (G.role === 1 && !G.ghost && vi >= 0) { const n = VENTS[(vi + 1) % VENTS.length], m = me(); m.x = n[0]; m.z = n[1] + 1.5; toast("🕳 Chui vent!"); return; }
+  if (G.role === 1 && !G.ghost && vi >= 0) { const n = VENTS[(vi + 1) % VENTS.length], m = me(); m.x = n[0]; m.z = n[1] + 1.5; toast("🕳 Chui hang!"); return; }
   if (atTable()) startMeeting("Họp khẩn!");
 }
 export function refreshPrompt() {
@@ -45,7 +45,7 @@ export function refreshPrompt() {
   if (G.phase === "play" && !G.mini) {
     if (visibleBody()) p = "[E] 🚨 Báo cáo xác";
     else if (stationNear()) p = "[E] Làm nhiệm vụ";
-    else if (G.role === 1 && !G.ghost && ventNear() >= 0) p = "[E] Chui vent";
+    else if (G.role === 1 && !G.ghost && ventNear() >= 0) p = "[E] Chui hang bí mật";
     else if (atTable()) p = "[E] Họp khẩn";
   }
   updateHud(p, G.role === 1 && !G.ghost && !G.killUsed && !!killTarget());

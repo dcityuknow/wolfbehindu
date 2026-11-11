@@ -19,15 +19,15 @@ const BLUE = "#4da6ff", RED = "#ff4d4d", GREEN = "#4dff88", YEL = "#ffd24d";
 
 const SCENES: { title: string; cap: string; svg: string }[] = [
   {
-    title: "Con tàu vũ trụ",
-    cap: "Bạn và 3 đồng đội đang ở trên một con tàu vũ trụ. Mọi chuyện bắt đầu bình yên…",
-    svg: `<text x="320" y="54" class="t big">🛸 Tàu vũ trụ</text>
+    title: "Hòn đảo hoang",
+    cap: "Bạn và 3 người bạn mắc kẹt trên một hòn đảo hoang giữa biển, bốn bề là nước. Mọi chuyện bắt đầu bình yên…",
+    svg: `<text x="320" y="54" class="t big">🏝 Đảo hoang</text>
       ${[RED, BLUE, GREEN, YEL].map((c, i) => `<g class="walk" style="--d:${i}">${A(110 + i * 120, 168, c, 'class="bob"')}</g>`).join("")}
       <text x="140" y="150" class="t sm" fill="#fff">BẠN</text><path d="M140 156 l-6 -8 h12z" fill="#fff"/>`,
   },
   {
     title: "Nhiệm vụ",
-    cap: "Mỗi người làm 3 nhiệm vụ ở các trạm màu cam nhấp nháy (nối dây, nhập mã, bơm oxy). Làm xong cả nhóm là thắng!",
+    cap: "Mỗi người làm 3 nhiệm vụ ở các trạm màu cam nhấp nháy (nối dây, nhập mã, giữ nút). Làm xong cả nhóm là thắng!",
     svg: `<rect x="400" y="150" width="110" height="112" rx="12" fill="#2a2f5c"/>
       <rect x="414" y="164" width="82" height="50" rx="6" class="screen"/>
       <text x="455" y="196" class="t sm" fill="#241500">E · làm task</text>

@@ -1,8 +1,8 @@
 /** Hằng số game — chỉnh cân bằng/giao diện tại đây. */
 export const NO_TARGET = 255;          // = NO_TARGET trong contract (skip vote / kill giả)
 export const TASKS_PER_PLAYER = 3;     // = TASKS_PER_PLAYER trong contract
-export const CEN = [-13.5, 0, 13.5];   // tâm 3 hàng/cột phòng
-export const VIS = 11;                 // tầm nhìn tối đa (m)
+export const CEN = [-18, 0, 18];       // tâm 3 hàng/cột khu vực trên đảo
+export const VIS = 12;                 // tầm nhìn tối đa (m)
 export const KILL_RANGE = 2.2;
 export const PLAYER_SPEED = 6;
 export const BOT_SPEED = 3.2;

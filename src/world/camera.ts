@@ -57,8 +57,8 @@ export function updateCamera(dt: number, t: number, shake: number) {
   const fov = rig.mode === "first" ? 78 : rig.mode === "top" ? 55 : 66;
   if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 6); camera.updateProjectionMatrix(); }
 
-  if (G.phase === "menu") { // quay quanh trạm
-    const a = t * 0.07; camera.position.set(Math.sin(a) * 40, 19, Math.cos(a) * 40); camera.lookAt(0, 3, 0); return;
+  if (G.phase === "menu") { // quay quanh đảo
+    const a = t * 0.07; camera.position.set(Math.sin(a) * 68, 30, Math.cos(a) * 68); camera.lookAt(0, -2, 0); return;
   }
   if (G.phase === "meet" || (G.phase === "end")) { // họp: nhìn bàn tròn từ trên cao, hơi lắc nhẹ
     const a = t * 0.12; camera.position.set(Math.sin(a) * 3, 10.5, 9 + Math.cos(a) * 1.2); camera.lookAt(0, 0.5, 0); return;
