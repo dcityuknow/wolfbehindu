@@ -30,12 +30,28 @@ export async function fetchStatuses(slots: number[]): Promise<number[]> {
   const r = await userDecrypt(hs);
   return hs.map((h) => Number(r[h]));
 }
+/** Chạy lượt Bot theo lô (contract giới hạn BOTS_PER_TX Bot/tx để không vượt ngân sách FHE). Tuần tự hoá để không gọi trùng. */
+let botLock: Promise<unknown> = Promise.resolve();
+const serial = <T,>(f: () => Promise<T>): Promise<T> => (botLock = botLock.then(f, f)) as Promise<T>;
+export const botsCatchUp = () => serial(async () => {
+  for (let k = 0; k < 8; k++) {
+    const n = Number(await ctx.game.pendingBotTurns(ctx.roomId)); if (!n) return;
+    await tx(`Bot hành động (còn ${n})`, () => ctx.game.runBotTurns(ctx.roomId));
+  }
+});
+export const botsVote = () => serial(async () => {
+  for (let k = 0; k < 8; k++) {
+    const n = Number(await ctx.game.pendingBotVotes(ctx.roomId)); if (!n) return;
+    await tx(`Bot bỏ phiếu (còn ${n})`, () => ctx.game.runBotVotes(ctx.roomId));
+  }
+});
 export async function secretAct(target: number = NO_TARGET) {
+  await botsCatchUp();
   const e = await encrypt8(target);
   return tx("Hành động (mã hoá)", () => ctx.game.executeSecretKill(ctx.roomId, e.handles[0], e.inputProof));
 }
 export const completeTask = () => tx("Hoàn thành task (on-chain)", () => ctx.game.completeTask(ctx.roomId));
-export const callMeeting = () => tx("Mở họp (on-chain)", () => ctx.game.callMeeting(ctx.roomId));
+export const callMeeting = async () => { await botsCatchUp(); return tx("Mở họp (on-chain)", () => ctx.game.callMeeting(ctx.roomId)); };
 export const getRoom = () => ctx.game.getRoom(ctx.roomId);
 export async function castVote(target: number) {
   const e = await encrypt8(target);
@@ -43,11 +59,13 @@ export async function castVote(target: number) {
 }
 /** tallyVotes -> public decrypt -> finalizeTally. Trả về receipt của finalize. */
 export async function tallyAndFinalize() {
+  await botsVote();
   await tx("Kiểm phiếu", () => ctx.game.tallyVotes(ctx.roomId));
   const d = await publicDecryptPending();
   return tx("Nộp proof giải mã", () => ctx.game.finalizeTally(ctx.roomId, d.abiEncodedClearValues, d.decryptionProof));
 }
 export async function checkpointOnChain() {
+  await botsCatchUp();
   await tx("Kiểm tra thắng (FHE)", () => ctx.game.requestCheckpoint(ctx.roomId));
   const d = await publicDecryptPending();
   await tx("Nộp proof", () => ctx.game.submitCheckpoint(ctx.roomId, d.abiEncodedClearValues, d.decryptionProof));

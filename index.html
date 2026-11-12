@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Space Impostor · FHE</title>
+<title>Lost Island · Gián Điệp Giữa Đội</title>
 <!-- Zama Relayer SDK nạp qua CDN (WASM + WebWorker khó bundle) -> window.relayerSDK -->
 <script src="https://cdn.zama.org/relayer-sdk-js/0.4.5/relayer-sdk-js.umd.cjs"></script>
 </head><body>
 <canvas id="c"></canvas><div id="fx"></div>
 <div id="hud" style="display:none">
- <div id="top"><div id="role">Vai trò: ?</div><div id="tk">Nhiệm vụ: 0/3</div><div id="rd">Round 1</div></div>
- <button id="bHelp" class="g">❓ Cách chơi</button><button id="bView" class="g">📷 Góc thứ 3 (V)</button><div id="cross"></div><div id="lockhint">🖱 Click vào màn hình để xoay camera · V đổi góc nhìn · lăn chuột để zoom</div><div id="toast"></div><div id="prompt"></div>
- <div id="btns"><button id="bKill" class="r" disabled>🔪 Kill (Q)</button><button id="bChk" class="g">🏁 Kiểm tra thắng</button></div>
+ <div id="top"><div id="role">Vai trò: ?</div><div id="tk">Nhiệm vụ: 0/3</div><div id="rd">Lượt 1</div></div>
+ <button id="bHelp" class="g">❓ Huấn thị</button><button id="bView" class="g">📷 Góc thứ 3 (V)</button><div id="cross"></div><div id="lockhint">🖱 Click vào màn hình để khoá chuột · Chuột trái bắn · R nạp đạn · G lựu đạn · 1-4 đổi súng · V đổi góc nhìn</div><div id="toast"></div><div id="prompt"></div>
+ <div id="btns"><button id="bKill" class="r" disabled>🔪 Ám sát (Q)</button><button id="bChk" class="g">🏁 Kiểm tra chiến dịch</button></div>
 </div>
 <div id="menu" class="ov" style="display:flex"><div id="ob"></div></div>
 <div id="howto" class="ov"></div>
 <div id="splash" class="ov"><h1 id="sp"></h1><p id="sp2"></p></div>
 <div id="mini" class="ov"><div class="pn"><div id="mbody"></div><button id="mx" class="g">Đóng</button></div></div>
 <div id="meet" class="ov"><div class="pn"><h2>🚨 <span id="mwhy"></span> <small id="mt"></small></h2><div id="mrow"></div>
- <div id="chat"></div><input id="ci" placeholder="Chat…"><button id="cs" class="g">Gửi</button><button id="skip">Skip vote</button><div id="mstat"></div></div></div>
-<div id="end" class="ov"><h1 id="et"></h1><p id="ed"></p><button onclick="location.reload()">Chơi lại</button></div>
+ <div id="chat"></div><input id="ci" placeholder="Nói gì đó…"><button id="cs" class="g">Gửi</button><button id="skip">Bỏ qua — không ai bị loại</button><div id="mstat"></div></div></div>
+<div id="end" class="ov"><h1 id="et"></h1><p id="ed"></p><button onclick="location.reload()">Tái chiến</button></div>
 <script type="module" src="/src/main.ts"></script>
 </body></html>

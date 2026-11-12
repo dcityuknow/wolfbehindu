@@ -126,8 +126,8 @@ umbrella(-4, 26, 0xe0528a); umbrella(14.5, 27, 0x4da6ff);
 for (const [x, z] of [[-12, -12], [-7.5, -13.5], [-13.5, -6.5], [-4.5, -11.5], [11, -13], [5.5, -7], [13.5, -5], [12, -12.5], [-11, 6], [-6, 12.5], [-13, 13.5], [11, 6], [6.5, 13], [13, 12], [-24, -15], [24, -16], [-24, -3], [25, 4], [-14, 24], [14, -24], [-26, 14.5]] as [number, number][]) bush(x, z, [0x3a9a48, 0x2f8a40, 0x4aa850][(Math.abs(x + z) | 0) % 3]);
 
 // Trạm nhiệm vụ: cột totem gỗ + tấm đá phát sáng (Mesh `m` giữ API cũ: đổi emissive khi xong) + chùm sáng chỉ đường
-const defs: [number, number, TaskType][] = [[-18, -18, "wires"], [18, -18, "code"], [-18, 18, "hold"], [18, 18, "wires"], [0, -18, "code"]];
-const ICON: Record<TaskType, number> = { wires: 0xffd24d, code: 0x4dc3ff, hold: 0x6fe08a };
+const defs: [number, number, TaskType][] = [[-18, -18, "radio"], [18, -18, "decode"], [-18, 18, "water"], [18, 18, "fire"], [0, -18, "supply"]];
+const ICON: Record<TaskType, number> = { radio: 0xffd24d, decode: 0x4dc3ff, fire: 0xff7a1a, water: 0x6fe08a, supply: 0xff9ec4 };
 export const stations: Station[] = defs.map(([x, z, type]) => {
   B.box(x, 0.5, z, 1.7, 1, 1, 0x8a5a32); B.box(x - 0.75, 1.5, z, 0.22, 1.9, 0.22, 0x6b4423); B.box(x + 0.75, 1.5, z, 0.22, 1.9, 0.22, 0x6b4423); B.box(x, 2.5, z, 1.9, 0.22, 0.3, 0x4a3018);
   GL.add(x, 2.95, z, 0.3, ICON[type], 2, x, 0.5); B.box(x, 0.06, z, 3.2, 0.12, 3.2, 0xb9a26e, 0.05);

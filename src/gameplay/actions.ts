@@ -11,6 +11,7 @@ import { toast } from "../ui/dom";
 import { markDead } from "../world/characters";
 import { TASKS_PER_PLAYER } from "../config";
 import * as THREE from "three";
+import { UI, TASKS } from "../story";
 
 export const shake = { v: 0 };
 const near = (o: { x: number; z: number }, r: number) => Math.hypot(o.x - me().x, o.z - me().z) < r;
@@ -23,13 +24,18 @@ const atTable = () => !G.ghost && near({ x: 0, z: 0 }, 2.8);
 export function doKill() {
   if (G.role !== 1 || G.ghost || G.killUsed || G.phase !== "play" || G.mini) return;
   const t = killTarget(); if (!t) return;
+  lethal(t);
+}
+/** Ám sát thật (phím Q hoặc phát súng hạ gục của gián điệp): 1 lần/lượt, ghi on-chain. */
+export function lethal(t: { i: number }) {
+  if (G.killUsed) return;
   G.killUsed = G.acted = true; flashRed(); shake.v = 0.4; markDead(t.i, toast);
   // Mục tiêu được MÃ HOÁ trước khi gửi: quan sát giao dịch không biết ai là nạn nhân / ai là Impostor
   secretAct(t.i).then(() => checkpoint()).catch(() => {});
 }
 export function interact() {
   if (G.phase !== "play" || G.mini) return;
-  if (visibleBody()) return void startMeeting("Xác chết được báo cáo!");
+  if (visibleBody()) return void startMeeting(UI.bodyFound);
   const st = stationNear();
   if (st) return openMiniGame(st.type, () => {
     st.done = true; (st.m.material as THREE.MeshStandardMaterial).emissive.setHex(0x00aa44);
@@ -37,16 +43,16 @@ export function interact() {
     completeTask().then(() => { if (G.tasks === TASKS_PER_PLAYER) checkpoint(); }).catch(() => {}); // Impostor cũng gọi: "fake task"
   });
   const vi = ventNear();
-  if (G.role === 1 && !G.ghost && vi >= 0) { const n = VENTS[(vi + 1) % VENTS.length], m = me(); m.x = n[0]; m.z = n[1] + 1.5; toast("🕳 Chui hang!"); return; }
-  if (atTable()) startMeeting("Họp khẩn!");
+  if (G.role === 1 && !G.ghost && vi >= 0) { const n = VENTS[(vi + 1) % VENTS.length], m = me(); m.x = n[0]; m.z = n[1] + 1.5; toast(UI.ventToast); return; }
+  if (atTable()) startMeeting(UI.callMeeting);
 }
 export function refreshPrompt() {
   let p = "";
   if (G.phase === "play" && !G.mini) {
-    if (visibleBody()) p = "[E] 🚨 Báo cáo xác";
-    else if (stationNear()) p = "[E] Làm nhiệm vụ";
-    else if (G.role === 1 && !G.ghost && ventNear() >= 0) p = "[E] Chui hang bí mật";
-    else if (atTable()) p = "[E] Họp khẩn";
+    if (visibleBody()) p = UI.report;
+    else if (stationNear()) p = TASKS[stationNear()!.type].prompt;
+    else if (G.role === 1 && !G.ghost && ventNear() >= 0) p = UI.vent;
+    else if (atTable()) p = UI.meeting;
   }
   updateHud(p, G.role === 1 && !G.ghost && !G.killUsed && !!killTarget());
 }

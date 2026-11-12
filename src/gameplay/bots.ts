@@ -1,11 +1,12 @@
 import { entities, collide, cellOf } from "../world/characters";
 import { CEN, BOT_SPEED } from "../config";
 import { G } from "../state";
+import { busy } from "./hostile";
 
 /** Bot đi lại giữa tâm các khu vực kề nhau (theo đường mòn), nghỉ 1–4s mỗi điểm. Kill/vote của Bot do contract xử lý (FHE). */
 export function updateBots(dt: number) {
   for (const e of entities) {
-    if (e.i === G.slot || e.dead || e.out) continue;
+    if (e.i === G.slot || e.dead || e.out || e.stun > 0 || busy(e.i)) continue;   // Bot đang cảnh giác / thù địch do hostile.ts điều khiển
     if (e.wait > 0) { e.wait -= dt; }
     else {
       const dx = e.tx - e.x, dz = e.tz - e.z, l = Math.hypot(dx, dz);

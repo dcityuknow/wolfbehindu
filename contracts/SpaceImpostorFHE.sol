@@ -37,9 +37,11 @@ import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
  */
 contract SpaceImpostorFHE is ZamaEthereumConfig {
     // ───────────────────────────── CONSTANTS ─────────────────────────────
-    uint8 public constant MAX_PLAYERS = 5; // tổng số slot (người + bot)
+    uint8 public constant MAX_PLAYERS = 7; // tổng số slot (người + bot)
     uint8 public constant MIN_PVP_PLAYERS = 3;
-    uint8 public constant SOLO_BOTS = 3;
+    uint8 public constant SOLO_BOTS = 6;
+    /// @dev Số Bot xử lý mỗi giao dịch (lượt Bot / bỏ phiếu Bot). Chia lô để mỗi tx không vượt ngân sách tính toán FHE (HCU).
+    uint8 public constant BOTS_PER_TX = 3;
     uint8 public constant TASKS_PER_PLAYER = 3;
     uint8 public constant NO_TARGET = 255; // vote "skip" / không ai bị eject
     uint64 public constant VOTE_DURATION = 120; // giây
@@ -90,7 +92,6 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         uint8 taskTarget; // tổng task Crewmate cần hoàn thành
         uint8 votesCast;
         uint32 round;
-        uint32 lastBotRound;
         uint32 lastCheckpointRound;
         uint64 voteDeadline;
         euint8 taskProgress; // số task đã hoàn thành (MÃ HOÁ, Impostor không cộng)
@@ -128,7 +129,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     //                           ROOM MANAGEMENT
     // ═════════════════════════════════════════════════════════════════════
 
-    /// @notice Tạo phòng. isSolo = true -> 1 người + 3 Bot (Bot được thêm lúc startGame).
+    /// @notice Tạo phòng. isSolo = true -> 1 người + 6 Bot (Bot được thêm lúc startGame).
     function createRoom(bool isSolo) external returns (uint256 roomId) {
         roomId = ++roomCount;
         Room storage r = _rooms[roomId];
@@ -160,7 +161,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
      *   FHE.allow(role_i, wallet_i)                         // CHỈ ví i giải mã được
      *
      * Với Bot: handle chỉ `allowThis` -> chỉ contract dùng được (để bot hành động trong FHE).
-     * `randEuint8(128)` rồi `rem n`: n=4 (Solo) hoàn toàn đều; n=3 hoặc 5 lệch ~1% (chấp nhận được).
+     * `randEuint8(128)` rồi `rem n`: n=7 (Solo) lệch ~0.8% (chấp nhận được).
      */
     function startGame(uint256 roomId) external inPhase(roomId, Phase.Lobby) {
         Room storage r = _rooms[roomId];
@@ -222,7 +223,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
      * status_i = select(hit_i, 0, status_i)
      * Không có revert nào phụ thuộc dữ liệu mã hoá.
      *
-     * Solo: lần gọi đầu tiên mỗi round cũng kích hoạt lượt của 3 Bot.
+     * Solo: lượt của 6 Bot chạy riêng qua `runBotTurns` (chia lô BOTS_PER_TX Bot/tx).
      */
     function executeSecretKill(
         uint256 roomId,
@@ -237,8 +238,6 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         Player storage me = ps[slot];
         require(me.lastActRound < r.round, "Already acted this round");
         me.lastActRound = r.round;
-
-        if (r.isSolo) _runBots(roomId);
 
         euint8 target = FHE.fromExternal(encTarget, inputProof); // xác thực proof + lấy handle
         ebool canKill = FHE.and(FHE.eq(me.role, ROLE_IMPOSTOR), FHE.eq(me.status, 1));
@@ -300,6 +299,67 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         (bool impWin, bool tasksDone) = abi.decode(cleartexts, (bool, bool));
         if (tasksDone) _finish(roomId, Winner.Crewmates);
         else if (impWin) _finish(roomId, Winner.Impostors);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    //                         BOT (SOLO) — CHIA LÔ
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// @notice Solo: chạy lượt của Bot (làm task + Bot Impostor giết ngẫu nhiên), tối đa BOTS_PER_TX Bot mỗi giao dịch.
+    ///         Client gọi lặp lại tới khi `pendingBotTurns` = 0 (mỗi round mỗi Bot chỉ chạy 1 lần).
+    function runBotTurns(uint256 roomId) external inPhase(roomId, Phase.Playing) {
+        Room storage r = _rooms[roomId];
+        require(r.isSolo, "Solo only");
+        _slotOf(roomId, msg.sender);
+        require(r.pendingKind == PendingKind.None, "Decryption pending");
+
+        Player[] storage ps = _players[roomId];
+        uint8 done = 0;
+        for (uint8 b = r.humanCount; b < r.totalSlots && done < BOTS_PER_TX; b++) {
+            if (ps[b].lastActRound >= r.round) continue;
+            ps[b].lastActRound = r.round;
+            done++;
+            _botTurn(r, ps, b);
+        }
+        require(done > 0, "Bots already acted");
+    }
+
+    /// @notice Solo: Bot bỏ phiếu ngẫu nhiên (mã hoá), tối đa BOTS_PER_TX Bot mỗi giao dịch. Phải xong hết trước `tallyVotes`.
+    function runBotVotes(uint256 roomId) external inPhase(roomId, Phase.Voting) {
+        Room storage r = _rooms[roomId];
+        require(r.isSolo, "Solo only");
+        _slotOf(roomId, msg.sender);
+
+        Player[] storage ps = _players[roomId];
+        uint8 done = 0;
+        for (uint8 b = r.humanCount; b < r.totalSlots && done < BOTS_PER_TX; b++) {
+            if (ps[b].hasVoted) continue;
+            ps[b].hasVoted = true;
+            done++;
+            euint8 vote = FHE.rem(FHE.randEuint8(128), r.totalSlots);
+            _accumulateVote(r, ps, ps[b].status, vote);
+        }
+        require(done > 0, "Bots already voted");
+    }
+
+    /// @notice Số Bot chưa chạy lượt trong round hiện tại (0 nếu không phải Solo / không ở pha Playing).
+    function pendingBotTurns(uint256 roomId) external view returns (uint8 n) {
+        Room storage r = _rooms[roomId];
+        if (!r.isSolo || r.phase != Phase.Playing) return 0;
+        Player[] storage ps = _players[roomId];
+        for (uint8 b = r.humanCount; b < r.totalSlots; b++) {
+            if (ps[b].lastActRound < r.round) n++;
+        }
+    }
+
+    /// @notice Số Bot chưa bỏ phiếu trong cuộc họp hiện tại (0 nếu không phải Solo / không ở pha Voting).
+    function pendingBotVotes(uint256 roomId) external view returns (uint8 n) {
+        Room storage r = _rooms[roomId];
+        if (!r.isSolo || r.phase != Phase.Voting) return 0;
+        Player[] storage ps = _players[roomId];
+        for (uint8 b = r.humanCount; b < r.totalSlots; b++) {
+            if (!ps[b].hasVoted) n++;
+        }
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -378,7 +438,9 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         Player[] storage ps = _players[roomId];
         uint8 n = r.totalSlots;
 
-        if (r.isSolo) _botVotes(r, ps);
+        if (r.isSolo) {
+            for (uint8 b = r.humanCount; b < n; b++) require(ps[b].hasVoted, "Bots must vote first");
+        }
 
         // ── argmax mã hoá + phát hiện hoà ──
         euint8 maxV = FHE.asEuint8(0);
@@ -579,34 +641,19 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         }
     }
 
-    /// @dev Lượt Bot (Solo): mỗi round 1 lần. Bot làm task; Bot Impostor (nếu có) giết ngẫu nhiên.
+    /// @dev Lượt của 1 Bot: làm task; Bot Impostor (nếu có) giết ngẫu nhiên.
     ///      Bot "AI" ở đây chỉ là ngẫu nhiên mã hoá: contract không biết bot nào là Impostor ở dạng plaintext.
-    function _runBots(uint256 roomId) private {
-        Room storage r = _rooms[roomId];
-        if (r.lastBotRound >= r.round) return;
-        r.lastBotRound = r.round;
+    function _botTurn(Room storage r, Player[] storage ps, uint8 b) private {
+        Player storage bot = ps[b];
 
-        Player[] storage ps = _players[roomId];
-        for (uint8 b = r.humanCount; b < r.totalSlots; b++) {
-            Player storage bot = ps[b];
-
-            if (bot.tasksDone < TASKS_PER_PLAYER) {
-                bot.tasksDone++;
-                _addTask(r, bot.role);
-            }
-
-            ebool canKill = FHE.and(FHE.eq(bot.role, ROLE_IMPOSTOR), FHE.eq(bot.status, 1));
-            euint8 target = FHE.rem(FHE.randEuint8(128), r.totalSlots);
-            _applyKill(ps, b, canKill, target);
+        if (bot.tasksDone < TASKS_PER_PLAYER) {
+            bot.tasksDone++;
+            _addTask(r, bot.role);
         }
-    }
 
-    /// @dev Bot bỏ phiếu ngẫu nhiên (mã hoá) khi tally.
-    function _botVotes(Room storage r, Player[] storage ps) private {
-        for (uint8 b = r.humanCount; b < r.totalSlots; b++) {
-            euint8 vote = FHE.rem(FHE.randEuint8(128), r.totalSlots);
-            _accumulateVote(r, ps, ps[b].status, vote);
-        }
+        ebool canKill = FHE.and(FHE.eq(bot.role, ROLE_IMPOSTOR), FHE.eq(bot.status, 1));
+        euint8 target = FHE.rem(FHE.randEuint8(128), r.totalSlots);
+        _applyKill(ps, b, canKill, target);
     }
 
     /**

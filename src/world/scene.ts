@@ -14,7 +14,8 @@ const HORIZON = 0xd2eaf2;
 scene.background = new THREE.Color(HORIZON);
 scene.fog = new THREE.FogExp2(HORIZON, LIGHT.fogPlay);
 
-scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xe3d3a0, LIGHT.ambient), torch);
+export const hemi = new THREE.HemisphereLight(0xcfe6ff, 0xe3d3a0, LIGHT.ambient);
+scene.add(hemi, torch);
 export const sun = new THREE.DirectionalLight(0xfff0d6, LIGHT.sun);
 sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 120 });
@@ -27,7 +28,7 @@ export function followSun(x: number, z: number) {
 }
 
 // Bầu trời gradient + mặt trời
-const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.ShaderMaterial({
+export const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: { top: { value: new THREE.Color(0x3d90e6) }, mid: { value: new THREE.Color(0xa6d8f5) }, hor: { value: new THREE.Color(HORIZON) } },
   vertexShader: "varying vec3 p;void main(){p=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
@@ -35,7 +36,7 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.Shad
 }));
 sky.renderOrder = -10; scene.add(sky);
 const orb = (r: number, col: number, x: number, y: number, z: number) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color: col, fog: false })); m.position.set(x, y, z); scene.add(m); return m; };
-orb(14, 0xfff6c8, 230, 190, 150);
+export const sunOrb = orb(14, 0xfff6c8, 230, 190, 150);
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);

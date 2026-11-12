@@ -3,7 +3,11 @@ import { camera, scene, canvasEl } from "./scene";
 import { wallMeshes } from "./map";
 import { me } from "./characters";
 import { G } from "../state";
-import { COLORS } from "../config";
+import { SQUAD, GUNS } from "../config";
+import { defOf } from "./soldier";
+import { buildGun, type GunRig } from "./guns";
+import { W } from "../weaponState";
+import { CINE } from "./cineState";
 
 /** Camera 3 chế độ: thứ ba (qua vai) · thứ nhất · từ trên xuống. Quy ước: hướng nhìn = (sin yaw, cos yaw). */
 export type ViewMode = "third" | "first" | "top";
@@ -33,15 +37,33 @@ export function bindMouse() {
   canvasEl.addEventListener("wheel", (e) => { if (rig.mode === "third") rig.dist = Math.max(2.5, Math.min(9, rig.dist + Math.sign(e.deltaY) * 0.5)); }, { passive: true });
 }
 
-// Tay + dao hiện trước mặt ở góc nhìn thứ nhất
-const hand = new THREE.Group();
+// Súng + hai tay hiện trước mặt ở góc nhìn thứ nhất (viewmodel). Mỗi súng một bộ, chỉ hiện súng đang cầm.
+const VM: Record<string, { p: [number, number, number]; s: number; ads: [number, number, number] }> = {
+  pistol: { p: [0.2, -0.2, -0.5], s: 1, ads: [0, -0.14, -0.5] },
+  smg: { p: [0.22, -0.2, -0.55], s: 0.9, ads: [0, -0.15, -0.5] },
+  rifle: { p: [0.24, -0.22, -0.6], s: 0.75, ads: [0, -0.16, -0.5] },
+  shotgun: { p: [0.24, -0.22, -0.6], s: 0.7, ads: [0, -0.16, -0.5] },
+};
+export const viewGuns: THREE.Group[] = [];
 {
-  const skin = new THREE.MeshStandardMaterial({ color: COLORS[0] }), glove = new THREE.MeshStandardMaterial({ color: 0xeef1ff }), blade = new THREE.MeshStandardMaterial({ color: 0xdfe6ff, metalness: 0.6, roughness: 0.3 });
-  const a = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.55), skin), g = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.19, 0.18), glove), k = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.42), blade), h = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.14), new THREE.MeshStandardMaterial({ color: 0x3a2a20 }));
-  g.position.z = -0.3; k.position.set(0, 0.04, -0.62); h.position.z = -0.44; k.name = "knife"; h.name = "knife";
-  hand.add(a, g, k, h); hand.position.set(0.3, -0.27, -0.55); hand.scale.setScalar(0.6); hand.rotation.set(0.12, 0.22, 0); hand.visible = false;
-  scene.add(camera); camera.add(hand);
+  const d0 = defOf(SQUAD[0]), sleeve = d0.uni.pal[Math.min(1, d0.uni.pal.length - 1)] as number, glove = (d0.glove ?? d0.skin) as number;
+  const mSleeve = new THREE.MeshStandardMaterial({ color: sleeve }), mGlove = new THREE.MeshStandardMaterial({ color: glove });
+  for (const def of GUNS) {
+    const vg = buildGun(def.id), arm = (w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); vg.add(k); return k; };
+    const f = vg.userData.fore as THREE.Vector3;
+    arm(0.085, 0.085, 0.55, -0.03, -0.07, -0.32, mSleeve); arm(0.08, 0.1, 0.12, 0, -0.045, -0.02, mGlove);              // tay cầm báng
+    arm(0.085, 0.085, 0.6, f.x + 0.08, f.y - 0.05, f.z - 0.3, mSleeve).rotation.y = -0.25; arm(0.085, 0.095, 0.12, f.x, f.y - 0.02, f.z, mGlove); // tay đỡ nòng
+    vg.rotation.y = Math.PI; vg.visible = false; camera.add(vg); viewGuns.push(vg);
+  }
+  scene.add(camera);
 }
+/** Vị trí đầu nòng trong thế giới (điểm xuất phát vệt đạn). */
+export function muzzleWorld(out: THREE.Vector3) {
+  const o: THREE.Object3D = rig.mode === "first" ? viewGuns[W.cur] : (me().g.userData.gunRig as GunRig).models[GUNS[W.cur].id]!;
+  o.updateWorldMatrix(true, false);
+  return out.copy(o.userData.muzzle as THREE.Vector3).applyMatrix4(o.matrixWorld);
+}
+const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
 
 const ray = new THREE.Raycaster(), V = new THREE.Vector3(), tgt = new THREE.Vector3();
 let bob = 0, lastX = 0, lastZ = 0;
@@ -49,12 +71,13 @@ const cross = document.getElementById("cross")!, hint = document.getElementById(
 const setDisp = (el: HTMLElement, on: boolean) => { const v = on ? "block" : "none"; if (el.style.display !== v) el.style.display = v; };
 /** overview = họp/eject (camera cố định nhìn bàn), menu = quay quanh trạm làm nền cho màn giới thiệu. */
 export function updateCamera(dt: number, t: number, shake: number) {
+  if (CINE.active) return;   // cảnh mở đầu 3D tự điều khiển camera (world/cine3d.ts)
   const m = me(), sx = (Math.random() - 0.5) * shake, sz = (Math.random() - 0.5) * shake;
   if (document.pointerLockElement && (G.mini || G.phase !== "play")) document.exitPointerLock();
-  hand.visible = false;
+  viewGuns.forEach((v) => (v.visible = false));
   const playing = G.phase === "play" && !G.mini;
-  setDisp(cross, playing && rig.mode === "first" && !G.ghost); setDisp(hint, playing && rig.mode !== "top" && !rig.locked);
-  const fov = rig.mode === "first" ? 78 : rig.mode === "top" ? 55 : 66;
+  setDisp(cross, playing && rig.mode !== "top" && !G.ghost); setDisp(hint, playing && rig.mode !== "top" && !rig.locked);
+  const fov = (rig.mode === "first" ? 78 : rig.mode === "top" ? 55 : 66) * (1 - 0.38 * W.adsT);   // ngắm (chuột phải) = zoom
   if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 6); camera.updateProjectionMatrix(); }
 
   if (G.phase === "menu") { // quay quanh đảo
@@ -66,9 +89,13 @@ export function updateCamera(dt: number, t: number, shake: number) {
   if (rig.mode === "first") {
     const moving = Math.hypot(m.x - lastX, m.z - lastZ) > 0.001; bob += moving ? dt * 9 : 0;
     camera.position.set(m.x + sx, m.y + 1.62 + (moving ? Math.sin(bob) * 0.035 : 0), m.z + sz);
-    camera.rotation.set(-rig.pitch, rig.yaw + Math.PI, 0);
-    hand.visible = !G.ghost; hand.position.y = -0.27 + (moving ? Math.sin(bob) * 0.012 : 0);
-    hand.children.forEach((c) => { if (c.name === "knife") c.visible = G.role === 1; });
+    camera.rotation.set(-(rig.pitch - W.recoil), rig.yaw + Math.PI, 0);
+    if (!G.ghost) {
+      const vg = viewGuns[W.cur], c = VM[GUNS[W.cur].id], ads = W.adsT, rel = W.reload > 0 ? Math.sin(Math.PI * (1 - W.reload / W.reloadDur)) : 0;
+      vg.visible = true; vg.scale.setScalar(c.s);
+      vg.position.set(lerpN(c.p[0], c.ads[0], ads), lerpN(c.p[1], c.ads[1], ads) - rel * 0.2 - W.swapT * 0.4 + (moving ? Math.sin(bob) * 0.012 : 0), lerpN(c.p[2], c.ads[2], ads) + W.kick * 0.07);
+      vg.rotation.set(W.kick * 0.12 - rel * 0.7, Math.PI, rel * 0.35);
+    }
     me().g.visible = false;
   } else if (rig.mode === "third") {
     me().g.visible = true;
@@ -79,10 +106,12 @@ export function updateCamera(dt: number, t: number, shake: number) {
     ray.set(tgt.set(ox, py, oz), V.clone().negate()); ray.far = d + 0.4;               // camera không xuyên tường
     const hit = ray.intersectObjects(wallMeshes)[0]; if (hit) d = Math.max(1.6, hit.distance - 0.35);
     camera.position.set(ox - L.x * d + sx, Math.max(0.5, py - L.y * d), oz - L.z * d + sz);
-    camera.rotation.set(-rig.pitch, rig.yaw + Math.PI, 0);
+    camera.rotation.set(-(rig.pitch - W.recoil), rig.yaw + Math.PI, 0);
   } else {
     me().g.visible = true;
     tgt.set(m.x + sx, 12, m.z + 9 + sz); camera.position.lerp(tgt, 0.12); camera.lookAt(m.x, 0, m.z);
   }
   lastX = m.x; lastZ = m.z;
+  camera.updateMatrixWorld();
+  canvasEl.style.cursor = playing && rig.mode === "top" ? "crosshair" : "";
 }

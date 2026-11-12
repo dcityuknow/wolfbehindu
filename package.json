@@ -1,9 +1,10 @@
 {
   "name": "space-impostor-fhe",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node scripts/run.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
