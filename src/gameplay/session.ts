@@ -2,6 +2,7 @@ import { $, toast } from "../ui/dom";
 import { G } from "../state";
 import { connect } from "../web3/wallet";
 import { createSoloRoom, startGame, fetchMyRole, fetchStatuses } from "../web3/chain";
+import { setupOperator } from "../web3/operator";
 import { showHud, setRoleLabel, roleSplash } from "../ui/hud";
 import { spawnAll, markDead } from "../world/characters";
 import { scheduleDummyAct, checkpoint } from "./round";
@@ -14,7 +15,7 @@ export async function startSolo() {
   try {
     await connect();
     cine = playCutscene();                         // cutscene chạy song song lúc tạo phòng + chia vai trò FHE
-    await createSoloRoom(); await startGame();
+    await createSoloRoom(); await setupOperator(); await startGame();
     G.role = await fetchMyRole();
     await cine.done;
     showHud(); setRoleLabel(G.role); await roleSplash(G.role);

@@ -4,7 +4,7 @@ import { toast } from "../ui/dom";
 import { NO_TARGET } from "../config";
 
 let queue: Promise<unknown> = Promise.resolve();
-/** Mọi giao dịch đi qua hàng đợi tuần tự (tránh trùng nonce) + báo toast. */
+/** Every transaction goes through a sequential queue (avoids nonce clashes) + toast. */
 export function tx(label: string, fn: () => Promise<any>): Promise<any> {
   const p = queue.then(async () => {
     toast(label + "…");
@@ -16,11 +16,14 @@ export function tx(label: string, fn: () => Promise<any>): Promise<any> {
 }
 export const parseEvents = (r: any) => r.logs.map((l: any) => { try { return ctx.game.interface.parseLog(l); } catch { return null; } }).filter(Boolean);
 
+/** Contract used for the technical, role-free calls: the session wallet if set up (no popups), otherwise the player wallet. */
+const op = () => ctx.opGame ?? ctx.game;
+
 export async function createSoloRoom() {
-  const r = await tx("Tạo phòng Solo", () => ctx.game.createRoom(true));
+  const r = await tx("Create solo room", () => ctx.game.createRoom(true));
   ctx.roomId = parseEvents(r).find((e: any) => e.name === "RoomCreated").args.roomId;
 }
-export const startGame = () => tx("Chia vai trò (FHE)", () => ctx.game.startGame(ctx.roomId));
+export const startGame = () => tx("Assign roles (FHE)", () => ctx.game.startGame(ctx.roomId));
 export async function fetchMyRole(): Promise<0 | 1> {
   const h = await ctx.game.getRoleHandle(ctx.roomId, ctx.account);
   return Number((await userDecrypt([h]))[h]) as 0 | 1;
@@ -36,37 +39,41 @@ const serial = <T,>(f: () => Promise<T>): Promise<T> => (botLock = botLock.then(
 export const botsCatchUp = () => serial(async () => {
   for (let k = 0; k < 8; k++) {
     const n = Number(await ctx.game.pendingBotTurns(ctx.roomId)); if (!n) return;
-    await tx(`Bot hành động (còn ${n})`, () => ctx.game.runBotTurns(ctx.roomId));
+    await tx(`Bots acting (${n} left)`, () => op().runBotTurns(ctx.roomId));
   }
 });
 export const botsVote = () => serial(async () => {
   for (let k = 0; k < 8; k++) {
     const n = Number(await ctx.game.pendingBotVotes(ctx.roomId)); if (!n) return;
-    await tx(`Bot bỏ phiếu (còn ${n})`, () => ctx.game.runBotVotes(ctx.roomId));
+    await tx(`Bots voting (${n} left)`, () => op().runBotVotes(ctx.roomId));
   }
 });
 export async function secretAct(target: number = NO_TARGET) {
   await botsCatchUp();
   const e = await encrypt8(target);
-  return tx("Hành động (mã hoá)", () => ctx.game.executeSecretKill(ctx.roomId, e.handles[0], e.inputProof));
+  return tx("Action (encrypted)", () => ctx.game.executeSecretKill(ctx.roomId, e.handles[0], e.inputProof));
 }
-export const completeTask = () => tx("Hoàn thành task (on-chain)", () => ctx.game.completeTask(ctx.roomId));
-export const callMeeting = async () => { await botsCatchUp(); return tx("Mở họp (on-chain)", () => ctx.game.callMeeting(ctx.roomId)); };
+export const completeTask = () => tx("Complete task (on-chain)", () => ctx.game.completeTask(ctx.roomId));
+export const callMeeting = async () => { await botsCatchUp(); return tx("Open meeting (on-chain)", () => op().callMeeting(ctx.roomId)); };
 export const getRoom = () => ctx.game.getRoom(ctx.roomId);
 export async function castVote(target: number) {
   const e = await encrypt8(target);
-  return tx("Vote kín", () => ctx.game.castShieldedVote(ctx.roomId, e.handles[0], e.inputProof));
+  return tx("Secret vote", () => ctx.game.castShieldedVote(ctx.roomId, e.handles[0], e.inputProof));
 }
 /** tallyVotes -> public decrypt -> finalizeTally. Trả về receipt của finalize. */
 export async function tallyAndFinalize() {
   await botsVote();
-  await tx("Kiểm phiếu", () => ctx.game.tallyVotes(ctx.roomId));
+  await tx("Tally votes", () => op().tallyVotes(ctx.roomId));
   const d = await publicDecryptPending();
-  return tx("Nộp proof giải mã", () => ctx.game.finalizeTally(ctx.roomId, d.abiEncodedClearValues, d.decryptionProof));
+  return tx("Submit decryption proof", () => op().finalizeTally(ctx.roomId, d.abiEncodedClearValues, d.decryptionProof));
 }
 export async function checkpointOnChain() {
   await botsCatchUp();
-  await tx("Kiểm tra thắng (FHE)", () => ctx.game.requestCheckpoint(ctx.roomId));
+  await tx("Check victory (FHE)", () => op().requestCheckpoint(ctx.roomId));
   const d = await publicDecryptPending();
-  await tx("Nộp proof", () => ctx.game.submitCheckpoint(ctx.roomId, d.abiEncodedClearValues, d.decryptionProof));
+  await tx("Submit proof", () => op().submitCheckpoint(ctx.roomId, d.abiEncodedClearValues, d.decryptionProof));
 }
+/** Friendly-fire ending: the squad executed you. Writes your death to the contract and finishes the game on-chain. Returns the receipt. */
+export const reportExecution = () => tx("Record your death on-chain", () => ctx.game.reportExecution(ctx.roomId));
+/** Friendly fire: you shot a squadmate dead. Records it on-chain so the victim stays dead until the game ends. */
+export const reportFriendlyKill = (victim: number) => tx("Record teammate's death on-chain", () => ctx.game.reportFriendlyKill(ctx.roomId, victim));

@@ -8,7 +8,7 @@ const hud = $("#hud");
 const wp = document.createElement("div"); wp.id = "wp";
 wp.innerHTML = `<div id="wpSlots">${GUNS.map((g, i) => `<u data-i="${i}"><b>${i + 1}</b>${g.icon}</u>`).join("")}</div>
 <div id="wpHp"><i></i></div><div id="wpName"></div><div id="wpAmmo"><b id="wpMag"></b><span id="wpRes"></span></div><div id="wpGren"></div>
-<div id="wpRel"><i></i></div><div id="wpKeys">Chuột trái: bắn · Chuột phải: ngắm · R: nạp đạn · G: lựu đạn · 1-4: đổi súng</div>`;
+<div id="wpRel"><i></i></div><div id="wpKeys">Left click: shoot · Right click: aim · R: reload · G: grenade · 1-4: switch weapon</div>`;
 hud.appendChild(wp);
 const hit = document.createElement("div"); hit.id = "hit"; hit.innerHTML = "<i></i><i></i><i></i><i></i>"; hud.appendChild(hit);
 const el = { name: $("#wpName"), mag: $("#wpMag"), res: $("#wpRes"), gren: $("#wpGren"), rel: $("#wpRel"), hp: $("#wpHp i"), bar: $("#wpRel i"), slots: [...wp.querySelectorAll<HTMLElement>("#wpSlots u")] };

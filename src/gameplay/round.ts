@@ -22,7 +22,8 @@ export function nextRound() {
   entities.forEach((e) => { if (e.dead) e.out = true; });
   spawnAll(); resetRound(); setRound(G.round); G.phase = "play"; scheduleDummyAct();
 }
-export function finish(winner: number) { // 1 = Crewmates, 2 = Impostors
+export function finish(winner: number) { // 1 = Crewmates, 2 = Impostors (3 = friendly-fire execution, handled in hostile.ts)
+  if (G.phase === "end") return;   // already over (e.g. executed by the squad) — never overwrite that ending
   G.phase = "end";
   showEnd(winner === 1, (winner === 2) === (G.role === 1));
 }

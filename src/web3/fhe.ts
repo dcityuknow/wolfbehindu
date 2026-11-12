@@ -15,7 +15,7 @@ export async function userDecrypt(handles: string[]): Promise<Record<string, big
   if (!permit || permit.exp < Date.now() / 1e3) {
     const kp = ctx.inst.generateKeypair(), start = Math.floor(Date.now() / 1e3), days = 1;
     const eip = ctx.inst.createEIP712(kp.publicKey, [ctx.address], start, days);
-    toast("✍ Ký EIP-712 để giải mã (không tốn gas)…");
+    toast("✍ Sign EIP-712 to decrypt (no gas)…");
     const sig = await ctx.signer.signTypedData(eip.domain, { UserDecryptRequestVerification: eip.types.UserDecryptRequestVerification }, eip.message);
     permit = { kp, start, days, sig, exp: Date.now() / 1e3 + 80000 };
   }

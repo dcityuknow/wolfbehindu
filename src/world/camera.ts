@@ -12,7 +12,7 @@ import { CINE } from "./cineState";
 /** Camera 3 chế độ: thứ ba (qua vai) · thứ nhất · từ trên xuống. Quy ước: hướng nhìn = (sin yaw, cos yaw). */
 export type ViewMode = "third" | "first" | "top";
 export const rig = { mode: "third" as ViewMode, yaw: Math.PI, pitch: 0.5, dist: 6, locked: false };
-const ORDER: ViewMode[] = ["third", "first", "top"], LABEL: Record<ViewMode, string> = { third: "Góc thứ 3", first: "Góc thứ 1", top: "Từ trên xuống" };
+const ORDER: ViewMode[] = ["third", "first", "top"], LABEL: Record<ViewMode, string> = { third: "3rd person", first: "1st person", top: "Top-down" };
 
 export const facing = (m: { rot: number }) => (rig.mode === "top" ? m.rot : rig.yaw);
 export function setView(v: ViewMode) {

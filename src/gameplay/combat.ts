@@ -17,10 +17,10 @@ import type { Entity } from "../types";
 
 /**
  * Chiến đấu: súng (bắn tia — hitscan), nạp đạn, lựu đạn.
- * Luật: đạn/lựu đạn trúng ĐỒNG ĐỘI chỉ làm họ NGẤT tạm thời (hết máu → nằm `stunTime` giây rồi dậy), để không lệch trạng thái on-chain.
+ * Rules: a teammate who runs out of health is DEAD FOR GOOD (recorded on-chain via reportFriendlyKill) — no reviving.
  * Riêng GIÁN ĐIỆP: phát hạ gục đầu tiên mỗi lượt là ám sát thật (hooks.lethal → actions.ts → contract), dùng chung hạn mức 1 lần/lượt với phím Q.
  */
-export const hooks = { lethal: (_e: Entity) => {}, shake: (_v: number) => {} };   // main.ts gán (tránh import vòng với actions.ts)
+export const hooks = { lethal: (_e: Entity) => {}, friendlyKill: (_e: Entity) => {}, shake: (_v: number) => {} };   // main.ts gán (tránh import vòng với actions.ts)
 
 const O = new THREE.Vector3(), D = new THREE.Vector3(), MZ = new THREE.Vector3(), P = new THREE.Vector3(), T = new THREE.Vector3(), U = new THREE.Vector3();
 const rc = new THREE.Raycaster();
@@ -73,7 +73,7 @@ function damageEntity(e: Entity, dmg: number, head: boolean) {
   if (e.hp > 0) { hitMark(head ? 2 : 1); onFriendlyHit(e); return; }                  // trúng đạn: đồng đội hét lên, chất vấn, chĩa súng lại
   hitMark(3);
   if (G.role === 1 && !G.killUsed && !G.ghost && G.phase === "play") hooks.lethal(e);   // gián điệp: hạ gục thật (on-chain), 1 lần/lượt
-  else { e.stun = COMBAT.stunTime; e.hp = 0; onFriendlyHit(e); }                      // còn lại: ngất tạm thời, tỉnh dậy vẫn nhớ
+  else { e.hp = 0; hooks.friendlyKill(e); }                                          // anyone else: the victim is dead for good (on-chain)
 }
 
 /* ───────────── Bắn ───────────── */

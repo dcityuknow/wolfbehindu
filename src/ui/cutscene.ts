@@ -11,7 +11,7 @@ export function playCutscene() {
   if (menu) menu.style.display = "none";                       // ẩn menu để thấy cảnh 3D phía sau
   const root = document.createElement("div"); root.id = "cine";
   root.innerHTML = `<div id="cineBlur" class="ov3"></div><div id="cineFlash" class="ov3"></div><div id="cineFade" class="ov3"></div><div id="cineLidT"></div><div id="cineLidB"></div>
-<div class="cbox"><small id="ctag"></small><p id="ctxt"></p><div id="cdots"></div></div><button id="cskip" class="g">Bỏ qua ⏭</button>`;
+<div class="cbox"><small id="ctag"></small><p id="ctxt"></p><div id="cdots"></div></div><button id="cskip" class="g">Skip ⏭</button>`;
   document.body.appendChild(root);
   const tag = root.querySelector("#ctag") as HTMLElement, txt = root.querySelector("#ctxt") as HTMLElement, dots = root.querySelector("#cdots") as HTMLElement;
   let beat = 0, li = 0, typing = false, timer = 0, off = false, beatAt = performance.now(), fin: () => void = () => {};

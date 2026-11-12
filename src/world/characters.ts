@@ -60,7 +60,7 @@ export function markDead(i: number, toast: (m: string) => void) {
     const b = makeCrew(i); b.position.set(e.x + 0.9, 0.46, e.z); b.rotation.z = Math.PI / 2; gray(b);
     bodies.push({ x: e.x, z: e.z, g: b, own: true });
     for (const m of e.g.userData.mats as THREE.Material[]) { m.transparent = true; m.opacity = 0.35; }
-    toast("💀 Bạn đã bị giết — giờ bạn là hồn ma");
+    toast("💀 You were killed — you are now a ghost");
   } else {
     e.dead = true; e.g.rotation.z = Math.PI / 2; e.g.position.set(e.x + 0.9 * Math.cos(e.rot), 0.46, e.z - 0.9 * Math.sin(e.rot)); gray(e.g);   // nằm ngang, tâm xác ngay tại chỗ ngã
     bodies.push({ x: e.x, z: e.z, g: e.g });

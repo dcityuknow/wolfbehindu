@@ -27,7 +27,7 @@ function thump(f0: number, f1: number, dur: number, vol: number, delay = 0) {
 const safe = <T extends unknown[]>(f: (...a: T) => void) => (...a: T) => { try { f(...a); } catch { /* không có audio */ } };
 
 export const sfx = {
-  shot: safe((id: string, v = 1) => {
+  shot: safe((id: string, v: number = 1) => {
     VOL = v;
     if (id === "pistol") { hiss(3200, 0.12, 0.5); thump(180, 60, 0.12, 0.5); }
     else if (id === "smg") { hiss(4200, 0.08, 0.42); thump(200, 70, 0.08, 0.4); }

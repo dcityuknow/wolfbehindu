@@ -44,7 +44,7 @@ const games: Record<TaskType, (b: HTMLElement, close: (w: boolean) => void) => v
       k.onclick = () => {
         if (locked) return;
         v += d; cv.textContent = v.padEnd(4, "-");
-        if (v.length === 4) { if (v === code) { locked = true; setTimeout(() => close(true), 200); } else { cv.textContent = "SAI — nhìn lại"; setTimeout(() => hideCode(1500), 500); } }
+        if (v.length === 4) { if (v === code) { locked = true; setTimeout(() => close(true), 200); } else { cv.textContent = "WRONG — look again"; setTimeout(() => hideCode(1500), 500); } }
       };
       $("#kp").appendChild(k);
     }
@@ -52,19 +52,19 @@ const games: Record<TaskType, (b: HTMLElement, close: (w: boolean) => void) => v
   /* 🔥 Nhóm lửa tín hiệu: giữ nút thổi lửa, buông là lửa yếu đi */
   fire(b, close) {
     let p = 0, iv: number | undefined;
-    b.innerHTML = head("fire") + '<div class="bar"><i id="bi" style="background:#ff8a2a"></i></div><button id="hb" style="font-size:20px;padding:18px">🔥 THỔI</button>';
+    b.innerHTML = head("fire") + '<div class="bar"><i id="bi" style="background:#ff8a2a"></i></div><button id="hb" style="font-size:20px;padding:18px">🔥 BLOW</button>';
     const tick = (d: number) => { clearInterval(iv); iv = window.setInterval(() => { p = Math.max(0, p + d); $("#bi").style.width = p + "%"; if (p >= 100) { clearInterval(iv); close(true); } else if ($("#mini").style.display === "none") clearInterval(iv); }, 50); };
     const hb = $("#hb"); hb.onmousedown = () => tick(2); hb.onmouseup = () => tick(-3); hb.onmouseleave = () => tick(-3);
   },
   /* 💧 Máy lọc nước: bật van theo thứ tự 1→5 */
   water(b, close) {
     let next = 1;
-    b.innerHTML = head("water") + '<div id="vg"></div><p id="vs" class="dim">Van tiếp theo: 1</p>';
+    b.innerHTML = head("water") + '<div id="vg"></div><p id="vs" class="dim">Next valve: 1</p>';
     shuffle([1, 2, 3, 4, 5]).forEach((n) => {
       const k = document.createElement("button"); k.className = "valve"; k.textContent = String(n);
       k.onclick = () => {
-        if (n !== next) { next = 1; b.querySelectorAll(".valve").forEach((x) => x.classList.remove("ok")); $("#vs").textContent = "Sai thứ tự! Làm lại từ van 1"; return; }
-        k.classList.add("ok"); next++; $("#vs").textContent = next > 5 ? "Nước đã chảy!" : "Van tiếp theo: " + next;
+        if (n !== next) { next = 1; b.querySelectorAll(".valve").forEach((x) => x.classList.remove("ok")); $("#vs").textContent = "Wrong order! Start again from valve 1"; return; }
+        k.classList.add("ok"); next++; $("#vs").textContent = next > 5 ? "Water is flowing!" : "Next valve: " + next;
         if (next > 5) setTimeout(() => close(true), 350);
       };
       $("#vg").appendChild(k);
@@ -73,7 +73,7 @@ const games: Record<TaskType, (b: HTMLElement, close: (w: boolean) => void) => v
   /* 📦 Thu hồi kiện tiếp tế: cắt dây dù khi vạch chạy vào vùng xanh (3 lần liên tiếp) */
   supply(b, close) {
     let pos = 0, dir = 1, hits = 0, zs = 30 + Math.random() * 40; const zw = 18;
-    b.innerHTML = head("supply") + '<div class="tb"><i id="zn"></i><u id="mk"></u></div><button id="cut" style="font-size:20px;padding:14px">✂ CẮT!</button><p id="hs">0/3</p>';
+    b.innerHTML = head("supply") + '<div class="tb"><i id="zn"></i><u id="mk"></u></div><button id="cut" style="font-size:20px;padding:14px">✂ CUT!</button><p id="hs">0/3</p>';
     const place = () => { $("#zn").style.left = zs + "%"; $("#zn").style.width = zw + "%"; }; place();
     const iv = window.setInterval(() => {
       if ($("#mini").style.display === "none") return clearInterval(iv);

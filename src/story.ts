@@ -1,99 +1,122 @@
 import type { TaskType } from "./types";
 /**
- * Toàn bộ chữ/kịch bản của game nằm ở đây (theme: lính nhảy dù · bão · đảo hoang · gián điệp).
- * Muốn đổi lời thoại, tên nhiệm vụ, câu chat… chỉ cần sửa file này.
+ * All text/story of the game lives here (theme: paratroopers · storm · desert island · spy).
+ * To change dialogue, task names, chat lines… just edit this file.
  */
-export const GAME = { logo: "🪂 Lost Island", title: "Lost Island · Gián Điệp Giữa Đội", op: "CHIẾN DỊCH MŨI DÙI ĐEN", squad: "Biệt đội ALPHA" };
+export const GAME = { logo: "🪂 Lost Island", title: "Lost Island · The Spy Among Us", op: "OPERATION BLACK SPEARHEAD", squad: "ALPHA Squad" };
 
-/** Tên gọi (callsign) — [0] là người chơi. Dùng cho nhãn đầu người, chat, bảng bỏ phiếu. */
-export const CALLSIGNS = ["Bạn", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf"];
+/** Callsigns — [0] is the player. Used for name tags, chat and the voting board. */
+export const CALLSIGNS = ["You", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf"];
 
 export const ROLE = {
-  crew: { name: "BIỆT KÍCH", badge: "🎖 BIỆT KÍCH", color: "#5f9", title: "BẠN LÀ BIỆT KÍCH", sub: "Hoàn thành 3 nhiệm vụ sinh tồn và tìm ra gián điệp trong 6 đồng đội còn lại. Đừng tin ai." },
-  spy: { name: "GIÁN ĐIỆP", badge: "🕵 GIÁN ĐIỆP", color: "#f55", title: "BẠN LÀ GIÁN ĐIỆP", sub: "Giữ vỏ bọc. Rình lúc ai đó đi lẻ rồi ám sát (Q). Chui hang bí mật (E) để lẩn đi, làm nhiệm vụ giả để không bị nghi." },
+  crew: { name: "COMMANDO", badge: "🎖 COMMANDO", color: "#5f9", title: "YOU ARE A COMMANDO", sub: "Complete 3 survival tasks and find the spy among your 6 squadmates. Trust no one." },
+  spy: { name: "SPY", badge: "🕵 SPY", color: "#f55", title: "YOU ARE THE SPY", sub: "Keep your cover. Wait for someone to wander off alone, then assassinate them (Q). Use the secret burrows (E) to slip away and fake tasks so nobody suspects you." },
 };
 
-/** Nhiệm vụ / mini-game. Khoá = TaskType (nhánh trong minigames.ts). */
+/** Tasks / mini-games. Key = TaskType (a branch in minigames.ts). */
 export const TASKS: Record<TaskType, { name: string; icon: string; prompt: string; hint: string }> = {
-  radio: { name: "Sửa radio liên lạc", icon: "📻", prompt: "[E] 📻 Sửa radio liên lạc", hint: "Nối các dây cùng màu để khôi phục ăng-ten." },
-  decode: { name: "Giải mã bản tin mật", icon: "🔐", prompt: "[E] 🔐 Giải mã bản tin mật", hint: "Ghi nhớ mã — nó biến mất sau 3 giây — rồi nhập lại." },
-  fire: { name: "Nhóm lửa tín hiệu", icon: "🔥", prompt: "[E] 🔥 Nhóm lửa tín hiệu", hint: "Giữ nút để thổi lửa. Buông tay là lửa yếu đi." },
-  water: { name: "Lọc nước biển", icon: "💧", prompt: "[E] 💧 Vận hành máy lọc nước", hint: "Bật các van theo đúng thứ tự 1 → 5. Bấm sai là phải làm lại." },
-  supply: { name: "Thu hồi kiện tiếp tế", icon: "📦", prompt: "[E] 📦 Thu hồi kiện tiếp tế", hint: "Bấm CẮT khi vạch chạy vào vùng xanh — 3 lần liên tiếp." },
+  radio: { name: "Repair the radio", icon: "📻", prompt: "[E] 📻 Repair the radio", hint: "Connect the wires of the same color to restore the antenna." },
+  decode: { name: "Decrypt the secret message", icon: "🔐", prompt: "[E] 🔐 Decrypt the secret message", hint: "Memorize the code — it disappears after 3 seconds — then type it back." },
+  fire: { name: "Light the signal fire", icon: "🔥", prompt: "[E] 🔥 Light the signal fire", hint: "Hold the button to fan the flames. Let go and the fire weakens." },
+  water: { name: "Purify sea water", icon: "💧", prompt: "[E] 💧 Run the water purifier", hint: "Open the valves in order 1 → 5. One mistake and you start over." },
+  supply: { name: "Recover the supply crate", icon: "📦", prompt: "[E] 📦 Recover the supply crate", hint: "Press CUT when the marker is inside the green zone — 3 times in a row." },
 };
 
-/** HUD / nút / hành động */
+/** HUD / buttons / actions */
 export const UI = {
-  roleLabel: (spy: boolean) => `Vai trò: <b style="color:${spy ? "#f55" : "#5f9"}">${spy ? ROLE.spy.badge : ROLE.crew.badge}</b>`,
-  tasks: (n: number) => `Nhiệm vụ: ${n}/3`,
-  round: (n: number) => `Lượt ${n}`,
-  kill: "🔪 Ám sát (Q)", killUsed: "🔪 Đã ra tay (lượt này)",
-  report: "[E] 🚨 Báo cáo thi thể", vent: "[E] Chui hang bí mật", meeting: "[E] Triệu tập họp khẩn",
-  ventToast: "🕳 Bạn chui vào hang bí mật!",
-  ghostToast: "💀 Bạn đã bị ám sát — giờ bạn chỉ còn là bóng ma trên đảo, vẫn quan sát được",
-  bodyFound: "Thi thể bị phát hiện!", callMeeting: "Triệu tập họp khẩn quanh lửa trại!",
-  botReport: (n: string) => `📢 ${n} phát hiện thi thể!`,
-  help: "❓ Huấn thị", check: "🏁 Kiểm tra chiến dịch", checkNone: "Chiến dịch vẫn tiếp diễn — chưa bên nào thắng.",
-  checkLine: "Chưa bên nào thắng.",
-  meetTitle: "HỌP KHẨN QUANH LỬA TRẠI", chatPh: "Nói gì đó…", send: "Gửi", skip: "Bỏ qua — không ai bị loại", confirm: "Xác nhận phiếu",
-  picked: (n: string) => `Đã chọn ${n}`,
-  sealing: "🔐 Đang niêm phong & gửi phiếu…", tally: "📊 Các đồng đội bỏ phiếu — đang kiểm phiếu niêm phong (FHE)…",
-  sysName: "Đài chỉ huy", sysVote: "Phiếu của bạn đã được niêm phong (mã hoá on-chain). Không ai biết bạn bỏ cho ai.",
-  tieSplash: "Đội không thống nhất — không ai bị loại",
-  ejected: (n: string, spy: boolean) => (spy ? `${n} bị loại khỏi đội — LÀ GIÁN ĐIỆP 🎯` : `${n} bị loại — KHÔNG phải gián điệp. Đã loại nhầm đồng đội 💔`),
-  again: "Tái chiến",
+  roleLabel: (spy: boolean) => `Role: <b style="color:${spy ? "#f55" : "#5f9"}">${spy ? ROLE.spy.badge : ROLE.crew.badge}</b>`,
+  tasks: (n: number) => `Tasks: ${n}/3`,
+  round: (n: number) => `Round ${n}`,
+  kill: "🔪 Assassinate (Q)", killUsed: "🔪 Already struck (this round)",
+  report: "[E] 🚨 Report the body", vent: "[E] Enter secret burrow", meeting: "[E] Call emergency meeting",
+  ventToast: "🕳 You slipped into a secret burrow!",
+  ghostToast: "💀 You were assassinated — you are now a ghost on the island, still able to watch",
+  bodyFound: "Body discovered!", callMeeting: "Emergency meeting at the campfire!",
+  botReport: (n: string) => `📢 ${n} found a body!`,
+  help: "❓ Briefing", check: "🏁 Check mission", checkNone: "The mission goes on — nobody has won yet.",
+  checkLine: "Nobody has won yet.",
+  meetTitle: "EMERGENCY MEETING AT THE CAMPFIRE", chatPh: "Say something…", send: "Send", skip: "Skip — nobody is ejected", confirm: "Confirm vote",
+  picked: (n: string) => `Selected ${n}`,
+  sealing: "🔐 Sealing & submitting your vote…", tally: "📊 Squadmates are voting — tallying the sealed ballots (FHE)…",
+  sysName: "Command", sysVote: "Your vote has been sealed (encrypted on-chain). Nobody knows who you voted for.",
+  tieSplash: "The squad could not agree — nobody is ejected",
+  ejected: (n: string, spy: boolean) => (spy ? `${n} was ejected — WAS THE SPY 🎯` : `${n} was ejected — NOT the spy. You ejected an innocent squadmate 💔`),
+  again: "Play again",
+  // friendly fire
+  mateDead: (n: string) => `☠ ${n} is dead for good — friendly fire is recorded on-chain`,
+  opSetup: "🔑 Setting up your session wallet (it signs for the bots, so no more popups)…",
+  opFunding: "⛽ Funding the session wallet with a little test-ETH…",
+  opReady: "✓ Session wallet ready — bot actions now run without popups",
+  opFallback: "⚠ Session wallet unavailable — falling back to MetaMask for bot actions",
+  spectating: "💀 You are dead — you can only watch. The squad is voting without you…",
+  timesUp: "⏱ Time is up — your vote counts as abstain.",
+  retryVote: "Retry",
+  voteFail: "❌ The vote could not be completed.",
+  whyShot: "WHY YOU SHOT ME??",
+  wanted: "🕵 YOU ARE MARKED AS THE SPY — your squad is shooting you!",
+  firstAccuse: "That's him! Squad, FIRE!",
+  chainRecording: "⛓ Recording your death on-chain…",
+  chainDone: (tx: string) => `✅ Death recorded on-chain · tx ${tx}`,
+  chainFail: "❌ Could not record the death on-chain.",
+  retry: "Retry",
 };
 
-/** Màn kết thúc */
+/** End screens */
 export const ENDING = {
-  crew: { title: "🎖 BIỆT KÍCH THẮNG", desc: "Tín hiệu cầu cứu vút lên bầu trời đảo — hoặc gián điệp đã bị vạch mặt. Trực thăng cứu hộ đang tới." },
-  spy: { title: "🕵 GIÁN ĐIỆP THẮNG", desc: "Đội bị tiêu hao đến mức không còn đủ sức chống lại. Chiến dịch thất bại — kẻ phản bội hoàn thành sứ mệnh." },
-  win: "🎉 Bạn thắng!", lose: "Bạn thua.",
+  crew: { title: "🎖 COMMANDOS WIN", desc: "A distress signal climbs into the island sky — or the spy has been exposed. A rescue helicopter is on its way." },
+  spy: { title: "🕵 THE SPY WINS", desc: "The squad was whittled down until it could no longer fight back. The mission failed — the traitor completed their orders." },
+  shot: {
+    title: "☠ EXECUTED BY YOUR OWN SQUAD",
+    crew: "You opened fire on your own teammates — and they showed no mercy.<br>The squad's trust shattered on the island, and the spy was never found.",
+    spy: "Your careless gunfire blew your cover. The squad gunned you down on suspicion alone — no vote, no proof, no victory for anyone.",
+    over: "GAME OVER — the mission ended before the spy was found.",
+  },
+  win: "🎉 You win!", lose: "You lose.",
 };
 
-/** Lời thoại bot khi họp. {n} = tên người bị nghi. */
+/** Bot lines during meetings. {n} = the suspected player's name. */
 export const CHAT_LINES = [
-  "{n}, lúc nãy cậu đi đâu một mình? Tôi không thấy ai đi cùng hướng.",
-  "Tôi thấy {n} lảng vảng gần cái hang cát. Giải thích đi.",
-  "Khai báo vị trí: tôi ở khu rừng, vừa xong radio. {n} thì sao?",
-  "{n} im lặng đáng ngờ. Người trong sạch thì không việc gì phải giấu miệng.",
-  "Không có bằng chứng, nhưng linh cảm của một người lính mách bảo tôi là {n}.",
-  "Bình tĩnh. Loại nhầm một đồng đội là chúng ta chết thêm một người.",
-  "Ai thấy {n} làm nhiệm vụ chưa? Tôi chưa thấy lần nào.",
-  "Tôi vừa thấy {n} lau lưỡi dao. Đừng nói là để gọt khoai.",
-  "Điểm danh từng người: ai ở đâu lúc thi thể được tìm thấy?",
-  "Gián điệp ở ngay trong lửa trại này. {n}, nhìn vào mắt tôi mà nói.",
-  "Tôi ngồi canh lửa suốt, {n} làm chứng được. Đừng đổ cho tôi.",
-  "Skip đi, chưa đủ cơ sở. Mỗi lần bỏ phiếu sai là mất thêm một người.",
-  "{n}, mật khẩu đợt thả của chúng ta là gì? Trả lời nhanh.",
-  "Tôi không tin ai nữa. Kể cả {n}. Kể cả các cậu.",
-  "Radio vẫn chết, nước sắp hết, mà các cậu còn cãi nhau. Có kẻ đang cười đấy.",
-  "{n} đáp xuống gần tôi nhất, nhưng sao lại ra khỏi khu rừng sớm vậy?",
+  "{n}, where did you wander off to earlier? I didn't see anyone go that way with you.",
+  "I saw {n} hanging around the sand burrow. Explain yourself.",
+  "Reporting in: I was in the forest, just finished the radio. What about {n}?",
+  "{n} is suspiciously quiet. An innocent person has nothing to hide.",
+  "No proof, but a soldier's gut tells me it's {n}.",
+  "Stay calm. Ejecting the wrong squadmate means we lose one more person.",
+  "Has anyone seen {n} doing a task? I haven't, not once.",
+  "I just saw {n} wiping a knife. Don't tell me it was for peeling potatoes.",
+  "Roll call, one by one: where was everybody when the body was found?",
+  "The spy is sitting right here at this fire. {n}, look me in the eye and say it.",
+  "I was guarding the fire the whole time — {n} can vouch for me. Don't pin this on me.",
+  "Skip. We don't have enough to go on. Every wrong vote costs us another life.",
+  "{n}, what was our drop password? Answer fast.",
+  "I don't trust anyone anymore. Not even {n}. Not even you guys.",
+  "The radio is still dead, water's running out, and you're arguing. Somebody is laughing right now.",
+  "{n} landed closest to me, so why did you leave the forest so early?",
 ];
-/** Câu mở đầu cuộc họp (bot đầu tiên nói) */
+/** Opening lines of a meeting (the first bot speaks) */
 export const OPENERS = {
-  body: ["Tôi vừa thấy thi thể ngoài kia. Ai đó đã ra tay — và là người trong đội.", "Có người chết. Không có bão, không có thú dữ — là một nhát dao."],
-  emergency: ["Tôi cho họp để chốt lại: đội mình đang bị thao túng từ bên trong.", "Có chuyện không ổn. Mọi người lại gần lửa, nói chuyện cho rõ."],
+  body: ["I just saw a body out there. Someone did this — and it's one of us.", "Someone is dead. No storm, no wild animals — that was a knife."],
+  emergency: ["I called this meeting to settle things: our squad is being manipulated from the inside.", "Something is wrong. Everyone gather around the fire and talk it through."],
 };
 
-/** Kịch bản mở đầu (cutscene) — mỗi đoạn: tag (dòng thời gian/địa điểm), art (hình minh hoạ), lines (lời dẫn hiện từng chữ). */
+/** Opening cutscene — each beat: tag (timeline/location), art (illustration), lines (narration typed out letter by letter). */
 export const CUTSCENE: { tag: string; art: "cabin" | "jump" | "storm" | "lost" | "island" | "briefing"; lines: string[] }[] = [
-  { tag: `02:14 · ĐỘ CAO 12.000 FT · ${GAME.op}`, art: "cabin", lines: [
-    "Khoang C-130 rung lên trong thứ ánh sáng đỏ quạch. Bảy bóng người ngồi dọc hai bên thân máy bay, dù chính đã siết chặt, súng áp sát ngực.",
-    "«Biệt đội ALPHA, còn mười phút tới vùng thả. Mục tiêu: trạm liên lạc bị bỏ hoang trên cao nguyên. Lấy dữ liệu, rút lui, không để lại dấu vết.»",
-    "Không ai nói gì. Trước giờ lên máy bay, chỉ huy chỉ dặn đúng một câu: trong đội có một kẻ đã được cài vào từ trước." ] },
-  { tag: "02:26 · ĐÈN XANH · CỬA SAU MỞ", art: "jump", lines: [
-    "Đèn đỏ chuyển xanh. Cửa sau mở toang, gió gào xé tan mọi âm thanh. «NHẢY! NHẢY! NHẢY!»",
-    "Từng người một lao vào màn đêm. Dù chính bung ra, nở như những đoá hoa đen giữa bầu trời." ] },
-  { tag: "02:31 · BÃO", art: "storm", lines: [
-    "Không ai thấy cơn bão cho đến khi nó nuốt chửng cả bầu trời. Sét xé toạc tầng mây, những luồng gió giật cuốn cả đội đi như lá khô.",
-    "Dây dù quấn vào nhau. Đèn tín hiệu chớp rồi tắt. Radio rít lên trong nhiễu: «…Alpha… hủy… nhảy… mất liên—»" ] },
-  { tag: "02:40 · MẤT LIÊN LẠC", art: "lost", lines: [
-    "Rồi chỉ còn im lặng. Bảy chiếc dù trôi dạt hàng chục cây số khỏi mục tiêu, cuốn thẳng về phía một vệt đen đơn độc giữa đại dương." ] },
-  { tag: "BÌNH MINH · ĐẢO HOANG", art: "island", lines: [
-    "Họ tỉnh dậy trên bãi cát trắng, biển xanh vô tận bốn bề. Bộ đàm chết cứng, bản đồ nhoè nước, máy bay đã biến mất. Dạt vào bờ chỉ còn xác dù, vài kiện tiếp tế… và bảy người sống sót." ] },
-  { tag: "NHIỆM VỤ SINH TỒN", art: "briefing", lines: [
-    "Muốn sống, họ phải sửa radio, giải mã bản tin mật, nhóm lửa tín hiệu, lọc nước biển và thu hồi kiện tiếp tế.",
-    "Nhưng có một điều chỉ huy chưa kịp nói hết: kẻ phản bội cũng đã đáp xuống hòn đảo này. Hắn đang đứng ngay cạnh bạn.",
-    "Đừng tin ai. Hãy sống sót." ] },
+  { tag: `02:14 · ALTITUDE 12,000 FT · ${GAME.op}`, art: "cabin", lines: [
+    "The C-130 cabin shudders in murky red light. Seven figures sit along both sides of the fuselage, main chutes cinched tight, rifles pressed to their chests.",
+    "«ALPHA Squad, ten minutes to the drop zone. Objective: the abandoned comms station on the plateau. Grab the data, withdraw, leave no trace.»",
+    "Nobody speaks. Before boarding, the commander gave just one warning: someone on this team was planted long before today." ] },
+  { tag: "02:26 · GREEN LIGHT · REAR RAMP OPEN", art: "jump", lines: [
+    "The red light turns green. The rear ramp swings wide and the wind howls, tearing every sound apart. «GO! GO! GO!»",
+    "One by one they dive into the night. Main chutes burst open, blooming like black flowers across the sky." ] },
+  { tag: "02:31 · STORM", art: "storm", lines: [
+    "Nobody saw the storm until it swallowed the entire sky. Lightning ripped through the clouds, and gusts swept the squad away like dry leaves.",
+    "Lines tangled. Signal lights blinked and died. The radio screeched through static: «…Alpha… abort… jump… lost cont—»" ] },
+  { tag: "02:40 · CONTACT LOST", art: "lost", lines: [
+    "Then only silence. Seven canopies drifted dozens of miles off target, carried straight toward a lone black speck in the middle of the ocean." ] },
+  { tag: "DAWN · DESERT ISLAND", art: "island", lines: [
+    "They woke on white sand with endless blue sea on every side. Radios dead, maps washed out, the plane long gone. Only torn parachutes, a few supply crates… and seven survivors had washed ashore." ] },
+  { tag: "SURVIVAL OBJECTIVES", art: "briefing", lines: [
+    "To live, they must repair the radio, decrypt the secret message, light a signal fire, purify sea water and recover the supply crate.",
+    "But the commander never finished his warning: the traitor landed on this island too. They are standing right next to you.",
+    "Trust no one. Survive." ] },
 ];

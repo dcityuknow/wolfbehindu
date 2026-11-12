@@ -1,62 +1,48 @@
-# Lost Island — Lính nhảy dù, bão, đảo hoang & gián điệp (3D + Zama FHEVM, Vite + TypeScript)
+# Lost Island — Paratroopers, Storm, Desert Island & a Spy (3D + Zama FHEVM, Vite + TypeScript)
 
-**Kịch bản:** biệt đội ALPHA nhảy dù xuống vùng nhiệm vụ mật, bị bão cuốn xuống đảo hoang, mất liên lạc; 1 trong 4 người là gián điệp. Toàn bộ chữ/lời thoại/cutscene nằm ở `src/story.ts`; cutscene ở `src/ui/cutscene.ts`.
+**Story:** ALPHA Squad parachutes into a secret mission zone, is blown by a storm onto a desert island and loses contact; 1 of the 4+ survivors is a spy. All text/dialogue/cutscene lives in `src/story.ts` (the game is fully in English).
 
-## Chạy (một lệnh)
-Bấm đúp **`CHAY.bat`** (Windows) hoặc `npm start`. Script tự: cài thư viện (có % tiến độ) → deploy contract nếu chưa có / contract đã đổi (hỏi PRIVATE_KEY ví test có Sepolia ETH, lưu vào `.env`) → mở game ở http://localhost:3000 (MetaMask, Sepolia).
-Thủ công: `npm install` · `npm run deploy` · `npm run dev`. Khác: `npm run typecheck` · `npm run build`.
-> v3 đổi contract (6 bot) nên **bắt buộc deploy lại**; địa chỉ contract cũ không dùng được.
+## Run (one command)
+Double-click **`CHAY.bat`** (Windows) or `npm start`. The script installs packages → deploys the contract if missing/changed (asks for a PRIVATE_KEY of a test wallet with Sepolia ETH, stored in `.env`) → opens the game at http://localhost:3000 (MetaMask, Sepolia).
+Manual: `npm install` · `npm run deploy` · `npm run dev`. Also: `npm run typecheck` · `npm run build`.
+> **v10 changes the contract** (new `reportExecution`, new `Winner.FriendlyFire`), so it **must be redeployed**; the old contract address does not work. `CHAY.bat` does this automatically.
 
-## Mới ở v3
-- **Cảnh mở đầu 3D voxel** (`world/cine3d.ts`, quỹ đạo ở `world/cinePath.ts`): đội ngồi trong khoang C-130 → lần lượt chạy ra ramp, nhảy dù → bão, sét, gió → trôi dạt, chạm đất, tối dần → mở mắt lúc bình minh thấy cả đội nằm quanh lửa trại → ngồi dậy. Lời dẫn ở `story.ts → CUTSCENE`. Click/Space = tiếp, Esc = bỏ qua.
-- **6 Bot** (7 người/ván): `SOLO_BOTS = 6` trong contract. Lượt Bot và phiếu Bot chạy theo lô `BOTS_PER_TX = 3` (`runBotTurns` / `runBotVotes`) để mỗi giao dịch không vượt ngân sách FHE → mỗi lượt có thêm vài giao dịch (toast "Bot hành động / Bot bỏ phiếu"). Nếu giao dịch bị revert vì hết gas/HCU, giảm `BOTS_PER_TX` rồi deploy lại.
-- **Súng** (`config.ts → GUNS`): súng lục, UZI, AK-47, shotgun; nạp đạn; **lựu đạn**; chuột phải ngắm; bắn đầu = ×2 sát thương.
-- Phím: **Chuột trái** bắn · **Chuột phải** ngắm · **R** nạp · **G** lựu đạn · **1–4** đổi súng (lăn chuột ở góc 1/từ trên) · **V** đổi góc (3 / 1 / từ trên; từ trên bắn theo con trỏ chuột).
-- Bắn trúng đồng đội: họ **hét "WHY YOU SHOT ME??"**, chất vấn rồi **chĩa súng lại** (có bong bóng thoại + giọng đọc của trình duyệt). **Bắn nhầm lần nữa → bị gán gián điệp, cả đội rượt và bắn bạn**; hết máu → bị xử bắn, ván kết thúc. Họp khẩn / sang lượt mới thì hoà giải. Chỉnh ở `COMBAT` (`playerHp`, `botDmg`, `grace`) và `gameplay/hostile.ts`. Đây là phản ứng cục bộ, không ghi on-chain.
-- Đạn/lựu đạn làm đồng đội **ngất 6 giây** rồi tỉnh dậy (không đổi trạng thái on-chain). **Chỉ gián điệp** hạ gục thật bằng súng/lựu đạn — phát hạ gục đầu tiên mỗi lượt, dùng chung hạn mức 1 lần/lượt với phím Q. Chỉnh ở `COMBAT` trong `config.ts`.
+## New in v10
+- **Friendly fire is recorded on-chain.** Shoot a teammate → they drop, yell "WHY YOU SHOT ME??" and aim back. Shoot again → you are marked as the spy and the whole squad shoots you. If you die, the client calls `reportExecution(roomId)`:
+  - your status becomes Dead (encrypted) and `ejected = true`,
+  - event `PlayerExecuted(roomId, slotId, round)` is emitted,
+  - the game ends **immediately** with `Winner.FriendlyFire` (3) — even though the real spy was never found.
+  The end screen shows the tx hash (with a Retry button if the transaction fails). A late checkpoint/vote result can no longer overwrite this ending.
+- **Everything is English**: UI, story, cutscene, rules, toasts, bot chat, weapon names, scripts. (A few code comments in the source are still Vietnamese.)
+- Fixed two pre-existing `tsc` errors (`lib: DOM.Iterable`, `audio.ts` type).
+> Note: combat/positions are simulated client-side (the contract has no positions), so `reportExecution` is client-attested, like the kill range. Only a player of the room can report their own death, only while the game is running.
 
-## Cấu trúc
+## Session wallet (v13)
+Bots have no wallet, so in Solo every bot step used to pop up MetaMask. Now the game creates a throw-away **session wallet** (private key in this browser's localStorage, key `li_session_key`), funds it once with 0.03 Sepolia ETH (1 popup) and registers it as the room **operator** (`setOperator`, 1 popup). The operator may only call `runBotTurns`, `runBotVotes`, `callMeeting`, `tallyVotes`, `requestCheckpoint` (and anyone can already send the proofs); it cannot kill, vote, do tasks or report deaths. It uses the public RPC `https://ethereum-sepolia-rpc.publicnode.com` (see `src/web3/operator.ts`). If funding/registration fails the game falls back to MetaMask popups. Keep only a tiny balance in it.
+
+## Permanent friendly-fire deaths (v12)
+A teammate shot to 0 HP is dead until the game ends: the client calls `reportFriendlyKill(roomId, victim)` (status → Dead, event `FriendlyKill`) then a checkpoint. If the victim was secretly the spy, the checkpoint now ends the game with a Commando win (`_computeWinFlags`: no impostor alive). The spy's own first kill each round still uses the secret encrypted route. The old stun/revive is gone.
+
+## Witnesses (v11)
+Only squadmates who can SEE the shooter (within 16 m, inside their field of view, no wall between) accuse you. Others who hear the shot run to the victim and ask questions; if an accusation is already out and they then see you, they join in. A spy kill that someone sees exposes the spy; unseen kills stay secret. Tuning: `WIT` in `src/gameplay/hostile.ts`.
+
+## Controls
+WASD move · Space jump · **E** interact · **Q** assassinate (spy) · Left click shoot · Right click aim · **R** reload · **G** grenade · **1–4** weapons · **V** change view.
+
+Balance knobs: `COMBAT` in `src/config.ts` (`playerHp`, `botDmg`, `grace`) and `src/gameplay/hostile.ts`.
+
+## Structure
 ```
-contracts/SpaceImpostorFHE.sol     Smart contract FHE
-scripts/deploy.mjs                 Compile (solc) + deploy (ethers) -> ghi deployment.json
-index.html                         Markup + nạp Zama Relayer SDK (CDN -> window.relayerSDK)
-src/
-  main.ts                          Vòng lặp game, khởi tạo, nối input
-  story.ts                         MỌI chữ của game: kịch bản cutscene, vai trò, nhiệm vụ, HUD, chat, màn kết thúc
-  config.ts                        Hằng số cân bằng / ánh sáng / tên / màu (sửa ở đây)
-  types.ts · state.ts              Kiểu dữ liệu + trạng thái game dùng chung (G)
-  input.ts                         Phím WASD / E / Q / Space
-  world/                           ── 3D (không biết gì về blockchain)
-    scene.ts                         renderer, camera, ánh sáng, fog
-    map.ts                           tường, phòng, bàn họp, trạm task, vent
-    soldier.ts                       Người lính voxel kiểu Minecraft (11 quân phục: rằn ri, mũ, áo giáp, cờ) — đội hình chọn ở SQUAD trong config.ts
-  characters.ts                    nhân vật, va chạm, xác/hồn ma
-    visibility.ts                    fog of war: tầm nhìn + nón nhìn + raycast tường
-  web3/                            ── blockchain/FHE (không biết gì về 3D)
-    context.ts · wallet.ts           ví, contract, Zama instance
-    fhe.ts                           mã hoá input, user-decrypt (EIP-712), public-decrypt
-    chain.ts                         hàng đợi tx + các hành động contract (act, vote, tally…)
-  gameplay/                        ── luật chơi, nối world <-> web3
-    session.ts                       luồng vào game (kết nối → tạo phòng → vai trò)
-    actions.ts                       interact (E), kill (Q), vent, prompt
-    minigames.ts                     nối dây / nhập mã / bơm oxy  (thêm game mới: thêm 1 nhánh)
-    bots.ts                          AI đi lại của Bot
-    meeting.ts                       họp, chat, vote mã hoá, animation eject
-    round.ts                         round mới, checkpoint thắng/thua, act giả của Crew
-  ui/                              DOM: dom.ts (helper, toast), hud.ts (HUD, splash, màn kết thúc)
-  styles.css
+contracts/SpaceImpostorFHE.sol     FHE smart contract (incl. reportExecution)
+scripts/deploy.mjs · run.mjs       compile + deploy · one-command launcher
+src/story.ts                       ALL game text
+src/config.ts                      balance / lighting / guns
+src/world/                         3D (no blockchain knowledge)
+src/web3/                          wallet, FHE, contract calls (chain.ts)
+src/gameplay/                      rules: combat.ts, hostile.ts (friendly fire + execution), meeting.ts, round.ts…
+src/ui/                            DOM: HUD, intro, cutscene, weapon HUD
 ```
-Quy tắc phụ thuộc (một chiều, không vòng): `world` và `web3` độc lập nhau → `gameplay` dùng cả hai → `main`.
-Chiến đấu: gameplay/combat.ts · world/guns.ts · world/fx.ts · ui/weaponHud.ts · audio.ts · weaponState.ts.
-Muốn thêm PvP: thêm `src/net/` (WebSocket đồng bộ vị trí) và gọi từ `main.ts`; `world/` và `web3/` không phải sửa.
-
-## Điều khiển
-WASD di chuyển · Space nhảy · **E** tương tác · **Q** kill (Impostor, sát < 2.2m)
+Dependencies are one-way: `world` and `web3` are independent → `gameplay` uses both → `main`.
 
 ## Off-chain vs on-chain
-Vị trí, tầm nhìn, vent, mini-game, animation, chat, AI đi lại: **client**. Vai trò, kill (mục tiêu mã hoá), tiến độ task, phiếu bầu, điều kiện thắng: **Zama FHE on-chain**.
-Khoảng cách kill do client kiểm tra (contract không biết vị trí).
-
-## Giới hạn
-Chỉ Solo (1 + 6 Bot) · 1 kill/round (giới hạn contract) · Bot đi/vote ngẫu nhiên · chưa có voice chat · chưa có server PvP.
-Ánh sáng dùng đơn vị three r155+: nếu quá tối/sáng chỉnh `LIGHT` trong `src/config.ts`.
+Positions, vision, mini-games, animation, chat, bot movement, the friendly-fire fight: **client**. Roles, kills (encrypted target), task progress, votes, win conditions and the **friendly-fire execution**: **Zama FHE on-chain**.

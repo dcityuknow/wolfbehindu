@@ -30,7 +30,7 @@ if (process.argv.includes("--compile-only")) {
   process.exit(0);
 }
 if (process.env.PRIVATE_KEY) process.env.PRIVATE_KEY = process.env.PRIVATE_KEY.trim().replace(/^["']|["']$/g, "").replace(/^(?!0x)/, "0x");
-if (!process.env.PRIVATE_KEY) { console.error("Thiếu PRIVATE_KEY trong .env"); process.exit(1); }
+if (!process.env.PRIVATE_KEY) { console.error("Missing PRIVATE_KEY in .env"); process.exit(1); }
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com");
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 console.log("Deploying from", wallet.address);

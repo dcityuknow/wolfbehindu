@@ -28,9 +28,9 @@ export interface GunDef {
 }
 /** Chỉnh cân bằng súng ở đây. Phím 1..4 chọn theo thứ tự mảng này. */
 export const GUNS: GunDef[] = [
-  { id: "pistol", name: "Súng lục M1911", icon: "🔫", dmg: 24, pellets: 1, mag: 12, reserve: 72, rate: 5, auto: false, reload: 1.3, spread: 0.006, bloom: 0.02, range: 70, recoil: 0.018 },
-  { id: "smg", name: "Tiểu liên UZI", icon: "🔫", dmg: 13, pellets: 1, mag: 32, reserve: 160, rate: 13, auto: true, reload: 1.7, spread: 0.014, bloom: 0.05, range: 55, recoil: 0.01 },
-  { id: "rifle", name: "Trường AK-47", icon: "🔫", dmg: 25, pellets: 1, mag: 30, reserve: 120, rate: 8.5, auto: true, reload: 2.1, spread: 0.008, bloom: 0.045, range: 110, recoil: 0.016 },
+  { id: "pistol", name: "M1911 Pistol", icon: "🔫", dmg: 24, pellets: 1, mag: 12, reserve: 72, rate: 5, auto: false, reload: 1.3, spread: 0.006, bloom: 0.02, range: 70, recoil: 0.018 },
+  { id: "smg", name: "UZI SMG", icon: "🔫", dmg: 13, pellets: 1, mag: 32, reserve: 160, rate: 13, auto: true, reload: 1.7, spread: 0.014, bloom: 0.05, range: 55, recoil: 0.01 },
+  { id: "rifle", name: "AK-47 Rifle", icon: "🔫", dmg: 25, pellets: 1, mag: 30, reserve: 120, rate: 8.5, auto: true, reload: 2.1, spread: 0.008, bloom: 0.045, range: 110, recoil: 0.016 },
   { id: "shotgun", name: "Shotgun SPAS", icon: "💥", dmg: 14, pellets: 8, mag: 6, reserve: 36, rate: 1.1, auto: false, reload: 2.4, spread: 0.055, bloom: 0, range: 35, recoil: 0.07 },
 ];
 export const GRENADE = { count: 3, fuse: 2.3, radius: 6.5, dmg: 140, speed: 14, gravity: 17, cooldown: 1.1 };

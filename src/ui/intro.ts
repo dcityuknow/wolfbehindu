@@ -1,8 +1,8 @@
 import { $ } from "./dom";
 
 /**
- * Màn mở đầu cho người mới, 3 bước:  1) Trailer hoạt hình  2) Luật chơi  3) Kết nối ví & vào chơi.
- * Không chạm blockchain cho tới khi người chơi bấm nút ở bước 3.
+ * Intro screen for new players, 3 steps:  1) Animated trailer  2) Rules  3) Connect wallet & play.
+ * Nothing touches the blockchain until the player presses the button in step 3.
  */
 
 const SEEN_KEY = "si_intro_seen";
@@ -11,7 +11,7 @@ const store = {
   set: () => { try { localStorage.setItem(SEEN_KEY, "1"); } catch { /* private mode */ } },
 };
 
-/* ───────────── Trailer: 6 cảnh SVG tự chạy ───────────── */
+/* ───────────── Trailer: 6 self-playing SVG scenes ───────────── */
 
 const A = (x: number, y: number, c: string, extra = "", s = 1) =>
   `<g ${extra}><use href="#astro" x="${x}" y="${y}" width="${60 * s}" height="${90 * s}" style="--c:${c}"/></g>`;
@@ -19,34 +19,34 @@ const BLUE = "#4da6ff", RED = "#ff4d4d", GREEN = "#4dff88", YEL = "#ffd24d";
 
 const SCENES: { title: string; cap: string; svg: string }[] = [
   {
-    title: "Rơi xuống đảo hoang",
-    cap: "Biệt đội ALPHA nhảy dù xuống vùng nhiệm vụ mật thì bị bão cuốn đi, đáp xuống một hòn đảo hoang giữa biển. Mất liên lạc, không ai biết họ ở đâu.",
-    svg: `<text x="320" y="54" class="t big">🪂 Đảo hoang</text>
+    title: "Stranded on a desert island",
+    cap: "ALPHA Squad parachutes toward a secret mission zone, but a storm sweeps them away and drops them on a desert island in the middle of the sea. Contact lost — nobody knows where they are.",
+    svg: `<text x="320" y="54" class="t big">🪂 Desert island</text>
       ${[RED, BLUE, GREEN, YEL].map((c, i) => `<g class="walk" style="--d:${i}">${A(110 + i * 120, 168, c, 'class="bob"')}</g>`).join("")}
-      <text x="140" y="150" class="t sm" fill="#fff">BẠN</text><path d="M140 156 l-6 -8 h12z" fill="#fff"/>`,
+      <text x="140" y="150" class="t sm" fill="#fff">YOU</text><path d="M140 156 l-6 -8 h12z" fill="#fff"/>`,
   },
   {
-    title: "Nhiệm vụ sinh tồn",
-    cap: "Mỗi người làm 3 nhiệm vụ ở các trạm cam nhấp nháy: sửa radio, giải mã bản tin mật, nhóm lửa tín hiệu, lọc nước biển, thu hồi kiện tiếp tế. Làm xong cả nhóm là được cứu!",
+    title: "Survival tasks",
+    cap: "Everyone completes 3 tasks at the blinking orange stations: repair the radio, decrypt the secret message, light the signal fire, purify sea water, recover the supply crate. Finish them as a team and you are rescued!",
     svg: `<rect x="400" y="150" width="110" height="112" rx="12" fill="#5a3a1a"/>
       <rect x="414" y="164" width="82" height="50" rx="6" class="screen"/>
-      <text x="455" y="196" class="t sm" fill="#241500">E · nhiệm vụ</text>
+      <text x="455" y="196" class="t sm" fill="#241500">E · task</text>
       ${A(300, 172, BLUE, 'class="bob"')}
-      <text x="200" y="60" class="t big">Sinh tồn</text>
+      <text x="200" y="60" class="t big">Survival</text>
       ${[0, 1, 2].map((i) => `<rect x="${236 + i * 56}" y="82" width="46" height="18" rx="9" fill="#222"/><rect class="pb" style="--d:${i + 1}" x="${236 + i * 56}" y="82" width="46" height="18" rx="9" fill="#4f8"/>`).join("")}
-      <text x="320" y="124" class="t sm">3 nhiệm vụ / người</text>`,
+      <text x="320" y="124" class="t sm">3 tasks / person</text>`,
   },
   {
-    title: "Một gián điệp ẩn mình",
-    cap: "Trong 7 người có 1 gián điệp được cài từ trước — có thể chính là bạn! Vai trò chia ngẫu nhiên và mã hoá bằng Zama FHE: chỉ bạn thấy vai của mình.",
-    svg: `<text x="320" y="48" class="t big">🔐 Vai trò được mã hoá</text>
+    title: "A hidden spy",
+    cap: "One of the 7 is a spy planted in advance — it could be you! Roles are assigned randomly and encrypted with Zama FHE: only you can see your own role.",
+    svg: `<text x="320" y="48" class="t big">🔐 Roles are encrypted</text>
       ${[BLUE, RED, GREEN, YEL].map((c, i) => `${A(110 + i * 120, 150, c, 'class="bob"')}<text x="${140 + i * 120}" y="140" class="t big q" style="--d:${i}">?</text>`).join("")}
-      <g class="pop" style="--d:1.2"><rect x="60" y="64" width="270" height="34" rx="17" fill="#3b4160"/><text x="195" y="86" class="t sm" fill="#5f9">Chỉ bạn thấy: BIỆT KÍCH 🎖</text></g>
-      <text x="140" y="262" class="t sm" fill="#fff">BẠN</text>`,
+      <g class="pop" style="--d:1.2"><rect x="60" y="64" width="270" height="34" rx="17" fill="#3b4160"/><text x="195" y="86" class="t sm" fill="#5f9">Only you see: COMMANDO 🎖</text></g>
+      <text x="140" y="262" class="t sm" fill="#fff">YOU</text>`,
   },
   {
-    title: "Ám sát & báo cáo thi thể",
-    cap: "Gián điệp lén ám sát người đi lẻ (phím Q, tối đa 1 lần mỗi lượt). Ai thấy thi thể bấm E để báo cáo và triệu tập họp khẩn.",
+    title: "Assassination & body reports",
+    cap: "The spy secretly assassinates anyone who wanders off alone (Q key, at most once per round). Whoever finds a body presses E to report it and call an emergency meeting.",
     svg: `<text x="320" y="48" class="t big siren">🚨</text>
       <g class="slide">${A(110, 170, RED, 'class="bob"')}</g>
       <g class="fall">${A(380, 170, BLUE)}</g>
@@ -54,27 +54,27 @@ const SCENES: { title: string; cap: string; svg: string }[] = [
       <text x="480" y="200" class="t big stab">🔪</text>`,
   },
   {
-    title: "Họp quanh lửa trại",
-    cap: "Cả đội họp quanh đống lửa, tranh luận rồi bỏ phiếu kín. Phiếu được mã hoá on-chain — không ai biết bạn bỏ cho ai. Người bị nhiều phiếu nhất bị loại khỏi đội.",
+    title: "Meeting around the campfire",
+    cap: "The squad gathers around the fire, argues, then votes in secret. Votes are encrypted on-chain — nobody knows who you voted for. The player with the most votes is ejected.",
     svg: `<ellipse cx="320" cy="214" rx="190" ry="40" fill="#8a5a2e"/>
       ${A(120, 110, BLUE, "", 0.8)}${A(230, 110, GREEN, "", 0.8)}${A(340, 110, YEL, "", 0.8)}
       <g class="eject">${A(450, 110, RED, "", 0.8)}</g>
       <text x="320" y="224" class="t big">🔥🗳</text>
       <text x="150" y="70" class="t sm vote" style="--d:0">✉</text><text x="260" y="70" class="t sm vote" style="--d:1">✉</text><text x="370" y="70" class="t sm vote" style="--d:2">✉</text>
-      <text x="320" y="270" class="t sm pop" style="--d:2.4" fill="#5f9">Bị loại: ĐÚNG là gián điệp! 🎯</text>`,
+      <text x="320" y="270" class="t sm pop" style="--d:2.4" fill="#5f9">Ejected: it WAS the spy! 🎯</text>`,
   },
   {
-    title: "Ai được sống sót?",
-    cap: "Sẵn sàng chưa? Bấm “Luật chơi” để xem điều khiển, hoặc xuất phát ngay. Cutscene mở đầu sẽ phát khi bạn vào game.",
+    title: "Who survives?",
+    cap: "Ready? Open “Rules” to see the controls, or jump right in. The opening cutscene plays when you enter the game.",
     svg: `<rect x="40" y="40" width="270" height="210" rx="14" fill="#1f3a22"/><rect x="330" y="40" width="270" height="210" rx="14" fill="#5a1a1a"/>
-      <text x="175" y="78" class="t big" fill="#5f9">🎖 BIỆT KÍCH THẮNG</text>
-      <text x="175" y="130" class="t sm">✔ Bỏ phiếu loại đúng gián điệp</text>
-      <text x="175" y="160" class="t sm">hoặc</text>
-      <text x="175" y="190" class="t sm">✔ Cả đội làm xong nhiệm vụ</text>
-      <text x="465" y="78" class="t big" fill="#f66">🕵 GIÁN ĐIỆP THẮNG</text>
-      <text x="465" y="130" class="t sm">✔ Ám sát đến khi số biệt kích</text>
-      <text x="465" y="160" class="t sm">còn sống ≤ số gián điệp</text>
-      <text x="465" y="190" class="t sm">(1 biệt kích + 1 gián điệp là đủ)</text>`,
+      <text x="175" y="78" class="t big" fill="#5f9">🎖 COMMANDOS WIN</text>
+      <text x="175" y="130" class="t sm">✔ Vote out the real spy</text>
+      <text x="175" y="160" class="t sm">or</text>
+      <text x="175" y="190" class="t sm">✔ The squad finishes its tasks</text>
+      <text x="465" y="78" class="t big" fill="#f66">🕵 THE SPY WINS</text>
+      <text x="465" y="130" class="t sm">✔ Assassinate until living commandos</text>
+      <text x="465" y="160" class="t sm">≤ number of living spies</text>
+      <text x="465" y="190" class="t sm">(1 commando + 1 spy is enough)</text>`,
   },
 ];
 
@@ -87,7 +87,7 @@ const trailerHtml = () => `
   <rect x="22" y="31" width="4" height="4" rx="2" fill="#222"/><rect x="34" y="31" width="4" height="4" rx="2" fill="#222"/>
  </symbol></defs></svg>
 <div class="tv">
- <svg viewBox="0 0 640 300" class="stage" role="img" aria-label="Trailer giới thiệu game">
+ <svg viewBox="0 0 640 300" class="stage" role="img" aria-label="Game trailer">
   <defs><linearGradient id="tsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16294a"/><stop offset="1" stop-color="#e59a62"/></linearGradient></defs><rect width="640" height="300" fill="url(#tsky)"/><circle cx="540" cy="215" r="26" fill="#ffe9a8"/><rect y="236" width="640" height="26" fill="#2aa6c8"/>
   <rect y="262" width="640" height="38" fill="#cfb87c"/><rect y="260" width="640" height="3" fill="#efe0aa"/>
   ${SCENES.map((s, i) => `<g class="scene" data-i="${i}">${s.svg}</g>`).join("")}
@@ -95,7 +95,7 @@ const trailerHtml = () => `
  <div class="tbar"><i id="tprog"></i></div>
  <div class="tcap"><b id="ttl"></b><p id="tcap"></p></div>
  <div class="tctl">
-  <button id="tprev" class="g">◀</button><button id="tpause" class="g">⏸ Tạm dừng</button><button id="tnext" class="g">▶</button>
+  <button id="tprev" class="g">◀</button><button id="tpause" class="g">⏸ Pause</button><button id="tnext" class="g">▶</button>
   <span id="tdots"></span>
  </div>
 </div>`;
@@ -107,13 +107,13 @@ function trailer() {
   const go = (n: number) => {
     cur = (n + SCENES.length) % SCENES.length; t = 0;
     scenes.forEach((s, i) => s.classList.remove("on"));
-    void scenes[cur].getBoundingClientRect(); // ép reflow để animation chạy lại từ đầu
+    void scenes[cur].getBoundingClientRect(); // force reflow so the animation restarts from the beginning
     scenes[cur].classList.add("on");
     $("#ttl").textContent = `${cur + 1}/${SCENES.length} · ${SCENES[cur].title}`; $("#tcap").textContent = SCENES[cur].cap;
     dots.querySelectorAll("u").forEach((d, i) => d.classList.toggle("a", i === cur));
   };
   $("#tprev").onclick = () => go(cur - 1); $("#tnext").onclick = () => go(cur + 1);
-  $("#tpause").onclick = () => { paused = !paused; $("#tpause").textContent = paused ? "▶ Phát" : "⏸ Tạm dừng"; };
+  $("#tpause").onclick = () => { paused = !paused; $("#tpause").textContent = paused ? "▶ Play" : "⏸ Pause"; };
   dots.onclick = (e) => { const d = (e.target as HTMLElement).closest("u"); if (d) go(+(d as HTMLElement).dataset.i!); };
   let last = performance.now();
   setInterval(() => {
@@ -125,71 +125,77 @@ function trailer() {
   go(0);
 }
 
-/* ───────────── Luật chơi (dùng cả ở menu lẫn trong game) ───────────── */
+/* ───────────── Rules (used both in the menu and in game) ───────────── */
 
 export const rulesHtml = () => `
 <div class="rg">
- <div class="card"><h3>🎯 Bối cảnh & mục tiêu</h3>
-  <p>Biệt đội ALPHA bị bão cuốn khỏi vùng nhảy dù và mắc kẹt trên đảo hoang, mất liên lạc. Bạn chơi cùng <b>6 đồng đội Bot</b>. Trong 7 người có <b>1 gián điệp</b> (ngẫu nhiên, có thể là bạn).</p>
-  <p><b style="color:#5f9">Biệt kích thắng</b> nếu loại đúng gián điệp <i>hoặc</i> cả đội làm xong nhiệm vụ sinh tồn.<br>
-  <b style="color:#f66">Gián điệp thắng</b> khi số biệt kích còn sống ≤ số gián điệp.</p></div>
- <div class="card"><h3>🎖 Nếu bạn là Biệt kích</h3>
-  <p>1. Tìm <b style="color:#fa3">trạm cam nhấp nháy</b>, đứng gần và bấm <kbd>E</kbd> để làm nhiệm vụ: 📻 sửa radio · 🔐 giải mã bản tin · 🔥 nhóm lửa tín hiệu · 💧 lọc nước · 📦 thu hồi kiện tiếp tế (mỗi người làm 3).<br>
-  2. Thấy thi thể? Đến gần bấm <kbd>E</kbd> để báo cáo.<br>
-  3. Họp quanh lửa trại: đọc chat, đối chiếu lời khai rồi bỏ phiếu loại người bạn nghi (hoặc bỏ qua).</p></div>
- <div class="card"><h3>🕵 Nếu bạn là Gián điệp</h3>
-  <p>Rình lúc ai đó đi lẻ, đến gần (&lt; 2.2m) rồi bấm <kbd>Q</kbd> để ám sát — <b>1 lần mỗi lượt</b>.<br>
-  Bấm <kbd>E</kbd> ở hang bí mật (hố đá có đốm sáng xanh) để chui sang hang khác. Làm nhiệm vụ giả để giữ vỏ bọc, rồi đổ lỗi cho người khác khi họp.</p></div>
- <div class="card"><h3>🎮 Điều khiển</h3>
-  <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> di chuyển theo hướng nhìn · <b>chuột</b> xoay camera (click vào màn hình để khoá chuột)<br><kbd>V</kbd> đổi góc nhìn: thứ 3 / thứ 1 / từ trên xuống · lăn chuột để zoom<br>
-  <kbd>Space</kbd> nhảy · <kbd>E</kbd> tương tác (nhiệm vụ / báo thi thể / hang bí mật / họp khẩn ở lửa trại giữa đảo)<br>
-  <kbd>Q</kbd> ám sát (chỉ gián điệp)<br><b>Súng:</b> <kbd>Chuột trái</kbd> bắn · <kbd>Chuột phải</kbd> ngắm · <kbd>R</kbd> nạp đạn · <kbd>G</kbd> ném lựu đạn · <kbd>1</kbd>–<kbd>4</kbd> đổi súng (lăn chuột ở góc 1/từ trên)<br>Bắn trúng đồng đội: họ <b>hét lên, chất vấn và chĩa súng lại</b>. Bắn nhầm lần nữa là bị <b>gán gián điệp — cả đội bắn bạn</b>. Chỉ <b>gián điệp</b> hạ gục thật (1 lần/lượt, dùng chung với <kbd>Q</kbd>).</p>
-  <p class="dim">Tầm nhìn có giới hạn: bạn chỉ thấy người trong vùng sáng và không bị đá, nhà, bụi rậm che. Không ai đi xuống biển được.</p></div>
- <div class="card"><h3>🔁 Một lượt chơi</h3>
-  <p>Đi lại & làm nhiệm vụ → có thi thể hoặc ai đó triệu tập họp → <b>họp & bỏ phiếu kín</b> → 1 người bị loại khỏi đội (hoặc không ai) → lượt mới, cho đến khi có bên thắng.<br>
-  Nút <b>🏁 Kiểm tra chiến dịch</b> (góc phải dưới) hỏi hợp đồng xem đã có bên thắng chưa.</p></div>
- <div class="card"><h3>🔐 Vì sao dùng blockchain?</h3>
-  <p>Vai trò, mục tiêu ám sát, phiếu bầu và tiến độ nhiệm vụ nằm <b>mã hoá</b> trên Sepolia (Zama FHE): ngay cả người xem giao dịch cũng không biết ai là gián điệp. Chỉ vị trí di chuyển và chat chạy trên máy bạn.</p></div>
+ <div class="card"><h3>🎯 Story & goal</h3>
+  <p>ALPHA Squad was blown off its drop zone by a storm and is stranded on a desert island with no contact. You play alongside <b>6 Bot squadmates</b>. Among the 7 of you is <b>1 spy</b> (random — it may be you).</p>
+  <p><b style="color:#5f9">Commandos win</b> by ejecting the real spy <i>or</i> by finishing every survival task.<br>
+  <b style="color:#f66">The spy wins</b> when living commandos ≤ living spies.</p></div>
+ <div class="card"><h3>🎖 If you are a Commando</h3>
+  <p>1. Find a <b style="color:#fa3">blinking orange station</b>, stand close and press <kbd>E</kbd> to do a task: 📻 repair the radio · 🔐 decrypt the message · 🔥 light the signal fire · 💧 purify water · 📦 recover the supply crate (3 per person).<br>
+  2. Found a body? Walk up and press <kbd>E</kbd> to report it.<br>
+  3. At the campfire meeting: read the chat, compare stories, then vote out whoever you suspect (or skip).</p></div>
+ <div class="card"><h3>🕵 If you are the Spy</h3>
+  <p>Wait for someone to wander off alone, get close (&lt; 2.2 m) and press <kbd>Q</kbd> to assassinate — <b>once per round</b>.<br>
+  Press <kbd>E</kbd> at a secret burrow (rock hole with a green glow) to pop out of another one. Fake tasks to keep your cover, then shift the blame during meetings.</p></div>
+ <div class="card"><h3>🎮 Controls</h3>
+  <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move in the direction you look · <b>mouse</b> rotates the camera (click the screen to lock the mouse)<br><kbd>V</kbd> change view: 3rd person / 1st person / top-down · scroll to zoom<br>
+  <kbd>Space</kbd> jump · <kbd>E</kbd> interact (tasks / report body / secret burrow / emergency meeting at the central campfire)<br>
+  <kbd>Q</kbd> assassinate (spy only)<br><b>Guns:</b> <kbd>Left click</kbd> shoot · <kbd>Right click</kbd> aim · <kbd>R</kbd> reload · <kbd>G</kbd> throw grenade · <kbd>1</kbd>–<kbd>4</kbd> switch weapon (scroll wheel in 1st person / top-down)</p>
+  <p class="dim">Vision is limited: you only see players inside the lit area and not hidden behind rocks, buildings or bushes. Nobody can walk into the sea.</p></div>
+ <div class="card"><h3>💥 Friendly fire is REAL</h3>
+  <p>Shoot a teammate until they <b>drop</b> and they are <b>dead for good</b> — recorded on the contract, no reviving. Only squadmates who actually <b>SEE you do it</b> (close enough, facing you, no wall between) will yell <b>“WHY YOU SHOT ME??”</b> and <b>aim back at you</b>. Everyone else just runs over to the victim and asks what happened — <b>no witness, no accusation</b>. A witnessed shot <b>again</b> and the squad marks you as the spy and <b>opens fire</b>; the spy's real kills are exposed the same way if someone sees them.<br>
+  If they gun you down, your death is <b>recorded on the smart contract</b> and the game ends <b>immediately</b> — even though the real spy was never found. Only the <b>spy</b> can truly kill (once per round, shared with <kbd>Q</kbd>). Think before you pull the trigger.</p></div>
+ <div class="card"><h3>🔁 One round</h3>
+  <p>Roam & do tasks → a body is found or someone calls a meeting → <b>meeting & secret vote</b> → 1 player is ejected (or nobody) → new round, until one side wins.<br>
+  The <b>🏁 Check mission</b> button (bottom right) asks the contract whether anyone has won yet.</p></div>
+ <div class="card"><h3>🔐 Why blockchain?</h3>
+  <p>Roles, assassination targets, votes and task progress are <b>encrypted</b> on Sepolia (Zama FHE): even someone watching the transactions cannot tell who the spy is. Deaths — including being executed by your squad — are written to the contract. Only movement and chat run on your machine.</p></div>
 </div>`;
 
-/* ───────────── Bước 3: giải thích ví + kiểm tra môi trường ───────────── */
+
+/* ───────────── Step 3: wallet explanation + environment check ───────────── */
 
 const connectHtml = () => `
 <div class="rg two">
- <div class="card"><h3>🔗 Tại sao cần kết nối ví?</h3>
-  <p>Game chạy trên <b>Sepolia</b> — mạng <b>thử nghiệm</b> của Ethereum. Ví (MetaMask) là “tài khoản” để ký các hành động: tạo phòng, làm nhiệm vụ, ám sát, bỏ phiếu.</p>
-  <ul><li>💸 <b>Không dùng tiền thật.</b> Chỉ cần ETH Sepolia (miễn phí, tìm “Sepolia faucet”).</li>
-  <li>⛽ Mỗi hành động tốn một chút gas ETH test; một ván cần khoảng <b>10–20 lần xác nhận</b> trong MetaMask.</li>
-  <li>✍️ Một chữ ký không tốn gas để <b>giải mã vai trò</b> của bạn (chỉ bạn thấy được).</li>
-  <li>🔑 Game <b>không bao giờ</b> hỏi seed phrase / khoá riêng của bạn.</li></ul></div>
- <div class="card"><h3>✅ Kiểm tra nhanh</h3>
+ <div class="card"><h3>🔗 Why connect a wallet?</h3>
+  <p>The game runs on <b>Sepolia</b> — Ethereum's <b>test network</b>. Your wallet (MetaMask) is the “account” that signs your actions: create the room, do tasks, assassinate, vote.</p>
+  <ul><li>💸 <b>No real money.</b> You only need Sepolia ETH (free — search “Sepolia faucet”).</li>
+  <li>🔑 A throw-away <b>session wallet</b> is created in your browser and funded once with ~0.03 test-ETH. It signs the bots\u2019 actions (bot turns, bot votes, tally) so MetaMask only asks you for <b>your own</b> actions. It can never act as you.</li>
+  <li>⛽ Your own actions (tasks, kills, votes, deaths) still cost a little test-ETH gas and need your confirmation.</li>
+  <li>✍️ One gas-free signature lets you <b>decrypt your role</b> (only you can see it).</li>
+  <li>🔑 The game <b>never</b> asks for your seed phrase / private key.</li></ul></div>
+ <div class="card"><h3>✅ Quick check</h3>
   <p id="chk1">…</p><p id="chk2">…</p>
-  <p class="dim">Mẹo: dùng ví riêng cho test, không dùng ví chứa tiền thật.</p>
-  <button id="bPlay" class="big">🔗 Kết nối ví & Xuất phát (1 + 6 đồng đội Bot)</button>
+  <p class="dim">Tip: use a separate wallet for testing, never one that holds real funds.</p>
+  <button id="bPlay" class="big">🔗 Connect wallet & Deploy (you + 6 Bot squadmates)</button>
   <div id="mlog"></div></div>
 </div>`;
 
+
 async function checkEnv() {
   const eth = (window as any).ethereum, c1 = $("#chk1"), c2 = $("#chk2");
-  if (!eth) { c1.innerHTML = '❌ Chưa thấy ví. Cài <a href="https://metamask.io/download" target="_blank" rel="noopener">MetaMask</a> rồi tải lại trang.'; c2.textContent = ""; return; }
-  c1.textContent = "✅ Đã phát hiện ví trên trình duyệt.";
+  if (!eth) { c1.innerHTML = '❌ No wallet found. Install <a href="https://metamask.io/download" target="_blank" rel="noopener">MetaMask</a> and reload the page.'; c2.textContent = ""; return; }
+  c1.textContent = "✅ Wallet detected in your browser.";
   try {
     const id = await eth.request({ method: "eth_chainId" });
-    c2.textContent = id === "0xaa36a7" ? "✅ Đang ở mạng Sepolia." : "⚠️ Chưa ở mạng Sepolia — game sẽ xin bạn chuyển mạng khi bấm Chơi.";
-  } catch { c2.textContent = "ℹ️ Sẽ kiểm tra mạng khi bạn bấm Chơi."; }
+    c2.textContent = id === "0xaa36a7" ? "✅ You are on the Sepolia network." : "⚠️ Not on Sepolia yet — the game will ask you to switch networks when you press Play.";
+  } catch { c2.textContent = "ℹ️ The network will be checked when you press Play."; }
 }
 
-/* ───────────── Khung điều hướng ───────────── */
+/* ───────────── Navigation frame ───────────── */
 
 export function initIntro(onPlay: () => void) {
   const ob = $("#ob");
   ob.innerHTML = `
   <div id="obTop"><span class="logo">🪂 Lost Island</span>
-   <nav id="obSteps"><b data-s="0">1 · Giới thiệu</b><b data-s="1">2 · Luật chơi</b><b data-s="2">3 · Vào chơi</b></nav></div>
+   <nav id="obSteps"><b data-s="0">1 · Intro</b><b data-s="1">2 · Rules</b><b data-s="2">3 · Play</b></nav></div>
   <section data-s="0">${trailerHtml()}</section>
-  <section data-s="1"><h2>Luật chơi trong 1 phút</h2>${rulesHtml()}</section>
-  <section data-s="2"><h2>Sẵn sàng vào game</h2>${connectHtml()}</section>
-  <div id="obNav"><button id="obBack" class="g">← Quay lại</button><button id="obNext">Tiếp theo →</button></div>`;
+  <section data-s="1"><h2>The rules in 1 minute</h2>${rulesHtml()}</section>
+  <section data-s="2"><h2>Ready to play</h2>${connectHtml()}</section>
+  <div id="obNav"><button id="obBack" class="g">← Back</button><button id="obNext">Next →</button></div>`;
 
   let step = 0;
   const set = (n: number) => {
@@ -198,7 +204,7 @@ export function initIntro(onPlay: () => void) {
     ob.querySelectorAll<HTMLElement>("#obSteps b").forEach((b) => b.classList.toggle("a", +b.dataset.s! === step));
     $("#obBack").style.visibility = step === 0 ? "hidden" : "visible";
     $("#obNext").style.display = step === 2 ? "none" : "";
-    $("#obNext").textContent = step === 0 ? "Xem luật chơi →" : "Tôi đã hiểu, tiếp →";
+    $("#obNext").textContent = step === 0 ? "See the rules →" : "Got it, next →";
     if (step === 2) { store.set(); void checkEnv(); }
     ob.scrollTop = 0;
   };
@@ -206,12 +212,12 @@ export function initIntro(onPlay: () => void) {
   $("#obBack").onclick = () => set(step - 1); $("#obNext").onclick = () => set(step + 1);
   $("#bPlay").onclick = onPlay;
   trailer();
-  set(store.get() ? 2 : 0); // lần sau vào thẳng bước 3 (vẫn bấm “1 · Giới thiệu” để xem lại)
+  set(store.get() ? 2 : 0); // next time, jump straight to step 3 (click “1 · Intro” to watch again)
 }
 
-/** Nút ❓ trong game: hiện lại luật chơi (game không tạm dừng). */
+/** The ❓ button in game: shows the rules again (the game does not pause). */
 export function initHowTo() {
-  $("#howto").innerHTML = `<div class="pn wide"><h2>❓ Cách chơi</h2>${rulesHtml()}<button id="hx" class="g">Đóng (game vẫn chạy)</button></div>`;
+  $("#howto").innerHTML = `<div class="pn wide"><h2>❓ How to play</h2>${rulesHtml()}<button id="hx" class="g">Close (game keeps running)</button></div>`;
   $("#bHelp").onclick = () => ($("#howto").style.display = "flex");
   $("#hx").onclick = () => ($("#howto").style.display = "none");
 }

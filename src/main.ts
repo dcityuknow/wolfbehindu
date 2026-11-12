@@ -24,7 +24,7 @@ import { updateFx } from "./world/fx";
 import { updateWeaponHud } from "./ui/weaponHud";
 import { W } from "./weaponState";
 import { canvasEl } from "./world/scene";
-import { lethal } from "./gameplay/actions";
+import { lethal, friendlyKill } from "./gameplay/actions";
 import { cineUpdate } from "./world/cine3d";
 import { updateHostile } from "./gameplay/hostile";
 import { CINE } from "./world/cineState";
@@ -32,7 +32,7 @@ import { CINE } from "./world/cineState";
 bindInput({ onWeapon: selectWeapon, onReload: startReload, onGrenade: throwGrenade, onInteract: interact, onKill: doKill, onView: cycleView, onJump: () => { const m = me(); if (G.phase === "play" && m.y <= 0) m.vy = 5; } });
 initIntro(startSolo); initHowTo();
 $("#bKill").onclick = doKill; $("#bView").onclick = cycleView; bindMouse(); initCombat();
-hooks.lethal = lethal; hooks.shake = (v) => { shake.v = Math.max(shake.v, v); };
+hooks.lethal = lethal; hooks.friendlyKill = friendlyKill; hooks.shake = (v) => { shake.v = Math.max(shake.v, v); };
 canvasEl.addEventListener("wheel", (e) => { if (G.phase === "play" && rig.mode !== "third") cycleWeapon(Math.sign(e.deltaY)); }, { passive: true });   // lăn chuột đổi súng (góc 1 / từ trên)
 
 function update(dt: number) {

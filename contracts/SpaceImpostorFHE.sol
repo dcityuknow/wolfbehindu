@@ -61,7 +61,8 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     enum Winner {
         None,
         Crewmates,
-        Impostors
+        Impostors,
+        FriendlyFire // the squad executed a player after friendly fire: mission over, the spy was never found
     }
 
     enum PendingKind {
@@ -94,6 +95,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         uint32 round;
         uint32 lastCheckpointRound;
         uint64 voteDeadline;
+        address operator; // Solo: session wallet allowed to run the bots / tally / checkpoint (no MetaMask popups)
         euint8 taskProgress; // số task đã hoàn thành (MÃ HOÁ, Impostor không cộng)
         euint8[MAX_PLAYERS] voteCounts; // phiếu tích luỹ theo slot (MÃ HOÁ)
     }
@@ -118,6 +120,11 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     event PlayerEjected(uint256 indexed roomId, uint8 slotId, bool wasImpostor);
     event NoEjection(uint256 indexed roomId, uint32 round);
     event GameEnded(uint256 indexed roomId, Winner winner);
+    /// @dev A player was gunned down by their own squad after shooting a teammate by mistake.
+    event OperatorSet(uint256 indexed roomId, address operator);
+    event PlayerExecuted(uint256 indexed roomId, uint8 slotId, uint32 round);
+    /// @dev A player shot a squadmate dead. The victim stays dead for the rest of the game.
+    event FriendlyKill(uint256 indexed roomId, uint8 killerSlot, uint8 victimSlot, uint32 round);
 
     // ───────────────────────────── MODIFIERS ─────────────────────────────
     modifier inPhase(uint256 roomId, Phase p) {
@@ -267,7 +274,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
      */
     function requestCheckpoint(uint256 roomId) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
-        _slotOf(roomId, msg.sender);
+        _requireMemberOrOperator(roomId);
         require(r.pendingKind == PendingKind.None, "Decryption pending");
         require(r.lastCheckpointRound < r.round, "Checkpoint already done");
         r.lastCheckpointRound = r.round;
@@ -301,6 +308,49 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         else if (impWin) _finish(roomId, Winner.Impostors);
     }
 
+    /**
+     * @notice Friendly fire: the caller shot squadmate `victim` dead. The victim's (encrypted) status becomes Dead
+     *         permanently, so they cannot act or vote and they count as dead in every win check.
+     *         Their role stays hidden: if they happened to be the impostor, the next checkpoint ends the game
+     *         with a Commando win (no impostor left alive) without ever revealing who it was.
+     * @dev    Client-attested like `reportExecution` (the contract has no positions). Killing the spy with the
+     *         secret `executeSecretKill` route is unchanged; this is the public route for any other gun kill.
+     */
+    function reportFriendlyKill(uint256 roomId, uint8 victim) external inPhase(roomId, Phase.Playing) {
+        Room storage r = _rooms[roomId];
+        uint8 killer = _slotOf(roomId, msg.sender);
+        require(victim < r.totalSlots, "Bad victim");
+        require(victim != killer, "Cannot target yourself");
+        require(!_players[roomId][killer].ejected, "You are dead");
+        _setStatus(_players[roomId][victim], FHE.asEuint8(0));
+        emit FriendlyKill(roomId, killer, victim, r.round);
+    }
+
+    /**
+     * @notice Friendly-fire ending. The caller shot a teammate, was marked as the spy by the squad and was
+     *         gunned down. This records the death on-chain (status -> Dead, `ejected` = true) and ends the game
+     *         immediately with `Winner.FriendlyFire`, even though the real impostor was never found.
+     * @dev    Combat is simulated client-side (the contract has no positions), so - exactly like the kill range -
+     *         this is client-attested. Only a player of the room can report their OWN death, and only while the
+     *         game is running. The role is never revealed: the outcome is the same for Crew and Impostor.
+     */
+    function reportExecution(uint256 roomId) external {
+        Room storage r = _rooms[roomId];
+        require(r.phase == Phase.Playing || r.phase == Phase.Voting, "Game not running");
+        uint8 slot = _slotOf(roomId, msg.sender);
+        Player storage me = _players[roomId][slot];
+        require(!me.ejected, "Already dead");
+
+        me.ejected = true;
+        _setStatus(me, FHE.asEuint8(0));
+        // Drop any half-finished decryption request so nothing can resolve the game a second time.
+        delete _pending[roomId];
+        r.pendingKind = PendingKind.None;
+
+        emit PlayerExecuted(roomId, slot, r.round);
+        _finish(roomId, Winner.FriendlyFire);
+    }
+
     // ═════════════════════════════════════════════════════════════════════
     //                         BOT (SOLO) — CHIA LÔ
     // ═════════════════════════════════════════════════════════════════════
@@ -310,7 +360,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     function runBotTurns(uint256 roomId) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
         require(r.isSolo, "Solo only");
-        _slotOf(roomId, msg.sender);
+        _requireMemberOrOperator(roomId);
         require(r.pendingKind == PendingKind.None, "Decryption pending");
 
         Player[] storage ps = _players[roomId];
@@ -328,7 +378,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     function runBotVotes(uint256 roomId) external inPhase(roomId, Phase.Voting) {
         Room storage r = _rooms[roomId];
         require(r.isSolo, "Solo only");
-        _slotOf(roomId, msg.sender);
+        _requireMemberOrOperator(roomId);
 
         Player[] storage ps = _players[roomId];
         uint8 done = 0;
@@ -369,7 +419,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     /// @notice Mở cuộc họp: reset phiếu, và cấp quyền xem `status` của mọi slot cho người trong phòng (báo xác chết).
     function callMeeting(uint256 roomId) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
-        _slotOf(roomId, msg.sender);
+        _requireMemberOrOperator(roomId);
         require(r.pendingKind == PendingKind.None, "Decryption pending");
 
         Player[] storage ps = _players[roomId];
@@ -432,8 +482,11 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
      */
     function tallyVotes(uint256 roomId) external inPhase(roomId, Phase.Voting) {
         Room storage r = _rooms[roomId];
-        _slotOf(roomId, msg.sender);
-        require(block.timestamp >= r.voteDeadline || r.votesCast == r.humanCount, "Voting still open");
+        _requireMemberOrOperator(roomId);
+        // Solo: the session-wallet operator (the player's own throw-away key) may close the vote early. That is how a dead player
+        // (whose zero-weight vote is pointless) or a player who ran out of time abstains without signing anything.
+        bool byOperator = r.isSolo && r.operator != address(0) && msg.sender == r.operator;
+        require(byOperator || block.timestamp >= r.voteDeadline || r.votesCast == r.humanCount, "Voting still open");
 
         Player[] storage ps = _players[roomId];
         uint8 n = r.totalSlots;
@@ -604,6 +657,29 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         emit PlayerJoined(roomId, who, slot);
     }
 
+    /// @notice Solo only: a room member registers a session wallet (kept in the browser) that may run the technical,
+    ///         role-free steps - bot turns, bot votes, opening a meeting, tally and checkpoint requests - so the player is not
+    ///         asked to sign for the bots. The operator can NOT act as a player (no kill, vote, task or death report).
+    function setOperator(uint256 roomId, address op) external {
+        Room storage r = _rooms[roomId];
+        require(r.isSolo, "Solo only");
+        require(r.phase == Phase.Lobby || r.phase == Phase.Playing, "Wrong phase");
+        _slotOf(roomId, msg.sender);
+        r.operator = op;
+        emit OperatorSet(roomId, op);
+    }
+
+    function operatorOf(uint256 roomId) external view returns (address) {
+        return _rooms[roomId].operator;
+    }
+
+    /// @dev Caller must be a room member, or the room's session-wallet operator.
+    function _requireMemberOrOperator(uint256 roomId) private view {
+        address op = _rooms[roomId].operator;
+        if (op != address(0) && msg.sender == op) return;
+        _slotOf(roomId, msg.sender);
+    }
+
     function _slotOf(uint256 roomId, address who) private view returns (uint8) {
         uint8 s = _slotPlusOne[roomId][who];
         require(s != 0, "Not in room");
@@ -674,7 +750,8 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         euint8 crewAlive = FHE.sub(alive, impAlive);
 
         impWin = FHE.le(crewAlive, impAlive);
-        tasksDone = FHE.ge(r.taskProgress, r.taskTarget);
+        // Commandos also win when no impostor is left alive (e.g. the spy was shot dead).
+        tasksDone = FHE.or(FHE.ge(r.taskProgress, r.taskTarget), FHE.eq(impAlive, 0));
     }
 
     function _publish(ebool v) private returns (bytes32) {
