@@ -5,6 +5,7 @@ import { checkpointOnChain, getRoom, secretAct } from "../web3/chain";
 import { toast } from "../ui/dom";
 import { UI } from "../story";
 import { resetRound } from "./combat";
+import { standAll } from "./seats";
 
 /** Crew gửi "act" giả vào thời điểm ngẫu nhiên để giao dịch của Impostor không nổi bật. */
 export function scheduleDummyAct() {
@@ -17,7 +18,7 @@ export async function ensureActed() {
   try { await secretAct(); } catch { /* đã act hoặc lỗi mạng */ }
 }
 export function nextRound() {
-  G.round++; G.acted = G.killUsed = G.voted = false;
+  G.round++; G.acted = G.killUsed = G.voted = false; G.call = null; G.reporting = false; G.reporter = -1; G.bodyKnown = false; standAll();
   bodies.forEach((b) => (b.g.visible = false)); bodies.length = 0;
   entities.forEach((e) => { if (e.dead) e.out = true; });
   spawnAll(); resetRound(); setRound(G.round); G.phase = "play"; scheduleDummyAct();

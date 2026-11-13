@@ -19,11 +19,23 @@ export const parseEvents = (r: any) => r.logs.map((l: any) => { try { return ctx
 /** Contract used for the technical, role-free calls: the session wallet if set up (no popups), otherwise the player wallet. */
 const op = () => ctx.opGame ?? ctx.game;
 
-export async function createSoloRoom() {
-  const r = await tx("Create solo room", () => ctx.game.createRoom(true));
+/** Whole solo setup in ONE transaction: room + operator + bots + encrypted roles + start. */
+/** FHE gas is not constant (random role shuffle): the wallet's estimate is sometimes too low and the tx reverts with no reason (out of gas).
+ *  So we send an explicit, generous gas limit (only the gas actually used is charged) and retry once on a silent revert. */
+const FHE_GAS = 15_000_000n;
+async function withRetry<T>(label: string, fn: () => Promise<any>): Promise<any> {
+  try { return await tx(label, fn); }
+  catch (e: any) {
+    if (e?.code !== "CALL_EXCEPTION") throw e;   // user rejected / network error: do not retry
+    toast("↻ " + label + " reverted (likely gas) — retrying once…");
+    return tx(label + " (retry)", fn);
+  }
+}
+export async function createSoloGame(operator: string) {
+  const r = await withRetry("Create game & deal roles (FHE)", () => ctx.game.createSoloGame(operator, { gasLimit: FHE_GAS }));
   ctx.roomId = parseEvents(r).find((e: any) => e.name === "RoomCreated").args.roomId;
 }
-export const startGame = () => tx("Assign roles (FHE)", () => ctx.game.startGame(ctx.roomId));
+export const startGame = () => withRetry("Assign roles (FHE)", () => ctx.game.startGame(ctx.roomId, { gasLimit: FHE_GAS }));
 export async function fetchMyRole(): Promise<0 | 1> {
   const h = await ctx.game.getRoleHandle(ctx.roomId, ctx.account);
   return Number((await userDecrypt([h]))[h]) as 0 | 1;

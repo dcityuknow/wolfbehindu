@@ -31,6 +31,15 @@ export const UI = {
   report: "[E] 🚨 Report the body", vent: "[E] Enter secret burrow", meeting: "[E] Call emergency meeting",
   ventToast: "🕳 You slipped into a secret burrow!",
   ghostToast: "💀 You were assassinated — you are now a ghost on the island, still able to watch",
+  bodyHint: "🚨 Body found! Run to the campfire and sit down ([E]) to call a meeting.",
+  bodyPrompt: "[E] 🚨 Body found — run to the campfire to call the meeting",
+  sitCall: "[E] 🪑 Sit down at the campfire & call a meeting", sitJoin: "[E] 🪑 Sit down — join the meeting",
+  seated: "🪑 You are seated at the campfire — waiting for the others…",
+  callBy: (n: string) => `${n} sat at the campfire and called a meeting — everyone run to the fire!`,
+  callBar: (why: string, who: string, s: number) => `<div class="cb-t">🚨 MEETING CALLED — ${why}</div><div>${who} is at the campfire. Run there and press <b>[E]</b> to sit down!</div><div class="cb-n">${s}</div><div class="cb-s">Anyone who doesn't show up is branded the SPY!</div>`,
+  callWait: (n: number, s: number) => `🪑 You are seated · waiting for ${n} more · ${s}s`,
+  callChain: "📡 Everyone is seated — opening the meeting on-chain…",
+  branded: (n: string) => `🚫 ${n} did not come to the campfire in time — branded the SPY and expelled`,
   bodyFound: "Body discovered!", callMeeting: "Emergency meeting at the campfire!",
   botReport: (n: string) => `📢 ${n} found a body!`,
   help: "❓ Briefing", check: "🏁 Check mission", checkNone: "The mission goes on — nobody has won yet.",
@@ -44,7 +53,7 @@ export const UI = {
   again: "Play again",
   // friendly fire
   mateDead: (n: string) => `☠ ${n} is dead for good — friendly fire is recorded on-chain`,
-  opSetup: "🔑 Setting up your session wallet (it signs for the bots, so no more popups)…",
+  opSetup: "🔑 Preparing your session wallet (it signs for the bots)…",
   opFunding: "⛽ Funding the session wallet with a little test-ETH…",
   opReady: "✓ Session wallet ready — bot actions now run without popups",
   opFallback: "⚠ Session wallet unavailable — falling back to MetaMask for bot actions",
@@ -70,6 +79,12 @@ export const ENDING = {
     crew: "You opened fire on your own teammates — and they showed no mercy.<br>The squad's trust shattered on the island, and the spy was never found.",
     spy: "Your careless gunfire blew your cover. The squad gunned you down on suspicion alone — no vote, no proof, no victory for anyone.",
     over: "GAME OVER — the mission ended before the spy was found.",
+  },
+  absent: {
+    title: "🕵 BRANDED THE SPY — YOU NEVER SHOWED UP",
+    crew: "A meeting was called and you did not reach the campfire within 30 seconds. The squad decided only a spy would stay away — and had you removed.",
+    spy: "A meeting was called and you stayed away from the campfire. The squad took your absence as a confession and removed you.",
+    over: "GAME OVER — you missed the emergency meeting.",
   },
   win: "🎉 You win!", lose: "You lose.",
 };
@@ -99,24 +114,30 @@ export const OPENERS = {
   emergency: ["I called this meeting to settle things: our squad is being manipulated from the inside.", "Something is wrong. Everyone gather around the fire and talk it through."],
 };
 
-/** Opening cutscene — each beat: tag (timeline/location), art (illustration), lines (narration typed out letter by letter). */
-export const CUTSCENE: { tag: string; art: "cabin" | "jump" | "storm" | "lost" | "island" | "briefing"; lines: string[] }[] = [
-  { tag: `02:14 · ALTITUDE 12,000 FT · ${GAME.op}`, art: "cabin", lines: [
-    "The C-130 cabin shudders in murky red light. Seven figures sit along both sides of the fuselage, main chutes cinched tight, rifles pressed to their chests.",
-    "«ALPHA Squad, ten minutes to the drop zone. Objective: the abandoned comms station on the plateau. Grab the data, withdraw, leave no trace.»",
-    "Nobody speaks. Before boarding, the commander gave just one warning: someone on this team was planted long before today." ] },
-  { tag: "02:26 · GREEN LIGHT · REAR RAMP OPEN", art: "jump", lines: [
-    "The red light turns green. The rear ramp swings wide and the wind howls, tearing every sound apart. «GO! GO! GO!»",
-    "One by one they dive into the night. Main chutes burst open, blooming like black flowers across the sky." ] },
-  { tag: "02:31 · STORM", art: "storm", lines: [
-    "Nobody saw the storm until it swallowed the entire sky. Lightning ripped through the clouds, and gusts swept the squad away like dry leaves.",
-    "Lines tangled. Signal lights blinked and died. The radio screeched through static: «…Alpha… abort… jump… lost cont—»" ] },
-  { tag: "02:40 · CONTACT LOST", art: "lost", lines: [
-    "Then only silence. Seven canopies drifted dozens of miles off target, carried straight toward a lone black speck in the middle of the ocean." ] },
-  { tag: "DAWN · DESERT ISLAND", art: "island", lines: [
-    "They woke on white sand with endless blue sea on every side. Radios dead, maps washed out, the plane long gone. Only torn parachutes, a few supply crates… and seven survivors had washed ashore." ] },
-  { tag: "SURVIVAL OBJECTIVES", art: "briefing", lines: [
-    "To live, they must repair the radio, decrypt the secret message, light a signal fire, purify sea water and recover the supply crate.",
-    "But the commander never finished his warning: the traitor landed on this island too. They are standing right next to you.",
-    "Trust no one. Survive." ] },
+/** Opening cutscene: 5 scenes (≈60s total, durations in world/cine3d.ts BEAT_MIN). No on-screen narration — the only text shown is the characters' subtitles (VOICE below). */
+export const CUTSCENE = [{ tag: "cabin" }, { tag: "jump" }, { tag: "storm" }, { tag: "altitude" }, { tag: "island" }];
+
+/**
+ * Voice-over (male voices) + subtitles for the opening. beat/t = when it starts inside the scene (seconds). spk = id of the squad member whose mouth moves (-1 = none).
+ * chan: net = squad radio · static = failing radio · ai = suit AI · private = private channel. cutAt = radio cuts out after N seconds.
+ * Voices come from the browser's text-to-speech (pitch/rate tuned per character). To use real recordings, drop public/voice/<id>.mp3 — it is picked up automatically.
+ */
+export interface VoiceLine { id: string; beat: number; t: number; who: string; chan: "net" | "static" | "ai" | "private" | ""; spk: number; en: string; vi: string; pitch: number; rate: number; vol?: number; cutAt?: number }
+export const VOICE: VoiceLine[] = [
+  { id: "v1", beat: 0, t: 0.5, who: "TEAM LEADER · comms", chan: "net", spk: 1, pitch: 0.75, rate: 0.95,
+    en: "Heads up. Our sat-link was compromised five minutes ago. Someone leaked the coordinates.", vi: "Cảnh giác. Đường truyền vệ tinh đã bị lộ từ 5 phút trước. Có kẻ đã tuồn tọa độ ra ngoài." },
+  { id: "v2", beat: 0, t: 8.8, who: "COMMANDO #2", chan: "", spk: 2, pitch: 0.55, rate: 1.0,
+    en: "What are you looking at? You? Or was it you?", vi: "Nhìn cái gì? Mày hả? Hay là mày?" },
+  { id: "v3", beat: 1, t: 0.8, who: "TEAM LEADER", chan: "net", spk: 1, pitch: 0.9, rate: 1.2, vol: 1,
+    en: "Save it! Improvise on the ground! MOVE! GO, GO, GO!", vi: "Dẹp ngay! Xuống đất tùy cơ ứng biến! DI CHUYỂN! NHẢY, NHẢY, NHẢY!" },
+  { id: "v4a", beat: 2, t: 2.0, who: "RADIO", chan: "static", spk: -1, pitch: 0.8, rate: 1.1, vol: 0.75,
+    en: "Mayday... lost formation!...", vi: "Cấp cứu... mất đội hình!..." },
+  { id: "v4b", beat: 2, t: 5.2, who: "RADIO", chan: "static", spk: -1, pitch: 0.8, rate: 1.1, vol: 0.6,
+    en: "Off-course... [STATIC]...", vi: "Lệch hướng... [RẸ RẸ]..." },
+  { id: "v4c", beat: 2, t: 8.0, who: "RADIO", chan: "static", spk: -1, pitch: 0.8, rate: 1.25, vol: 0.55, cutAt: 1.2,
+    en: "...abort, abort—", vi: "...hủy bỏ, hủy bỏ—" },
+  { id: "v5", beat: 3, t: 0.0, who: "SUIT AI", chan: "ai", spk: -1, pitch: 0.3, rate: 1.0,
+    en: "Warning. Critical altitude. Emergency auto-deploy engaged.", vi: "Cảnh báo. Độ cao nguy hiểm. Kích hoạt bung dù khẩn cấp." },
+  { id: "v6", beat: 4, t: 6.4, who: "PRIVATE CHANNEL", chan: "private", spk: -1, pitch: 0.6, rate: 0.82,
+    en: "Game on. Good luck surviving... old friends.", vi: "Trò chơi bắt đầu. Chúc may mắn sống sót nhé... những người bạn cũ." },
 ];

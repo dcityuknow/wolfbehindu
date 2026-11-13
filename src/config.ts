@@ -1,19 +1,22 @@
 /** Hằng số game — chỉnh cân bằng/giao diện tại đây. */
 export const NO_TARGET = 255;          // = NO_TARGET trong contract (skip vote / kill giả)
 export const TASKS_PER_PLAYER = 3;     // = TASKS_PER_PLAYER trong contract
-export const CEN = [-18, 0, 18];       // tâm 3 hàng/cột khu vực trên đảo
-export const VIS = 12;                 // tầm nhìn tối đa (m)
+export const VIS = 16;                 // tầm nhìn tối đa (m) — đảo v27 rộng gấp 4 nên tăng từ 12
 export const KILL_RANGE = 2.2;
-export const PLAYER_SPEED = 6;
-export const BOT_SPEED = 3.2;
+export const PLAYER_SPEED = 7;
+export const BOT_SPEED = 3.8;
 export const BOTS = 6;                 // = SOLO_BOTS trong contract
 export const PLAYERS = BOTS + 1;       // bạn + bot
+/** Họp: ghế quanh đống lửa (mỗi người một ghế) · thời gian chạy tới lửa trại sau khi có người gọi họp · tầm với để ngồi vào ghế. */
+export const CALL_SECONDS = 30;
+export const CAMP_REACH = 4.5;
+export const seatPos = (k: number) => { const a = (k / PLAYERS) * Math.PI * 2 + 0.3; return { x: Math.cos(a) * 2.5, z: Math.sin(a) * 2.5 }; };
 export const COLORS = [0xff4d4d, 0x4da6ff, 0x4dff88, 0xffd24d, 0xff9f43, 0xc77dff, 0x2ee6d6];
 /** Đội hình 7 người (mã quân phục trong soldier.ts: vn us ru ng bd id in cn ph ua kr). [0] = bạn. */
 export const SQUAD = ["vn", "us", "id", "ph", "ru", "kr", "ng"];
 export { CALLSIGNS as NAMES, CHAT_LINES } from "./story";
 // Ánh sáng ngoài trời (three >= r155, đơn vị vật lý). Tối/sáng quá thì chỉnh ở đây.
-export const LIGHT = { ambient: 1.6, sun: 3.2, torch: 18, torchRange: 12, fogPlay: 0.011, fogGhost: 0.006 };
+export const LIGHT = { ambient: 1.6, sun: 3.2, torch: 18, torchRange: 12, fogPlay: 0.0045, fogGhost: 0.0032 };
 
 /* ───────────── Vũ khí ───────────── */
 export type GunId = "pistol" | "smg" | "rifle" | "shotgun";

@@ -3,6 +3,7 @@ import { wallMeshes } from "./map";
 import { me } from "./characters";
 import { facing } from "./camera";
 import { VIS } from "../config";
+import { losBlocked } from "./island";
 
 const ray = new THREE.Raycaster();
 /** Fog of war: thấy được nếu trong tầm, trong nón nhìn (~170° quanh hướng camera) hoặc rất gần, và không bị tường chắn. */
@@ -11,7 +12,8 @@ export function canSee(o: { x: number; z: number }) {
   if (L > VIS) return false;
   const diff = Math.abs(((Math.atan2(dx, dz) - facing(m) + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
   if (L > 3 && diff > 1.5) return false;
-  ray.set(new THREE.Vector3(m.x, 1, m.z), new THREE.Vector3(dx, 0, dz).normalize());
+  if (losBlocked(m.x, m.y + 1.6, m.z, o.x, ((o as { y?: number }).y ?? m.y) + 1.4, o.z)) return false;   // đồi/núi chắn tầm nhìn
+  ray.set(new THREE.Vector3(m.x, m.y + 1, m.z), new THREE.Vector3(dx, 0, dz).normalize());
   ray.far = L;
   return ray.intersectObjects(wallMeshes).length === 0;
 }

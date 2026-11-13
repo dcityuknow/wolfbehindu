@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { scene } from "./scene";
+import { groundAt } from "./island";
 
 /** Hiệu ứng chiến đấu: vệt đạn, tia lửa/bụi/máu, nổ lựu đạn. Mọi vật thể đều dùng lại (pool) — không sinh rác mỗi phát bắn. */
 const bGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -39,7 +40,7 @@ const exs: Ex[] = [];
 export function explosion(p: THREE.Vector3, radius: number) {
   const core = new THREE.Mesh(sGeo, new THREE.MeshBasicMaterial({ color: 0xffa030, transparent: true, opacity: 0.9, fog: false, depthWrite: false }));
   const ring = new THREE.Mesh(rGeo, new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.8, side: THREE.DoubleSide, fog: false, depthWrite: false }));
-  ring.rotation.x = -Math.PI / 2; core.position.copy(p); ring.position.set(p.x, 0.08, p.z); scene.add(core, ring);
+  ring.rotation.x = -Math.PI / 2; core.position.copy(p); ring.position.set(p.x, Math.max(groundAt(p.x, p.z), p.y - 1.4) + 0.08, p.z); scene.add(core, ring);
   exs.push({ core, ring, t: 0, r: radius });
   burst(p, "fire", 16, 7, 0.16, 0.7, 2.5); burst(p, "dust", 14, 6, 0.22, 0.9, 1.5); exLight.position.copy(p).setY(1.5);
 }
@@ -50,7 +51,7 @@ export function updateFx(dt: number) {
     if (!o.m.visible) continue;
     if ((o.t -= dt) <= 0) { o.m.visible = false; continue; }
     o.v.y -= 9 * dt; o.m.position.addScaledVector(o.v, dt);
-    if (o.m.position.y < 0.03) { o.m.position.y = 0.03; o.v.set(o.v.x * 0.4, 0, o.v.z * 0.4); }
+    const gy = groundAt(o.m.position.x, o.m.position.z) + 0.03; if (o.m.position.y < gy) { o.m.position.y = gy; o.v.set(o.v.x * 0.4, 0, o.v.z * 0.4); }
     o.m.scale.setScalar(o.s * (o.t / o.t0));
   }
   let light = 0;

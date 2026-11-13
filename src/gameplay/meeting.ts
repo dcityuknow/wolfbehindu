@@ -1,32 +1,73 @@
 import { $, show, hide, toast, sleep } from "../ui/dom";
 import { G } from "../state";
-import { entities, bodies, markDead } from "../world/characters";
-import { COLORS, NAMES, NO_TARGET, CHAT_LINES, PLAYERS } from "../config";
+import { entities, bodies, markDead, me, setAlerts } from "../world/characters";
+import type { Entity } from "../types";
+import { nearestFreeSeat, sit, standAll } from "./seats";
+import { exile } from "./hostile";
+import { COLORS, NAMES, NO_TARGET, CHAT_LINES, CALL_SECONDS, CAMP_REACH } from "../config";
 import { clearCombat } from "./combat";
 import { ctx } from "../web3/context";
-import { callMeeting, castVote, fetchStatuses, getRoom, parseEvents, tallyAndFinalize } from "../web3/chain";
-import { ensureActed, finish, nextRound } from "./round";
+import { callMeeting, castVote, fetchStatuses, getRoom, parseEvents, tallyAndFinalize, reportFriendlyKill } from "../web3/chain";
+import { ensureActed, finish, nextRound, checkpoint } from "./round";
 import { splash, hideSplash } from "../ui/hud";
 import { UI, OPENERS } from "../story";
 
 export const ejecting = { cur: null as null | { e: (typeof entities)[number]; t: number; dx: number; dz: number; done: () => void } };
 const chat = (n: string, t: string) => { const c = $("#chat"); c.innerHTML += `<div><b>${n}:</b> ${t}</div>`; c.scrollTop = 1e9; };
 
+/** Ai đó ngồi vào ghế quanh lửa trại -> cuộc họp được gọi, mọi người có CALL_SECONDS giây để chạy tới lửa trại và ngồi. Camera + điều khiển của người chơi giữ nguyên. */
+export function openCall(why: string, caller: number) {
+  if (G.phase !== "play" || G.call) return;
+  G.call = { why, caller, t: CALL_SECONDS }; G.reporting = true; G.reporter = -1;
+  clearCombat(); clearTimeout(G.scheduleTimer); hide("#mini"); G.mini = false;
+  toast("🚨 " + why); toast(UI.callBy(NAMES[caller]));
+}
+/** Người chơi (E) gần lửa trại: ngồi vào ghế trống gần nhất; nếu chưa có cuộc họp thì chính việc ngồi này gọi họp. */
+export function trySit() {
+  const m = me(); if (G.ghost || m.seat >= 0 || G.phase !== "play") return false;
+  if (Math.hypot(m.x, m.z) > CAMP_REACH) return false;
+  const k = nearestFreeSeat(m.x, m.z); if (k < 0) return false;
+  sit(m, k);
+  if (!G.call) openCall(G.bodyKnown ? UI.bodyFound : UI.callMeeting, G.slot);
+  return true;
+}
+const alive = () => entities.filter((e) => !e.dead && !e.out && !(e.i === G.slot && G.ghost));
+/** Mỗi frame (khi đang chơi): đếm ngược cuộc họp; đủ người ngồi hoặc hết giờ thì bắt đầu họp. */
+export function updateCall(dt: number) {
+  const bar = $("#callbar"), c = G.call;
+  if (!c) { if (bar.style.display !== "none") bar.style.display = "none"; setAlerts((i) => G.reporter === i, performance.now() / 1e3); return; }
+  c.t = Math.max(0, c.t - dt);
+  const absent = alive().filter((e) => e.seat < 0), s = Math.ceil(c.t), seated = me().seat >= 0 || G.ghost;
+  setAlerts((i) => c.caller === i, performance.now() / 1e3);
+  bar.style.display = "block"; bar.className = seated ? "sm" : s <= 10 ? "hurry" : "";
+  bar.innerHTML = seated ? UI.callWait(absent.length, s) : UI.callBar(c.why, NAMES[c.caller], s);
+  if (!absent.length || c.t <= 0) void beginMeeting(absent);
+}
+async function beginMeeting(absent: Entity[]) {
+  const c = G.call; if (!c) return; G.call = null;
+  $("#callbar").innerHTML = UI.callChain;
+  if (absent.some((e) => e.i === G.slot)) { $("#callbar").style.display = "none"; setAlerts(() => false, 0); return exile(); }   // you did not come: branded the spy
+  for (const e of absent) { // bots that did not come are branded spies and expelled (recorded on-chain as a death)
+    toast(UI.branded(NAMES[e.i])); G.dead.add(e.i); e.out = true; e.g.visible = false;
+    try { await reportFriendlyKill(e.i); } catch { /* ghi on-chain thất bại: vẫn loại khỏi cuộc họp phía client */ }
+  }
+  if (absent.length) { await checkpoint(); if (G.phase !== "play") return; }
+  await startMeeting(c.why);
+}
+
 export async function startMeeting(why: string) {
   if (G.phase !== "play") return;
-  G.phase = "meet"; G.voted = false; clearCombat(); clearTimeout(G.scheduleTimer); hide("#mini"); G.mini = false; toast("🚨 " + why);
+  G.phase = "meet"; G.voted = false; G.reporting = true; clearCombat(); clearTimeout(G.scheduleTimer); hide("#mini"); G.mini = false;
   try {
     await ensureActed();
     await callMeeting();
     const st = await fetchStatuses(entities.map((e) => e.i)); // sau callMeeting, contract cấp quyền xem status cả phòng
     st.forEach((s, i) => { if (s === 0) markDead(i, toast); });
-  } catch { G.phase = "play"; return; }
+  } catch { G.phase = "play"; G.reporting = false; standAll(); toast("✗ Could not open the meeting on-chain — try again"); return; }
+  $("#callbar").style.display = "none"; setAlerts(() => false, 0);
 
   const dl = Number((await getRoom()).voteDeadline);
-  entities.forEach((e, i) => { // xếp quanh bàn tròn
-    e.g.visible = !e.dead && !e.out;
-    if (e.g.visible) { const a = (i / PLAYERS) * Math.PI * 2; e.x = Math.cos(a) * 3.4; e.z = Math.sin(a) * 3.4; e.rot = Math.atan2(-e.x, -e.z); e.g.position.set(e.x, 0, e.z); e.g.rotation.set(0, e.rot, 0); }
-  });
+  entities.forEach((e) => { e.g.visible = !e.dead && !e.out; });   // everyone is already seated around the fire
   bodies.forEach((b) => { if (!entities.some((e) => e.g === b.g)) b.g.visible = false; });
   $("#mwhy").textContent = why; $("#chat").innerHTML = ""; $("#mstat").textContent = G.ghost ? UI.spectating : ""; $("#skip").style.display = G.ghost ? "none" : ""; show("#meet");
 
@@ -97,7 +138,7 @@ function ejectAnimation(slot: number | null, imp: boolean) {
     if (slot === null) { splash(UI.tieSplash, "", "#fff", 34, "rgba(0,0,0,.35)"); return void sleep(2500).then(() => { hideSplash(); res(); }); }
     const e = entities[slot]; if (slot === G.slot) G.ghost = true; G.dead.add(slot);
     splash(UI.ejected(NAMES[slot], imp), "", imp ? "#5f9" : "#f55", 34, "rgba(0,0,0,.35)");
-    const a = (slot / PLAYERS) * Math.PI * 2;
+    const a = Math.atan2(e.z, e.x);
     ejecting.cur = { e, t: 0, dx: Math.cos(a), dz: Math.sin(a), done: () => { e.out = true; e.g.visible = false; hideSplash(); res(); } };
   });
 }

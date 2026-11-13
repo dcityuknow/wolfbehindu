@@ -6,11 +6,11 @@ export const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: t
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 export const scene = new THREE.Scene();
-export const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 500);
+export const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 700);
 camera.rotation.order = "YXZ";
 export const torch = new THREE.PointLight(0xffe9c8, LIGHT.torch, LIGHT.torchRange, 2);
 
-const HORIZON = 0xd2eaf2;
+const HORIZON = 0xcfe6f2;
 scene.background = new THREE.Color(HORIZON);
 scene.fog = new THREE.FogExp2(HORIZON, LIGHT.fogPlay);
 
@@ -22,9 +22,9 @@ Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, n
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
 /** Ánh nắng + bóng đổ đi theo người chơi (giữ bản đồ shadow nhỏ mà vẫn nét). */
-export function followSun(x: number, z: number) {
+export function followSun(x: number, y: number, z: number) {
   const q = 1; x = Math.round(x / q) * q; z = Math.round(z / q) * q; // làm tròn để bóng không rung
-  sun.target.position.set(x, 0, z); sun.position.set(x + 26, 46, z + 16); sun.target.updateMatrixWorld();
+  sun.target.position.set(x, y, z); sun.position.set(x + 26, y + 46, z + 16); sun.target.updateMatrixWorld();
 }
 
 // Bầu trời gradient + mặt trời

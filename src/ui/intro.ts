@@ -46,7 +46,7 @@ const SCENES: { title: string; cap: string; svg: string }[] = [
   },
   {
     title: "Assassination & body reports",
-    cap: "The spy secretly assassinates anyone who wanders off alone (Q key, at most once per round). Whoever finds a body presses E to report it and call an emergency meeting.",
+    cap: "The spy secretly assassinates anyone who wanders off alone (Q key, at most once per round). Whoever finds a body must run to the campfire and sit down (E) to call the meeting; everyone then has 30 s to reach the fire — whoever does not show up is branded the spy.",
     svg: `<text x="320" y="48" class="t big siren">🚨</text>
       <g class="slide">${A(110, 170, RED, 'class="bob"')}</g>
       <g class="fall">${A(380, 170, BLUE)}</g>
@@ -135,14 +135,14 @@ export const rulesHtml = () => `
   <b style="color:#f66">The spy wins</b> when living commandos ≤ living spies.</p></div>
  <div class="card"><h3>🎖 If you are a Commando</h3>
   <p>1. Find a <b style="color:#fa3">blinking orange station</b>, stand close and press <kbd>E</kbd> to do a task: 📻 repair the radio · 🔐 decrypt the message · 🔥 light the signal fire · 💧 purify water · 📦 recover the supply crate (3 per person).<br>
-  2. Found a body? Walk up and press <kbd>E</kbd> to report it.<br>
+  2. Found a body? Run to the campfire and press <kbd>E</kbd> to sit down — that calls the meeting. Everyone has <b>30 s</b> to reach the fire and sit; anyone who stays away is branded the spy.<br>
   3. At the campfire meeting: read the chat, compare stories, then vote out whoever you suspect (or skip).</p></div>
  <div class="card"><h3>🕵 If you are the Spy</h3>
   <p>Wait for someone to wander off alone, get close (&lt; 2.2 m) and press <kbd>Q</kbd> to assassinate — <b>once per round</b>.<br>
   Press <kbd>E</kbd> at a secret burrow (rock hole with a green glow) to pop out of another one. Fake tasks to keep your cover, then shift the blame during meetings.</p></div>
  <div class="card"><h3>🎮 Controls</h3>
   <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move in the direction you look · <b>mouse</b> rotates the camera (click the screen to lock the mouse)<br><kbd>V</kbd> change view: 3rd person / 1st person / top-down · scroll to zoom<br>
-  <kbd>Space</kbd> jump · <kbd>E</kbd> interact (tasks / report body / secret burrow / emergency meeting at the central campfire)<br>
+  <kbd>Space</kbd> jump · <kbd>E</kbd> interact (tasks / secret burrow / sit at the central campfire to call or join a meeting)<br>
   <kbd>Q</kbd> assassinate (spy only)<br><b>Guns:</b> <kbd>Left click</kbd> shoot · <kbd>Right click</kbd> aim · <kbd>R</kbd> reload · <kbd>G</kbd> throw grenade · <kbd>1</kbd>–<kbd>4</kbd> switch weapon (scroll wheel in 1st person / top-down)</p>
   <p class="dim">Vision is limited: you only see players inside the lit area and not hidden behind rocks, buildings or bushes. Nobody can walk into the sea.</p></div>
  <div class="card"><h3>💥 Friendly fire is REAL</h3>
@@ -163,7 +163,7 @@ const connectHtml = () => `
  <div class="card"><h3>🔗 Why connect a wallet?</h3>
   <p>The game runs on <b>Sepolia</b> — Ethereum's <b>test network</b>. Your wallet (MetaMask) is the “account” that signs your actions: create the room, do tasks, assassinate, vote.</p>
   <ul><li>💸 <b>No real money.</b> You only need Sepolia ETH (free — search “Sepolia faucet”).</li>
-  <li>🔑 A throw-away <b>session wallet</b> is created in your browser and funded once with ~0.03 test-ETH. It signs the bots\u2019 actions (bot turns, bot votes, tally) so MetaMask only asks you for <b>your own</b> actions. It can never act as you.</li>
+  <li>🔑 A throw-away <b>session wallet</b> is created in your browser and funded once with ~0.03 test-ETH. Starting a game is <b>one</b> transaction. It signs the bots\u2019 actions (bot turns, bot votes, tally) so MetaMask only asks you for <b>your own</b> actions. It can never act as you.</li>
   <li>⛽ Your own actions (tasks, kills, votes, deaths) still cost a little test-ETH gas and need your confirmation.</li>
   <li>✍️ One gas-free signature lets you <b>decrypt your role</b> (only you can see it).</li>
   <li>🔑 The game <b>never</b> asks for your seed phrase / private key.</li></ul></div>

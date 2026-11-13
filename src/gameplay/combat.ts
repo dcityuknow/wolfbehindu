@@ -6,7 +6,7 @@ import { entities, me, suitMat } from "../world/characters";
 import { rig, muzzleWorld, viewGuns } from "../world/camera";
 import { camera, scene, canvasEl } from "../world/scene";
 import { wallMeshes, WALLS } from "../world/map";
-import { walkable } from "../world/island";
+import { walkable, groundAt, terrainRay } from "../world/island";
 import { equipGun, setFlash, type GunRig } from "../world/guns";
 import { tracer, impact, explosion } from "../world/fx";
 import { sfx } from "../audio";
@@ -57,7 +57,7 @@ function trace(range: number): Hit {
   const h: Hit = { t: range, e: null, head: false, kind: "air" };
   rc.set(O, D); rc.far = range;
   const w = rc.intersectObjects(wallMeshes, false)[0]; if (w) { h.t = w.distance; h.kind = "wall"; }
-  if (D.y < -1e-4) { const tg = -O.y / D.y; if (tg > 0 && tg < h.t) { h.t = tg; h.kind = "ground"; } }
+  { const tg = terrainRay(O.x, O.y, O.z, D.x, D.y, D.z, h.t); if (tg >= 0) { h.t = tg; h.kind = "ground"; } }   // đồi/vách/mặt đất
   for (const e of entities) {
     if (e.i === G.slot || e.dead || e.out || e.stun > 0 || !e.g.visible) continue;   // chỉ trúng người đang nhìn thấy
     const t = cyl(e);
@@ -146,13 +146,15 @@ function updateGrenades(dt: number) {
   for (let i = grens.length - 1; i >= 0; i--) {
     const g = grens[i], p = g.m.position; g.t -= dt;
     g.v.y -= GRENADE.gravity * dt; p.addScaledVector(g.v, dt); g.m.rotation.x += dt * 9; g.m.rotation.z += dt * 6;
-    if (p.y < 0.12) {
-      if (!walkable(p.x, p.z)) { impact(p.clone(), "water"); scene.remove(g.m); grens.splice(i, 1); continue; }   // rơi xuống biển: không nổ
-      p.y = 0.12; g.v.y = Math.abs(g.v.y) < 1.2 ? 0 : -g.v.y * 0.4; g.v.x *= 0.72; g.v.z *= 0.72;
+    const gy = groundAt(p.x, p.z) + 0.12;
+    if (p.y < gy) {
+      if (!walkable(p.x, p.z)) { impact(p.clone(), "water"); scene.remove(g.m); grens.splice(i, 1); continue; }   // rơi xuống biển/ao: không nổ
+      if (gy - p.y > 0.6) { p.x -= g.v.x * dt; p.z -= g.v.z * dt; g.v.x *= -0.4; g.v.z *= -0.4; }            // đập vào sườn dốc: nảy ngược
+      else { p.y = gy; g.v.y = Math.abs(g.v.y) < 1.2 ? 0 : -g.v.y * 0.4; g.v.x *= 0.72; g.v.z *= 0.72; }
     }
     for (const [cx, cz, w, d] of WALLS) { // nảy khỏi vật cản
       const dx = p.x - cx, dz = p.z - cz, px = w / 2 + 0.12 - Math.abs(dx), pz = d / 2 + 0.12 - Math.abs(dz);
-      if (px > 0 && pz > 0 && p.y < 2.8) { if (px < pz) { p.x += Math.sign(dx || 1) * px; g.v.x *= -0.5; } else { p.z += Math.sign(dz || 1) * pz; g.v.z *= -0.5; } }
+      if (px > 0 && pz > 0 && p.y < groundAt(cx, cz) + 2.8) { if (px < pz) { p.x += Math.sign(dx || 1) * px; g.v.x *= -0.5; } else { p.z += Math.sign(dz || 1) * pz; g.v.z *= -0.5; } }
     }
     if (g.t <= 0) { explode(p.clone()); scene.remove(g.m); grens.splice(i, 1); }
   }
@@ -196,7 +198,7 @@ function updateEntities(dt: number) {
     if (e.stun > 0) {
       e.stun -= dt;
       if (e.stun <= 0) { e.stun = 0; e.hp = COMBAT.reviveHp; e.g.rotation.z = 0; }
-      else { e.g.rotation.set(0, e.rot, Math.PI / 2); e.g.position.set(e.x + 0.9 * Math.cos(e.rot), 0.46, e.z - 0.9 * Math.sin(e.rot)); }
+      else { e.g.rotation.set(0, e.rot, Math.PI / 2); e.g.position.set(e.x + 0.9 * Math.cos(e.rot), e.y + 0.46, e.z - 0.9 * Math.sin(e.rot)); }
     }
   }
 }

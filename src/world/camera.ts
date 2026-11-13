@@ -8,6 +8,7 @@ import { defOf } from "./soldier";
 import { buildGun, type GunRig } from "./guns";
 import { W } from "../weaponState";
 import { CINE } from "./cineState";
+import { groundAt, terrainRay, CAMP_Y } from "./island";
 
 /** Camera 3 chế độ: thứ ba (qua vai) · thứ nhất · từ trên xuống. Quy ước: hướng nhìn = (sin yaw, cos yaw). */
 export type ViewMode = "third" | "first" | "top";
@@ -65,7 +66,8 @@ export function muzzleWorld(out: THREE.Vector3) {
 }
 const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
 
-const ray = new THREE.Raycaster(), V = new THREE.Vector3(), tgt = new THREE.Vector3();
+const ray = new THREE.Raycaster(), V = new THREE.Vector3(), tgt = new THREE.Vector3(), CL = new THREE.Vector3(), CB = new THREE.Vector3();
+let lift = 0;
 let bob = 0, lastX = 0, lastZ = 0;
 const cross = document.getElementById("cross")!, hint = document.getElementById("lockhint")!;
 const setDisp = (el: HTMLElement, on: boolean) => { const v = on ? "block" : "none"; if (el.style.display !== v) el.style.display = v; };
@@ -81,16 +83,16 @@ export function updateCamera(dt: number, t: number, shake: number) {
   if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 6); camera.updateProjectionMatrix(); }
 
   if (G.phase === "menu") { // quay quanh đảo
-    const a = t * 0.07; camera.position.set(Math.sin(a) * 68, 30, Math.cos(a) * 68); camera.lookAt(0, -2, 0); return;
+    const a = t * 0.06 + 0.6; camera.position.set(Math.sin(a) * 128, 58, Math.cos(a) * 128); camera.lookAt(0, 9, 0); return;
   }
-  if (G.phase === "meet" || (G.phase === "end")) { // họp: nhìn bàn tròn từ trên cao, hơi lắc nhẹ
-    const a = t * 0.12; camera.position.set(Math.sin(a) * 3, 10.5, 9 + Math.cos(a) * 1.2); camera.lookAt(0, 0.5, 0); return;
+  if (G.phase === "end") { // kết thúc: nhìn đống lửa từ trên cao (khi họp, camera của người chơi được giữ nguyên)
+    const a = t * 0.12; camera.position.set(Math.sin(a) * 3, CAMP_Y + 10.5, 9 + Math.cos(a) * 1.2); camera.lookAt(0, CAMP_Y + 0.5, 0); return;
   }
   if (rig.mode === "first") {
     const moving = Math.hypot(m.x - lastX, m.z - lastZ) > 0.001; bob += moving ? dt * 9 : 0;
     camera.position.set(m.x + sx, m.y + 1.62 + (moving ? Math.sin(bob) * 0.035 : 0), m.z + sz);
     camera.rotation.set(-(rig.pitch - W.recoil), rig.yaw + Math.PI, 0);
-    if (!G.ghost) {
+    if (!G.ghost && playing) {
       const vg = viewGuns[W.cur], c = VM[GUNS[W.cur].id], ads = W.adsT, rel = W.reload > 0 ? Math.sin(Math.PI * (1 - W.reload / W.reloadDur)) : 0;
       vg.visible = true; vg.scale.setScalar(c.s);
       vg.position.set(lerpN(c.p[0], c.ads[0], ads), lerpN(c.p[1], c.ads[1], ads) - rel * 0.2 - W.swapT * 0.4 + (moving ? Math.sin(bob) * 0.012 : 0), lerpN(c.p[2], c.ads[2], ads) + W.kick * 0.07);
@@ -100,16 +102,28 @@ export function updateCamera(dt: number, t: number, shake: number) {
   } else if (rig.mode === "third") {
     me().g.visible = true;
     const px = m.x, py = m.y + 1.6, pz = m.z;
-    const cp = Math.cos(rig.pitch), L = V.set(Math.sin(rig.yaw) * cp, -Math.sin(rig.pitch), Math.cos(rig.yaw) * cp);
     const rx = -Math.cos(rig.yaw) * 0.55, rz = Math.sin(rig.yaw) * 0.55;               // lệch qua vai phải
-    const ox = px + rx, oz = pz + rz; let d = rig.dist;
-    ray.set(tgt.set(ox, py, oz), V.clone().negate()); ray.far = d + 0.4;               // camera không xuyên tường
-    const hit = ray.intersectObjects(wallMeshes)[0]; if (hit) d = Math.max(1.6, hit.distance - 0.35);
-    camera.position.set(ox - L.x * d + sx, Math.max(0.5, py - L.y * d), oz - L.z * d + sz);
-    camera.rotation.set(-(rig.pitch - W.recoil), rig.yaw + Math.PI, 0);
+    const ox = px + rx, oz = pz + rz;
+    // Camera sau lưng bị vách/đồi chắn → thay vì dí sát vào nhân vật, nâng camera lên cao dần (nhìn từ trên xuống) cho tới khi thoáng.
+    const probe = (extra: number) => {
+      const p = Math.min(1.45, rig.pitch + extra), cp = Math.cos(p), l = CL.set(Math.sin(rig.yaw) * cp, -Math.sin(p), Math.cos(rig.yaw) * cp);
+      let d = rig.dist;
+      ray.set(tgt.set(ox, py, oz), CB.copy(l).negate()); ray.far = d + 0.4;           // camera không xuyên tường
+      const hit = ray.intersectObjects(wallMeshes)[0]; if (hit) d = Math.max(1.6, hit.distance - 0.35);
+      const th = terrainRay(ox, py, oz, -l.x, -l.y, -l.z, d + 0.4, 0.3); if (th >= 0) d = Math.max(1.2, Math.min(d, th - 0.35));   // camera không chui vào đồi
+      return { d, p };
+    };
+    const want = Math.min(rig.dist, 3.4);
+    let best = probe(0), bestExtra = 0;
+    for (let ex = 0.2; ex <= 1.0 && best.d < want; ex += 0.2) { const r = probe(ex); if (r.d > best.d + 0.05) { best = r; bestExtra = ex; } }
+    lift += (bestExtra - lift) * Math.min(1, dt * 7);                                  // làm mượt để camera không giật
+    const fin = probe(lift), L = CL.set(Math.sin(rig.yaw) * Math.cos(fin.p), -Math.sin(fin.p), Math.cos(rig.yaw) * Math.cos(fin.p)), d = fin.d;
+    const cx = ox - L.x * d + sx, cz = oz - L.z * d + sz;
+    camera.position.set(cx, Math.max(groundAt(cx, cz) + 0.5, py - L.y * d), cz);
+    camera.rotation.set(-(fin.p - W.recoil), rig.yaw + Math.PI, 0);
   } else {
     me().g.visible = true;
-    tgt.set(m.x + sx, 12, m.z + 9 + sz); camera.position.lerp(tgt, 0.12); camera.lookAt(m.x, 0, m.z);
+    tgt.set(m.x + sx, m.y + 12, m.z + 9 + sz); camera.position.lerp(tgt, 0.12); camera.lookAt(m.x, m.y, m.z);
   }
   lastX = m.x; lastZ = m.z;
   camera.updateMatrixWorld();

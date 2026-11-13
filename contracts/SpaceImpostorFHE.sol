@@ -171,9 +171,29 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
      * `randEuint8(128)` rồi `rem n`: n=7 (Solo) lệch ~0.8% (chấp nhận được).
      */
     function startGame(uint256 roomId) external inPhase(roomId, Phase.Lobby) {
-        Room storage r = _rooms[roomId];
-        require(msg.sender == r.host, "Only host");
+        require(msg.sender == _rooms[roomId].host, "Only host");
+        _start(roomId);
+    }
 
+    /// @notice Solo in ONE transaction: create the room, register the session-wallet operator (address(0) = none),
+    ///         add the 6 bots, deal the encrypted roles and start the game. One signature instead of three.
+    function createSoloGame(address op) external returns (uint256 roomId) {
+        roomId = ++roomCount;
+        Room storage r = _rooms[roomId];
+        r.host = msg.sender;
+        r.isSolo = true;
+        r.phase = Phase.Lobby;
+        _addHuman(roomId, msg.sender);
+        emit RoomCreated(roomId, msg.sender, true);
+        if (op != address(0)) {
+            r.operator = op;
+            emit OperatorSet(roomId, op);
+        }
+        _start(roomId);
+    }
+
+    function _start(uint256 roomId) private {
+        Room storage r = _rooms[roomId];
         if (r.isSolo) {
             require(r.humanCount == 1, "Solo = 1 player");
             for (uint8 b = 0; b < SOLO_BOTS; b++) {

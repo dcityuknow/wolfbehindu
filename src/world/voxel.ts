@@ -1,15 +1,7 @@
 import * as THREE from "three";
+import { hash } from "./noise";
 
-/** Hàm nhiễu giả ngẫu nhiên (deterministic) — dùng cho địa hình, rải cây, biến thiên màu. */
-export const hash = (x: number, y: number, z = 0) => { const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return h - Math.floor(h); };
-export function vnoise(x: number, y: number) {
-  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-  const s = (t: number) => t * t * (3 - 2 * t), u = s(xf), v = s(yf);
-  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-}
-export const fbm = (x: number, y: number) => vnoise(x, y) * 0.6 + vnoise(x * 2, y * 2) * 0.28 + vnoise(x * 4, y * 4) * 0.12;
-export const smooth = (a: number, b: number, x: number) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+export { hash, vnoise, fbm, fbm4, smooth, lerp } from "./noise";
 
 /** Texture "pixel" 8x8 (nhiễu xám nhẹ, NearestFilter) -> mọi khối trông như block pixel-art. */
 let _tex: THREE.CanvasTexture | null = null;

@@ -1,10 +1,12 @@
 import { $, toast } from "../ui/dom";
 import { G } from "../state";
 import { connect } from "../web3/wallet";
-import { createSoloRoom, startGame, fetchMyRole, fetchStatuses } from "../web3/chain";
-import { setupOperator } from "../web3/operator";
+import { createSoloGame, fetchMyRole, fetchStatuses } from "../web3/chain";
+import { prepareOperator, activateOperator } from "../web3/operator";
 import { showHud, setRoleLabel, roleSplash } from "../ui/hud";
-import { spawnAll, markDead } from "../world/characters";
+import { spawnAll, markDead, entities } from "../world/characters";
+import { LAND } from "../world/cinePath";
+import { groundAt } from "../world/island";
 import { scheduleDummyAct, checkpoint } from "./round";
 import { playCutscene } from "../ui/cutscene";
 
@@ -15,11 +17,13 @@ export async function startSolo() {
   try {
     await connect();
     cine = playCutscene();                         // cutscene chạy song song lúc tạo phòng + chia vai trò FHE
-    await createSoloRoom(); await setupOperator(); await startGame();
+    const opAddr = await prepareOperator(); await createSoloGame(opAddr); await activateOperator();
     G.role = await fetchMyRole();
     await cine.done;
     showHud(); setRoleLabel(G.role); await roleSplash(G.role);
-    spawnAll(); G.phase = "play"; scheduleDummyAct();
+    spawnAll();
+    entities.forEach((e, i) => { const l = LAND[i]; if (l) { e.x = l.x; e.z = l.z; e.y = groundAt(l.x, l.z); e.px = NaN; e.tx = e.x; e.tz = e.z; } });   // vào game đúng chỗ đã đáp xuống
+    G.phase = "play"; scheduleDummyAct();
     setInterval(pollSelfDeath, 9000);
     $("#bChk").onclick = () => checkpoint(true);
   } catch (e: any) { cine?.stop(); toast("✗ " + (e.message || e)); btn.disabled = false; }

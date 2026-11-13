@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { entities, me, collide } from "../world/characters";
+import { walkTo } from "./walk";
+import { losBlocked } from "../world/island";
 import { camera } from "../world/scene";
 import { wallMeshes } from "../world/map";
 import { tracer } from "../world/fx";
@@ -129,6 +131,7 @@ export function hostileReset() {
 const rc = new THREE.Raycaster(), A = new THREE.Vector3(), B = new THREE.Vector3(), MZ = new THREE.Vector3(), T = new THREE.Vector3();
 function clear(e: Entity, p: Entity) {
   A.set(e.x, e.y + 1.3, e.z); B.set(p.x, p.y + 1.2, p.z); const d = A.distanceTo(B); B.sub(A).normalize();
+  if (losBlocked(A.x, A.y, A.z, A.x + B.x * d, A.y + B.y * d, A.z + B.z * d)) return false;   // đồi/núi chắn
   rc.set(A, B); rc.far = d; return rc.intersectObjects(wallMeshes, false).length === 0;
 }
 const gunOf = (e: Entity): GunDef => { const r = e.g.userData.gunRig as GunRig; return GUNS.find((g) => g.id === r.cur) ?? GUNS[2]; };
@@ -139,9 +142,9 @@ function hurtPlayer(d: number) {
   if (W.hp <= 0) executed();
 }
 /** Out of health: the squad executes you. Game over right now; the death is written to the contract. */
-function executed() {
-  G.phase = "end"; clearTimeout(G.scheduleTimer); document.exitPointerLock(); wanted.style.display = "none";
-  const S = ENDING.shot;
+export const exile = () => executed(ENDING.absent);   // missed a called meeting -> branded the spy, same recorded ending
+function executed(S: { title: string; crew: string; spy: string; over: string } = ENDING.shot) {
+  G.phase = "end"; G.call = null; clearTimeout(G.scheduleTimer); document.exitPointerLock(); wanted.style.display = "none";
   $("#et").textContent = S.title;
   $("#ed").innerHTML = (G.role === 1 ? S.spy : S.crew) + `<br><br><b>${S.over}</b><br><br><span id="chainst"></span>`;
   show("#end");
@@ -187,7 +190,7 @@ export function updateHostile(dt: number) {
       e.aim += (0 - e.aim) * Math.min(1, dt * 6); m.t += dt;
       if (exposed && sees(e, P)) { say(e.i, pick(ALARM), true, true); rage(e, 0.3); continue; }
       const ix = m.ix - e.x, iz = m.iz - e.z, id = Math.hypot(ix, iz);
-      if (id > 3.2 && m.t < 25) { const sp = BOT_SPEED * 1.5; e.rot = Math.atan2(ix, iz); e.x += (ix / id) * sp * dt; e.z += (iz / id) * sp * dt; collide(e); }
+      if (id > 3.2 && m.t < 25) walkTo(e, m.ix, m.iz, dt, BOT_SPEED * 1.5);
       else { if (m.q === 0) { m.q = 1; m.t = 0; say(e.i, pick(INQ), false); } else if (m.t > 6) m.mood = 0; }
       continue;
     }
@@ -205,7 +208,7 @@ export function updateHostile(dt: number) {
   hostile.sort((a, b) => a.d - b.d);
   hostile.forEach(({ e, d }, k) => {   // chỉ 3 Bot gần nhất có thể nổ súng cùng lúc, số còn lại áp sát
     const m = ms[e.i], g = gunOf(e), dx = P.x - e.x, dz = P.z - e.z, los = clear(e, P);
-    if (d > 10 || !los) { const sp = BOT_SPEED * 1.35; e.x += (dx / d) * sp * dt; e.z += (dz / d) * sp * dt; }
+    if (d > 10 || !los) { walkTo(e, P.x, P.z, dt, BOT_SPEED * 1.35, 0.8); }
     else { const s = Math.sin(clock * 1.4 + e.i * 2) * 1.6 * dt; e.x += (-dz / d) * s; e.z += (dx / d) * s; }   // đứng bắn, lách ngang
     collide(e);
     if (k >= 3 || !los || d > 45) return;
