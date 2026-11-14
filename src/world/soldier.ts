@@ -55,11 +55,11 @@ export const CH: any[] = [
 export const defOf = (k: string) => CH.find((c) => c.k === k) ?? CH[0];
 
 /* ───── "Hộp voxel": mỗi voxel 1 màu, chỉ sinh mặt ngoài, gộp thành 1 geometry (vertex color) ───── */
-class VB {
+export class VB {
   private p: number[] = []; private n: number[] = []; private c: number[] = [];
   /** tâm (cx,cy,cz) · kích thước (w,h,d) tính bằng mét · color: số hoặc hàm (i,j,k,nx,ny,nz) → hex */
-  box(cx: number, cy: number, cz: number, w: number, h: number, d: number, color: number | Fn) {
-    const nx = Math.max(1, Math.round(w / PX)), ny = Math.max(1, Math.round(h / PX)), nz = Math.max(1, Math.round(d / PX));
+  box(cx: number, cy: number, cz: number, w: number, h: number, d: number, color: number | Fn, cell = PX) {
+    const nx = Math.max(1, Math.round(w / cell)), ny = Math.max(1, Math.round(h / cell)), nz = Math.max(1, Math.round(d / cell));
     const sx = w / nx, sy = h / ny, sz = d / nz, x0 = cx - w / 2, y0 = cy - h / 2, z0 = cz - d / 2, col = new THREE.Color();
     for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) {
       const edge = i === 0 || j === 0 || k === 0 || i === nx - 1 || j === ny - 1 || k === nz - 1; if (!edge) continue;

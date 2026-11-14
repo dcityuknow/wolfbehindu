@@ -18,7 +18,7 @@ import { N, PLANE_YAW, planeAt, toWorld, RANK, LAND, stateOf, smooth, lerp, stor
  * Mỗi beat là hàm thuần của (beat, t) nên bấm bỏ qua / nhảy beat vẫn đúng trạng thái. Quỹ đạo nằm ở cinePath.ts.
  */
 export const BEAT_MIN = [12, 10, 16, 10, 12];   // thời lượng hình ảnh mỗi phân cảnh (giây) — tổng 60s
-const GUN_IDS: GunId[] = ["rifle", "smg", "rifle", "pistol", "rifle", "shotgun", "smg"];
+const GUN_IDS: GunId[] = ["rifle", "pistol", "rifle", "pistol", "rifle", "sniper", "pistol"];
 
 /* ───────────── ánh sáng / bầu trời theo từng cảnh ───────────── */
 interface Look { top: number; mid: number; hor: number; fog: number; fogD: number; hemi: number; hemiC: number; sun: number; sunC: number; cloud: number; stars: number; orb: number }
@@ -163,7 +163,7 @@ function buildRigs() {
   if (rigs.length) return;
   for (let i = 0; i < N; i++) {
     const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
-    const s = buildSoldier(defOf(SQUAD[i]), m, COLORS[i]), gun = attachGun(s.g, GUN_IDS[i]);
+    const s = buildSoldier(defOf(SQUAD[i]), m, COLORS[i]), gun = attachGun(s.g, GUN_IDS[i], false, defOf(SQUAD[i]).pack ? -0.27 : -0.16);
     const rig = new THREE.Group(), chute = makeChute(COLORS[i]); chute.visible = false; rig.add(s.g, chute); root.add(rig);
     rigs.push({ rig, s, chute, gun, face: buildFace(s.g, defOf(SQUAD[i]).skin, defOf(SQUAD[i]).hair) });
   }
@@ -240,7 +240,7 @@ function armsLow(r: Rig, th = -0.95) { r.s.armL.rotation.set(th, 0, 0.3); r.s.ar
 function poseSoldier(i: number, ct: number, rise: number) {
   const r = rigs[i], st = stateOf(i, ct, GL[i]), c = S.clock, g = r.s.g;
   r.rig.rotation.set(0, 0, 0); g.rotation.set(0, 0, 0); g.position.set(0, 0, 0); r.s.legL.rotation.set(0, 0, 0); r.s.legR.rotation.set(0, 0, 0);
-  r.chute.visible = false; r.chute.position.set(0, 0, 0); r.chute.scale.set(1, 1, 1); r.chute.rotation.set(0, 0, 0); r.gun.pivot.visible = true;
+  r.chute.visible = false; r.chute.position.set(0, 0, 0); r.chute.scale.set(1, 1, 1); r.chute.rotation.set(0, 0, 0); r.gun.pivot.visible = r.gun.extra.visible = true;
   switch (st.mode) {
     case "seat": case "walk": { // ngồi trên ghế → đứng dậy, đi tới ramp xếp hàng
       const sit = 1 - st.stand, sw = Math.sin(c * 7 + i) * (st.walking ? 0.6 : 0.12) * st.stand;
@@ -253,13 +253,13 @@ function poseSoldier(i: number, ct: number, rise: number) {
       const w = Math.sin(c * 9 + i) * 0.1;
       const tum = i === 2 ? smooth(22, 22.6, ct) : 0;   // người bị sóng xung kích của tia sét hất văng: xoay tít mất kiểm soát
       r.rig.position.set(st.wx, st.wy, st.wz); r.rig.rotation.set(Math.sin(c * 6 + i) * 0.12 + tum * (ct - 22) * 4.5, Math.PI / 2, tum * (ct - 22) * 3.2);
-      g.rotation.x = Math.PI / 2; g.position.set(0, 0, -0.9); r.gun.pivot.visible = false;
+      g.rotation.x = Math.PI / 2; g.position.set(0, 0, -0.9); r.gun.pivot.visible = r.gun.extra.visible = false;
       r.s.armL.rotation.set(-0.3, 0, -1.3 + w); r.s.armR.rotation.set(-0.3, 0, 1.3 - w); r.s.legL.rotation.set(0.3, 0, -0.35); r.s.legR.rotation.set(0.3, 0, 0.35); break;
     }
     case "chute": { // treo dưới dù, gió bão làm lắc mạnh
       const A = 0.06 + 0.42 * storm(ct), o = st.open;
       r.rig.position.set(st.wx, st.wy + 3.55, st.wz); r.rig.rotation.set(Math.sin(ct * 1.5 + i) * A * 0.6, i + ct * 0.25, Math.sin(ct * 1.9 + i * 2.1) * A);
-      g.position.y = -3.55; r.chute.visible = true; r.chute.scale.set(0.2 + 0.8 * o, 0.1 + 0.9 * o, 0.2 + 0.8 * o); r.gun.pivot.visible = false;
+      g.position.y = -3.55; r.chute.visible = true; r.chute.scale.set(0.2 + 0.8 * o, 0.1 + 0.9 * o, 0.2 + 0.8 * o); r.gun.pivot.visible = r.gun.extra.visible = false;
       r.s.armL.rotation.set(-2.9, 0, 0.15); r.s.armR.rotation.set(-2.9, 0, -0.15);
       r.s.legL.rotation.x = Math.sin(c * 2 + i) * 0.15; r.s.legR.rotation.x = -Math.sin(c * 2 + i) * 0.15;
       if (i === 0 && S.beat >= 4) { // người bị ngất: buông thõng, tụt qua tán lá — dù mắc lại trên ngọn cây

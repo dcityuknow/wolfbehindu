@@ -1,18 +1,20 @@
 import * as THREE from "three";
 import { G } from "../state";
-import { GUNS, GRENADE, COMBAT, type GunId } from "../config";
-import { W, M, refillAmmo } from "../weaponState";
+import { GUNS, GRENADE, COMBAT, SWAP, type GunId } from "../config";
+import { W, M, MV, refillAmmo, resetNade } from "../weaponState";
 import { entities, me, suitMat } from "../world/characters";
-import { rig, muzzleWorld, viewGuns } from "../world/camera";
+import { rig, muzzleWorld, magWorld, nadeWorld, firstNow, viewGuns } from "../world/camera";
 import { camera, scene, canvasEl } from "../world/scene";
 import { wallMeshes, WALLS } from "../world/map";
-import { walkable, groundAt, terrainRay } from "../world/island";
+import { walkable, groundAt, terrainRay, WATER_Y } from "../world/island";
 import { equipGun, setFlash, type GunRig } from "../world/guns";
-import { tracer, impact, explosion } from "../world/fx";
+import { tracer, impact, explosion, dropMag, flyPin, hole, splash, waterBlast } from "../world/fx";
+import { buildGrenade } from "../world/guns";
 import { sfx } from "../audio";
+import { toast } from "../ui/dom";
 import { hitMark } from "../ui/weaponHud";
 import { keys } from "../input";
-import { onFriendlyHit, hostileReset } from "./hostile";
+import { onFriendlyHit, hostileReset, hurtPlayer } from "./hostile";
 import type { Entity } from "../types";
 
 /**
@@ -24,23 +26,21 @@ export const hooks = { lethal: (_e: Entity) => {}, friendlyKill: (_e: Entity) =>
 
 const O = new THREE.Vector3(), D = new THREE.Vector3(), MZ = new THREE.Vector3(), P = new THREE.Vector3(), T = new THREE.Vector3(), U = new THREE.Vector3();
 const rc = new THREE.Raycaster();
+let relPrev = 0, wasBusy = false;
 const playing = () => G.phase === "play" && !G.mini && !G.ghost;
-const canAim = () => rig.locked || rig.mode === "top";
+const canAim = () => rig.locked;
+/** Hai tay bận: đang lăn hoặc đang bơi (di chuyển) thì không bắn / nạp / ném lựu đạn. Đứng yên trên nước vẫn bắn được. */
+const busy = () => MV.roll > 0 || MV.swimming;
+let swimHintT = 0;
+function busyHint() { if (MV.swimming && performance.now() - swimHintT > 1500) { swimHintT = performance.now(); toast("🏊 Swimming — you can't shoot · stop moving to shoot"); } }
 const gunRig = () => me().g.userData.gunRig as GunRig;
 
 /* ───────────── Nhắm: tia ngắm (O = gốc, D = hướng) ───────────── */
 function aimRay(spread: number) {
   const m = me();
-  if (rig.mode === "top") { // nhìn từ trên xuống: bắn về phía con trỏ chuột (mặt phẳng ngang tầm ngực)
-    U.set((M.x / innerWidth) * 2 - 1, -(M.y / innerHeight) * 2 + 1, 0.5).unproject(camera).sub(camera.position).normalize();
-    O.set(m.x, m.y + 1.3, m.z);
-    if (U.y < -0.05) { P.copy(camera.position).addScaledVector(U, (1.3 - camera.position.y) / U.y); D.set(P.x - O.x, 0, P.z - O.z); }
-    else D.set(0, 0, 0);
-    if (D.lengthSq() < 0.01) D.set(Math.sin(m.rot), 0, Math.cos(m.rot));
-    D.normalize();
-  } else { // thứ nhất / thứ ba: bắn theo hướng nhìn (tâm màn hình)
+  { // thứ nhất / thứ ba: bắn theo hướng nhìn (tâm màn hình)
     camera.getWorldDirection(D); O.copy(camera.position);
-    if (rig.mode === "third") O.addScaledVector(D, Math.hypot(camera.position.x - m.x, camera.position.y - (m.y + 1.5), camera.position.z - m.z));   // bắt đầu từ chỗ người chơi, không phải sau lưng
+    if (!firstNow()) O.addScaledVector(D, Math.hypot(camera.position.x - m.x, camera.position.y - (m.y + 1.5), camera.position.z - m.z));   // bắt đầu từ chỗ người chơi, không phải sau lưng
   }
   if (spread > 0) { D.x += (Math.random() - 0.5) * 2 * spread; D.y += (Math.random() - 0.5) * 2 * spread; D.z += (Math.random() - 0.5) * 2 * spread; D.normalize(); }
 }
@@ -52,12 +52,19 @@ function cyl(e: Entity): number | null {
   const sq = Math.sqrt(disc); let t = (-b - sq) / (2 * a); if (t < 0) t = (-b + sq) / (2 * a); if (t < 0) return null;
   const y = O.y + D.y * t; return y >= e.y && y <= e.y + 1.85 ? t : null;
 }
-interface Hit { t: number; e: Entity | null; head: boolean; kind: "air" | "wall" | "ground" | "ent" }
+interface Hit { t: number; e: Entity | null; head: boolean; kind: "air" | "wall" | "ground" | "water" | "ent" }
+const HN = new THREE.Vector3();   // pháp tuyến bề mặt trúng đạn (cho lỗ đạn)
 function trace(range: number): Hit {
   const h: Hit = { t: range, e: null, head: false, kind: "air" };
   rc.set(O, D); rc.far = range;
-  const w = rc.intersectObjects(wallMeshes, false)[0]; if (w) { h.t = w.distance; h.kind = "wall"; }
-  { const tg = terrainRay(O.x, O.y, O.z, D.x, D.y, D.z, h.t); if (tg >= 0) { h.t = tg; h.kind = "ground"; } }   // đồi/vách/mặt đất
+  HN.copy(D).negate();
+  const w = rc.intersectObjects(wallMeshes, false)[0];
+  if (w) { h.t = w.distance; h.kind = "wall"; if (w.face) HN.copy(w.face.normal).transformDirection(w.object.matrixWorld); }
+  { const tg = terrainRay(O.x, O.y, O.z, D.x, D.y, D.z, h.t); if (tg >= 0) { h.t = tg; h.kind = "ground"; const x = O.x + D.x * tg, z = O.z + D.z * tg; HN.set(groundAt(x - 0.5, z) - groundAt(x + 0.5, z), 1, groundAt(x, z - 0.5) - groundAt(x, z + 0.5)).normalize(); } }   // đồi/vách/mặt đất
+  if (D.y < -1e-4 && O.y > WATER_Y) {   // mặt nước: đạn trúng mặt phẳng nước trước khi chạm đáy
+    const tw = (WATER_Y - O.y) / D.y;
+    if (tw > 0 && tw < h.t && groundAt(O.x + D.x * tw, O.z + D.z * tw) < WATER_Y) { h.t = tw; h.kind = "water"; }
+  }
   for (const e of entities) {
     if (e.i === G.slot || e.dead || e.out || e.stun > 0 || !e.g.visible) continue;   // chỉ trúng người đang nhìn thấy
     const t = cyl(e);
@@ -83,7 +90,7 @@ function fire() {
   W.recoil += g.recoil; W.bloom = Math.min(g.bloom, W.bloom + g.bloom * 0.22);
   sfx.shot(g.id);
   const moving = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
-  const spread = (g.spread + W.bloom) * (W.ads ? 0.45 : 1) * (moving ? 1.5 : 1);
+  const spread = W.scoped ? 0 : (g.spread + W.bloom) * (W.ads ? 0.45 : 1) * (moving ? 1.5 : 1);   // qua kính súng ngắm: bắn chính xác tuyệt đối
   muzzleWorld(MZ);
   for (let k = 0; k < g.pellets; k++) {
     aimRay(spread);
@@ -92,46 +99,125 @@ function fire() {
     if (r.e) {
       const fall = r.t < g.range * 0.4 ? 1 : 1 - 0.45 * ((r.t - g.range * 0.4) / (g.range * 0.6));   // xa thì yếu đi
       impact(P, "blood"); damageEntity(r.e, g.dmg * fall * (r.head ? COMBAT.headMul : 1), r.head);
-    } else if (r.kind === "ground") impact(P, walkable(P.x, P.z) ? "dust" : "water");
-    else if (r.kind === "wall") impact(P, "spark");
+    } else if (r.kind === "water") splash(P, g.id === "sniper" ? 1.5 : 1);
+    else if (r.kind === "ground") { impact(P, "dust"); hole(P, HN); }
+    else if (r.kind === "wall") { impact(P, "spark"); hole(P, HN); }
   }
 }
 
 export function startReload() {
   const g = GUNS[W.cur];
-  if (!playing() || W.reload > 0 || W.ammo[W.cur] >= g.mag || W.reserve[W.cur] <= 0) return;
-  W.reload = W.reloadDur = g.reload; sfx.reload(g.reload);
+  if (!playing() || busy() || W.nade || W.lock > 0 || W.reload > 0 || W.ammo[W.cur] >= g.mag || W.reserve[W.cur] <= 0) return;
+  W.reload = W.reloadDur = g.reload; sfx.reload(g.reload); relPrev = 0;
 }
 function finishReload() {
   const g = GUNS[W.cur], take = Math.min(g.mag - W.ammo[W.cur], W.reserve[W.cur]);
   W.ammo[W.cur] += take; W.reserve[W.cur] -= take;
 }
+/** Đổi súng (phím 1-3 / lăn chuột): thời gian rút súng từ lưng / hông = stow (cất súng cũ) + reach (tay vươn) + draw·0.55 — chưa xong thì chưa bắn / nạp được. Phím 4 = lựu đạn. */
 export function selectWeapon(i: number) {
-  if (!playing() || i === W.cur || i < 0 || i >= GUNS.length) return;
-  W.cur = i; W.reload = 0; W.swapT = 1; W.ads = false; sfx.swap();
+  if (!playing()) return;
+  if (i === GUNS.length) return void equipNade(false);
+  if (i < 0 || i >= GUNS.length) return;
+  if (W.nade) {                                  // đang cầm lựu đạn: chưa giật chốt / đang ném thì không đổi
+    if (W.gHold || W.gAuto || W.gThrowT > 0) return;
+    resetNade(); W.cur = i; W.reload = 0; W.ads = false; W.lock = SWAP.reach + SWAP.draw * 0.55; W.swapT = 1; sfx.swap(); equipGun(gunRig(), GUNS[i].id as GunId); return;
+  }
+  if (i === W.cur) return;
+  W.cur = i; W.reload = 0; W.swapT = 1; W.ads = false; W.lock = SWAP.stow + SWAP.reach + SWAP.draw * 0.55; sfx.swap();
   equipGun(gunRig(), GUNS[i].id as GunId);
 }
 export const cycleWeapon = (d: number) => selectWeapon((W.cur + d + GUNS.length) % GUNS.length);
 
-/* ───────────── Lựu đạn ───────────── */
-interface Gren { m: THREE.Mesh; v: THREE.Vector3; t: number }
+/* ───────────── Lựu đạn ─────────────
+ * Phím 4: tay phải móc túi hông trái lấy lựu đạn → GIỮ chuột trái: giật chốt (chốt bay ra), người ngả ra sau → THẢ chuột: vung tay ném (giữ lâu sau khi rút chốt = ném xa hơn).
+ * Bấm nhanh (thả sớm) hoặc phím G: tự giật chốt rồi ném luôn, xong tự rút lại súng. */
+interface Gren { m: THREE.Object3D; v: THREE.Vector3; t: number; w?: boolean }
 const grens: Gren[] = [];
-const gGeo = new THREE.BoxGeometry(0.14, 0.2, 0.14), gMat = new THREE.MeshStandardMaterial({ color: 0x3f5a2a, roughness: 0.6 });
 
-export function throwGrenade() {
+function equipNade(quick: boolean) {
   if (!playing() || W.grenades <= 0 || W.grenCd > 0) return;
-  W.grenades--; W.grenCd = GRENADE.cooldown; W.aimT = Math.max(W.aimT, 1); sfx.pin();
+  if (busy()) return void busyHint();
+  if (W.nade) { if (quick && !W.gHold && !W.gAuto && W.gThrowT <= 0) W.gQuick = true; return; }
+  W.nade = true; W.gQuick = quick; W.gHold = false; W.gAuto = false; W.gHoldT = 0; W.gThrowT = 0; W.gThrown = false; W.gPin = false; W.reload = 0; W.ads = false;
+  W.gDrawT = -SWAP.stow;          // âm = còn đang cất súng cũ về dây đeo (gunpose.ts), xong mới móc túi
+  sfx.swap();
+}
+/** Về lại súng (xong ném / hết lựu đạn / bị gián đoạn): rút súng từ dây đeo. */
+function leaveNade() { resetNade(); W.lock = SWAP.reach + SWAP.draw * 0.55; W.swapT = 1; }
+export function throwGrenade() { equipNade(true); }   // phím G
+
+/** Câu thoại khi ném lựu đạn: hiện chữ + đọc thành tiếng (Web Speech API, giọng tiếng Anh) — cách làm của game tham khảo. */
+const GREN_LINE = "Zama fire in the hole";
+function sayGren() {
+  toast('🗣️ "' + GREN_LINE + '"');
+  try {
+    const ss = window.speechSynthesis; if (!ss) return;
+    ss.cancel();   // ném liên tiếp thì không dồn hàng đợi
+    const u = new SpeechSynthesisUtterance(GREN_LINE); u.lang = "en-US"; u.rate = 1; u.pitch = 0.9; u.volume = 1; ss.speak(u);
+  } catch { /* không có giọng đọc */ }
+}
+function launch() {
+  sayGren(); sfx.nadeLaunch();
+  W.grenades--; W.grenCd = GRENADE.cooldown; W.aimT = Math.max(W.aimT, 1);
   aimRay(0);
-  const m = me(), mesh = new THREE.Mesh(gGeo, gMat); mesh.castShadow = true;
-  mesh.position.set(m.x + D.x * 0.5, m.y + 1.45, m.z + D.z * 0.5);
-  let speed = GRENADE.speed;
-  if (rig.mode === "top") speed = Math.max(5, Math.min(GRENADE.speed, Math.hypot(P.x - m.x, P.z - m.z) * 1.1));   // ném tới chỗ con trỏ chuột
-  const v = new THREE.Vector3().copy(D).multiplyScalar(speed); v.y += rig.mode === "top" ? 4 : 3;
+  const mesh = buildGrenade(); (mesh.userData.pin as THREE.Object3D).visible = false;   // chốt đã rút
+  mesh.scale.setScalar(1.3); nadeWorld(mesh.position);
+  if (firstNow()) mesh.position.copy(O).addScaledVector(D, 0.5).y -= 0.2;
+  const v = new THREE.Vector3().copy(D).multiplyScalar(W.gPow); v.y += 3;
   scene.add(mesh); grens.push({ m: mesh, v, t: GRENADE.fuse });
 }
-function explode(p: THREE.Vector3) {
-  sfx.explode(); explosion(p, GRENADE.radius);
+/** Máy trạng thái ném: móc túi (gDrawT) → giữ chuột (gHold, gHoldT) / tự động (gAuto) → vung tay (gThrowT) → phóng khi tay đã giơ ra trước (gThrown). */
+function updateNade(dt: number, ok: boolean) {
+  if (!W.nade) return;
+  if (!ok) { resetNade(); return; }
+  if (busy()) { if (W.gHold || W.gAuto) toast("🙌 Hands busy — grenade put away"); leaveNade(); return; }
+  if (W.grenades <= 0 && W.gThrowT <= 0) { leaveNade(); return; }
+  W.gDrawT += dt; W.aimT = Math.max(W.aimT, 0.5);   // quay người theo hướng nhìn khi cầm lựu đạn
+  const PT = GRENADE.pin, TH = GRENADE.throwT, ready = W.gDrawT >= GRENADE.draw * 0.7;
+  const down = M.left, wasHold = W.gHold;
+  if (W.gThrowT <= 0) {
+    if (!W.gHold && !W.gAuto && M.pressed && ready && W.grenCd <= 0) { W.gHold = true; W.gHoldT = 0; W.gPin = false; sfx.swap(); }
+    if (!W.gHold && !W.gAuto && W.gQuick && ready && W.grenCd <= 0) { W.gAuto = true; W.gHoldT = 0; W.gPin = false; }       // phím G: tự giật chốt
+    if (W.gHold) {
+      W.gHoldT += dt;
+      if (!down && wasHold) {                     // thả chuột
+        W.gHold = false;
+        if (W.gHoldT < PT) W.gAuto = true;                                                    // bấm nhanh: tự làm nốt thao tác giật chốt rồi ném
+        else { W.gPow = GRENADE.speed + (GRENADE.speedMax - GRENADE.speed) * Math.min(1, (W.gHoldT - PT) / 0.7); W.gThrowT = TH; W.gThrown = false; sfx.nadeThrow(); }
+      }
+    } else if (W.gAuto) {
+      W.gHoldT += dt * 1.5;
+      if (W.gHoldT >= PT) { W.gAuto = false; W.gHoldT = PT; W.gPow = GRENADE.speed; W.gThrowT = TH; W.gThrown = false; sfx.nadeThrow(); }
+    }
+    if ((W.gHold || W.gAuto) && !W.gPin && W.gHoldT >= PT * 0.7) {   // chốt bị giật ra: bay đi
+      W.gPin = true; sfx.pin(); nadeWorld(P, true);
+      U.set(-1.6, 1.4, firstNow() ? -0.8 : 0.8).applyQuaternion(firstNow() ? camera.quaternion : _id.setFromEuler(_eu.set(0, me().rot, 0)));   // bay sang bên tay trái, lên và ra trước
+      flyPin(P, U);
+    }
+    return;
+  }
+  W.gThrowT -= dt;
+  if (!W.gThrown && W.gThrowT <= TH * 0.55) { W.gThrown = true; launch(); }
+  if (W.gThrowT <= 0) {
+    W.gThrowT = 0;
+    if (W.gQuick || W.grenades <= 0) leaveNade();
+    else { W.gDrawT = 0; W.gThrown = false; W.gPin = false; W.gHold = false; W.gAuto = false; W.gHoldT = 0; }   // còn quả: lại móc túi
+  }
+}
+const _id = new THREE.Quaternion(), _eu = new THREE.Euler();
+function explode(p: THREE.Vector3, water = false) {
+  { const m0 = me(); sfx.explode(Math.hypot(m0.x - p.x, (m0.y + 1) - p.y, m0.z - p.z)); }
+  if (water) { p.y = WATER_Y; waterBlast(p, GRENADE.radius); } else explosion(p, GRENADE.radius);
   const m = me(); hooks.shake(Math.max(0, 0.7 * (1 - Math.hypot(m.x - p.x, m.z - p.z) / (GRENADE.radius * 3))));
+  if (!G.ghost && G.phase === "play") {   // người chơi đứng gần cũng mất máu (kể cả lựu đạn do chính mình ném)
+    const d = T.set(m.x, m.y + 0.9, m.z).distanceTo(p);
+    if (d < GRENADE.radius) {
+      let dmg = GRENADE.dmg * Math.pow(1 - d / GRENADE.radius, 1.3);
+      U.copy(T).sub(p).normalize(); rc.set(p, U); rc.far = d; if (rc.intersectObjects(wallMeshes, false).length) dmg *= 0.25;
+      hooks.shake(0.5); hurtPlayer(dmg);
+    }
+  }
   for (const e of entities) {
     if (e.i === G.slot || e.dead || e.out || e.stun > 0) continue;
     const d = T.set(e.x, e.y + 0.9, e.z).distanceTo(p); if (d > GRENADE.radius) continue;
@@ -147,8 +233,9 @@ function updateGrenades(dt: number) {
     const g = grens[i], p = g.m.position; g.t -= dt;
     g.v.y -= GRENADE.gravity * dt; p.addScaledVector(g.v, dt); g.m.rotation.x += dt * 9; g.m.rotation.z += dt * 6;
     const gy = groundAt(p.x, p.z) + 0.12;
+    if (!g.w && p.y < WATER_Y && gy - 0.12 < WATER_Y) { g.w = true; splash(p, 1.4); g.v.multiplyScalar(0.12); }   // rơi xuống biển / ao: chìm dần, vẫn nổ khi hết ngòi
+    if (g.w) { g.v.y += GRENADE.gravity * dt * 0.85; g.v.multiplyScalar(Math.exp(-dt * 2.5)); if (p.y < gy) p.y = gy; if (g.t <= 0) { explode(p.clone(), true); scene.remove(g.m); grens.splice(i, 1); } continue; }
     if (p.y < gy) {
-      if (!walkable(p.x, p.z)) { impact(p.clone(), "water"); scene.remove(g.m); grens.splice(i, 1); continue; }   // rơi xuống biển/ao: không nổ
       if (gy - p.y > 0.6) { p.x -= g.v.x * dt; p.z -= g.v.z * dt; g.v.x *= -0.4; g.v.z *= -0.4; }            // đập vào sườn dốc: nảy ngược
       else { p.y = gy; g.v.y = Math.abs(g.v.y) < 1.2 ? 0 : -g.v.y * 0.4; g.v.x *= 0.72; g.v.z *= 0.72; }
     }
@@ -163,27 +250,34 @@ function updateGrenades(dt: number) {
 /* ───────────── Cập nhật mỗi frame ───────────── */
 export function updateCombat(dt: number) {
   const m = me(), ok = playing();
-  W.cd = Math.max(0, W.cd - dt); W.grenCd = Math.max(0, W.grenCd - dt); W.swapT = Math.max(0, W.swapT - dt * 4);
+  W.cd = Math.max(0, W.cd - dt); W.grenCd = Math.max(0, W.grenCd - dt); W.swapT = Math.max(0, W.swapT - dt * 4); W.lock = Math.max(0, W.lock - dt);
   W.aimT = Math.max(0, W.aimT - dt); W.flashT -= dt;
   W.kick = Math.max(0, W.kick - dt * 7); W.recoil *= Math.exp(-dt * 9); W.bloom = Math.max(0, W.bloom - dt * 0.12);
-  W.ads = ok && M.right && canAim() && rig.mode !== "top" && W.reload <= 0;
+  const b = busy(); if (wasBusy && !b) W.lock = Math.max(W.lock, SWAP.reach + SWAP.draw * 0.55); wasBusy = b;   // lăn / bơi xong: rút lại súng từ sau lưng
+  W.ads = ok && M.right && canAim() && !busy() && W.reload <= 0 && !W.nade && W.lock <= 0;
   W.adsT += ((W.ads ? 1 : 0) - W.adsT) * Math.min(1, dt * 10);
+  W.scoped = ok && !W.nade && GUNS[W.cur].id === "sniper" && W.adsT > 0.55;   // súng ngắm: nhìn qua kính (tự sang góc thứ nhất)
   if (W.ads) W.aimT = Math.max(W.aimT, 0.5);
-  if (W.reload > 0) { W.reload -= dt; if (W.reload <= 0) finishReload(); }
+  if (W.reload > 0) {
+    const u = 1 - W.reload / W.reloadDur;
+    if (relPrev < 0.3 && u >= 0.3) { magWorld(P); dropMag(P, GUNS[W.cur].id === "pistol"); }   // băng cũ rút ra, rơi xuống đất
+    relPrev = u; W.reload -= dt; if (W.reload <= 0) { finishReload(); relPrev = 0; }
+  }
 
-  if (ok && rig.mode === "top" && W.aimT > 0) { aimRay(0); m.rot = Math.atan2(D.x, D.z); }   // nhìn từ trên: nhân vật quay mặt về con trỏ
   const g = GUNS[W.cur];
-  if (ok && canAim() && W.reload <= 0 && W.cd <= 0 && (g.auto ? M.left : M.pressed)) {
+  if (ok && canAim() && busy() && M.pressed) busyHint();
+  if (ok && canAim() && !busy() && !W.nade && W.lock <= 0 && W.reload <= 0 && W.cd <= 0 && (g.auto ? M.left : M.pressed)) {
     if (W.ammo[W.cur] > 0) fire(); else { if (M.pressed) sfx.empty(); startReload(); }
   }
+  updateNade(dt, ok);
   M.pressed = false;
 
   // tư thế nhân vật: giơ súng khi vừa bắn / đang ngắm, hạ súng khi đi lại
   m.aim += ((W.aimT > 0 ? 1 : 0) - m.aim) * Math.min(1, dt * 9);
   m.pitch = rig.pitch; m.kick = W.kick; m.rel = W.reload > 0 ? Math.sin(Math.PI * (1 - W.reload / W.reloadDur)) : 0;
-  const fl = W.flashT > 0, gr = gunRig();
-  viewGuns.forEach((v, i) => setFlash(v, fl && i === W.cur && rig.mode === "first"));
-  for (const k of Object.keys(gr.models) as GunId[]) setFlash(gr.models[k], fl && rig.mode !== "first" && k === GUNS[W.cur].id);
+  const fl = W.flashT > 0, gr = gunRig(), fp = firstNow();
+  viewGuns.forEach((v, i) => setFlash(v, fl && i === W.cur && fp));
+  for (const k of Object.keys(gr.models) as GunId[]) setFlash(gr.models[k], fl && !fp && k === GUNS[W.cur].id);
 
   updateEntities(dt); updateGrenades(dt);
 }

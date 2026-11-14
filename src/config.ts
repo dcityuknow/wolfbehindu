@@ -19,23 +19,26 @@ export { CALLSIGNS as NAMES, CHAT_LINES } from "./story";
 export const LIGHT = { ambient: 1.6, sun: 3.2, torch: 18, torchRange: 12, fogPlay: 0.0045, fogGhost: 0.0032 };
 
 /* ───────────── Vũ khí ───────────── */
-export type GunId = "pistol" | "smg" | "rifle" | "shotgun";
+/** Chỉ 3 súng (như game tham khảo): súng ngắn · súng dài · súng ngắm — cộng lựu đạn (phím 4 hoặc G). */
+export type GunId = "pistol" | "rifle" | "sniper";
 export interface GunDef {
   id: GunId; name: string; icon: string;
-  dmg: number; pellets: number;          // sát thương mỗi viên · số viên mỗi phát (shotgun)
+  dmg: number; pellets: number;          // sát thương mỗi viên · số viên mỗi phát
   mag: number; reserve: number;          // băng đạn · đạn dự trữ
   rate: number; auto: boolean;           // phát/giây · giữ chuột để bắn liên thanh
   reload: number;                        // giây nạp đạn
-  spread: number; bloom: number;         // độ toả đạn cơ bản · tối đa khi bắn liên tục (rad)
+  spread: number; bloom: number;         // độ toả đạn cơ bản · tối đa khi bắn liên tục (rad) — súng ngắm: 0 khi đã nhìn qua kính
   range: number; recoil: number;         // tầm bắn (m) · độ giật camera (rad/phát)
 }
-/** Chỉnh cân bằng súng ở đây. Phím 1..4 chọn theo thứ tự mảng này. */
+/** Chỉnh cân bằng súng ở đây. Phím 1..3 chọn theo thứ tự mảng này, phím 4 = lựu đạn. */
 export const GUNS: GunDef[] = [
-  { id: "pistol", name: "M1911 Pistol", icon: "🔫", dmg: 24, pellets: 1, mag: 12, reserve: 72, rate: 5, auto: false, reload: 1.3, spread: 0.006, bloom: 0.02, range: 70, recoil: 0.018 },
-  { id: "smg", name: "UZI SMG", icon: "🔫", dmg: 13, pellets: 1, mag: 32, reserve: 160, rate: 13, auto: true, reload: 1.7, spread: 0.014, bloom: 0.05, range: 55, recoil: 0.01 },
-  { id: "rifle", name: "AK-47 Rifle", icon: "🔫", dmg: 25, pellets: 1, mag: 30, reserve: 120, rate: 8.5, auto: true, reload: 2.1, spread: 0.008, bloom: 0.045, range: 110, recoil: 0.016 },
-  { id: "shotgun", name: "Shotgun SPAS", icon: "💥", dmg: 14, pellets: 8, mag: 6, reserve: 36, rate: 1.1, auto: false, reload: 2.4, spread: 0.055, bloom: 0, range: 35, recoil: 0.07 },
+  { id: "pistol", name: "Pistol", icon: "🔫", dmg: 30, pellets: 1, mag: 12, reserve: 48, rate: 5, auto: false, reload: 1.6, spread: 0.006, bloom: 0.02, range: 70, recoil: 0.02 },
+  { id: "rifle", name: "Long Gun (AK-47)", icon: "🔫", dmg: 22, pellets: 1, mag: 30, reserve: 120, rate: 9, auto: true, reload: 2.3, spread: 0.008, bloom: 0.045, range: 110, recoil: 0.016 },
+  { id: "sniper", name: "Sniper Rifle", icon: "🎯", dmg: 100, pellets: 1, mag: 5, reserve: 20, rate: 0.9, auto: false, reload: 3.2, spread: 0.05, bloom: 0, range: 220, recoil: 0.09 },
 ];
-export const GRENADE = { count: 3, fuse: 2.3, radius: 6.5, dmg: 140, speed: 14, gravity: 17, cooldown: 1.1 };
+/** Lựu đạn: pin = giây giữ chuột để giật chốt xong · draw = giây móc túi hông lấy lựu đạn · throwT = giây vung tay ném · speed/speedMax = vận tốc ném (giữ lâu sau khi rút chốt = ném xa hơn) */
+export const GRENADE = { count: 3, fuse: 2.3, radius: 6.5, dmg: 140, speed: 12, speedMax: 18, gravity: 17, cooldown: 0.8, pin: 1, draw: 0.6, throwT: 0.35 };
+/** Thời gian đổi súng (giây): cất súng cũ về dây đeo · tay đưa sang chỗ súng mới · rút súng mới ra trước ngực. */
+export const SWAP = { stow: 0.2, reach: 0.1, draw: 0.3 };
 /** Chiến đấu: đồng đội trúng đạn → ngất tạm thời (không lệch trạng thái on-chain). Chỉ GIÁN ĐIỆP giết thật (1 lần/lượt, qua contract). */
 export const COMBAT = { botHp: 100, stunTime: 6, reviveHp: 60, headMul: 2, playerHp: 120, botDmg: 0.4, grace: 2.5 };   // botDmg: sát thương Bot bắn lại = dmg súng × hệ số · grace: giây tính là 1 "lần" bắn nhầm (xả liên thanh không bị tính nhiều lần)

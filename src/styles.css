@@ -11,10 +11,10 @@ button.r{background:#c0392b}button.g{background:#3b4160}#hud{position:fixed;inse
 #callbar.sm{top:14px;transform:translateX(-50%);font-size:17px;padding:10px 18px;border-width:2px;animation:none}
 #prompt{position:absolute;bottom:90px;width:100%;text-align:center;font-size:18px;text-shadow:0 0 6px #000;pointer-events:none}
 #btns{position:absolute;right:16px;bottom:16px}#btns button{font-size:16px;padding:14px 18px}
-#toast{position:absolute;left:14px;bottom:150px;width:min(420px,60vw);display:flex;flex-direction:column;gap:3px;align-items:flex-start;pointer-events:none}
+#toast{position:absolute;left:14px;bottom:16px;width:min(420px,60vw);display:flex;flex-direction:column;gap:3px;align-items:flex-start;pointer-events:none}
 #toast .rl{background:#000d;color:#fff;font:13px/1.35 ui-monospace,Consolas,monospace;padding:4px 10px 4px 9px;border-left:3px solid #6f6;border-radius:3px;max-width:100%;transition:opacity .8s}
 #toast .rl:before{content:"📻 ";opacity:.8}#toast .rl.out{opacity:0}
-#fx{position:fixed;inset:0;background:#f00;opacity:0;pointer-events:none;z-index:8;transition:opacity .35s}
+#fx{position:fixed;inset:0;background:radial-gradient(transparent 40%,rgba(255,40,80,.6));opacity:0;pointer-events:none;z-index:8;transition:opacity .25s}
 #mlog{font:12px monospace;color:#9fb0ff;margin-top:10px;white-space:pre-wrap}#mstat{color:#ffd24d;margin-top:6px}
 .rw{display:flex;align-items:center;gap:8px;padding:6px;margin:3px 0;background:#1a2252;border-radius:8px;text-align:left}.rw.dd{opacity:.35}.rw.sl{outline:2px solid #ffd24d}.dot{width:16px;height:16px;border-radius:50%}
 #chat{height:110px;overflow:auto;background:#0b0f2a;border-radius:8px;padding:6px;margin:8px 0;text-align:left;font-size:13px}input{padding:8px;border-radius:6px;border:1px solid #34407a;background:#141a40;color:#fff}
@@ -67,7 +67,7 @@ a{color:#8fb0ff}
 #bView{position:absolute;left:12px;top:116px}
 #cross{display:none;position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:none;
  background:linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat;opacity:.75;filter:drop-shadow(0 0 2px #000)}
-#lockhint{display:none;position:absolute;left:50%;bottom:130px;transform:translateX(-50%);background:#000a;padding:6px 14px;border-radius:999px;font-size:13px;pointer-events:none;white-space:nowrap}
+#lockhint{display:none;position:absolute;left:50%;top:76px;transform:translateX(-50%);background:#000a;padding:6px 14px;border-radius:999px;font-size:13px;pointer-events:none;white-space:nowrap}
 #menu{background:linear-gradient(180deg,rgba(6,10,36,.5),rgba(6,10,36,.72));backdrop-filter:blur(2px)}
 
 /* ───── Cutscene mở đầu ───── */
@@ -99,16 +99,22 @@ a{color:#8fb0ff}
 
 /* ───── Vũ khí / HUD chiến đấu ───── */
 #wp,#wp *,#hit,#hit *{pointer-events:none!important}
-#wp{display:none;position:absolute;left:14px;bottom:16px;min-width:240px;background:#000a;border:1px solid #ffffff22;border-radius:10px;padding:10px 14px;text-shadow:0 0 4px #000}
-#wpSlots{display:flex;gap:6px;margin-bottom:8px}
-#wpSlots u{flex:1;text-align:center;text-decoration:none;font-size:15px;padding:4px 0;border-radius:6px;background:#ffffff14;color:#9fb0ff;opacity:.7}
-#wpSlots u b{display:block;font-size:10px;color:#8f9bd6;font-weight:600}
+/* Bảng súng gọn: góc dưới PHẢI, ngay trên nút Assassinate/Check mission → góc dưới trái dành cho radio/thông báo */
+#wp{display:none;position:absolute;right:16px;bottom:84px;width:210px;background:#000a;border:1px solid #ffffff22;border-radius:10px;padding:6px 8px 7px;text-shadow:0 0 4px #000}
+#wpSlots{display:flex;gap:4px;margin-bottom:5px}
+#wpSlots u{flex:1;text-align:center;text-decoration:none;font:600 12px system-ui;padding:2px 0;border-radius:5px;background:#ffffff14;color:#9fb0ff;opacity:.7}
 #wpSlots u.a{background:#3a4bd6;color:#fff;opacity:1}
-#wpName{font-size:12px;color:#c8d0ff;letter-spacing:.04em}
-#wpAmmo{margin:2px 0 4px}#wpMag{font-size:34px;line-height:1}#wpRes{font-size:16px;color:#aab}
-#wpGren{font-size:14px;color:#ffd24d}
-#wpRel{display:none;height:5px;background:#ffffff22;border-radius:3px;margin:6px 0 2px;overflow:hidden}#wpRel i{display:block;height:100%;width:0;background:#ffd24d}
-#wpKeys{margin-top:6px;font-size:10px;color:#8f9bd6;max-width:260px;line-height:1.4}
+#wpLine{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+#wpName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:#c8d0ff}
+#wpAmmo{margin:0}#wpMag{font-size:20px;line-height:1}#wpRes{font-size:12px;color:#aab}
+#wpGren{font-size:12px;color:#ffd24d}
+#wpHp{height:3px;background:#ffffff22;border-radius:2px;margin-top:5px;overflow:hidden}#wpHp i{display:block;height:100%;width:100%;background:#5fe08a;transition:width .15s}
+#wpRel{display:none;height:3px;background:#ffffff22;border-radius:2px;margin-top:3px;overflow:hidden}#wpRel i{display:block;height:100%;width:0;background:#ffd24d}
+/* Kính ngắm súng ngắm: chỉ có viền + vạch ngắm; bên ngoài trong suốt (cảnh thật vẫn thấy), mặt kính tròn do scene.ts vẽ cảnh phóng to */
+#scope{display:none;position:absolute;inset:0;pointer-events:none}
+#scope .srim{position:absolute;left:50%;top:50%;width:calc(var(--lr)*2);height:calc(var(--lr)*2);margin:calc(var(--lr)*-1) 0 0 calc(var(--lr)*-1);border-radius:50%;box-sizing:border-box;
+ box-shadow:inset 0 0 calc(var(--lr)*.3) #0009,0 0 0 calc(var(--lr)*.07) #0d0d12,0 0 0 calc(var(--lr)*.09) #3a3a46;
+ background:linear-gradient(#000c,#000c) center/92% 1px no-repeat,linear-gradient(#000c,#000c) center/1px 92% no-repeat,radial-gradient(circle,#ff3b3b 0 2px,transparent 3px)}
 #hit{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;opacity:0}
 #hit i{position:absolute;width:10px;height:2px;background:#fff;box-shadow:0 0 3px #000}
 #hit i:nth-child(1){left:0;top:5px;transform:rotate(45deg)}#hit i:nth-child(2){right:0;top:5px;transform:rotate(-45deg)}
@@ -134,7 +140,6 @@ a{color:#8fb0ff}
 .bub.shout{background:#ffe14d;font-size:19px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.bub.shout:after{border-top-color:#ffe14d}
 #wanted{display:none;position:absolute;left:50%;top:70px;transform:translateX(-50%);padding:8px 18px;border-radius:8px;background:#b3121299;border:1px solid #ff6b6b;color:#fff;font:700 16px system-ui;animation:wnt .8s ease-in-out infinite alternate}
 @keyframes wnt{to{background:#ff2a2acc}}
-#wpHp{height:7px;background:#ffffff22;border-radius:4px;margin-bottom:8px;overflow:hidden}#wpHp i{display:block;height:100%;width:100%;background:#5fe08a;transition:width .15s}
 
 /* ───── Lồng tiếng: phụ đề, huy hiệu kênh bộ đàm, nhiễu sóng ───── */
 #cineStatic{opacity:0;mix-blend-mode:screen;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 -.55'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>")}

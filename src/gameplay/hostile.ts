@@ -134,11 +134,11 @@ function clear(e: Entity, p: Entity) {
   if (losBlocked(A.x, A.y, A.z, A.x + B.x * d, A.y + B.y * d, A.z + B.z * d)) return false;   // đồi/núi chắn
   rc.set(A, B); rc.far = d; return rc.intersectObjects(wallMeshes, false).length === 0;
 }
-const gunOf = (e: Entity): GunDef => { const r = e.g.userData.gunRig as GunRig; return GUNS.find((g) => g.id === r.cur) ?? GUNS[2]; };
+const gunOf = (e: Entity): GunDef => { const r = e.g.userData.gunRig as GunRig; return GUNS.find((g) => g.id === r.cur) ?? GUNS[1]; };
 
-function hurtPlayer(d: number) {
+export function hurtPlayer(d: number) {
   if (G.phase !== "play" || W.hp <= 0) return;
-  W.hp = Math.max(0, W.hp - d); flashRed();
+  W.hp = Math.max(0, W.hp - d); flashRed(d);
   if (W.hp <= 0) executed();
 }
 /** Out of health: the squad executes you. Game over right now; the death is written to the contract. */

@@ -100,7 +100,22 @@ export const DOCK = (() => {
 const onDock = (x: number, z: number) => Math.abs(x - DOCK.x) <= DOCK.hw - 0.3 && z >= DOCK.z0 && z <= DOCK.z1;
 export const DOCK_Y = 0;
 /** Mặt đất tại (x, z): độ cao khối (số nguyên), hoặc mặt cầu tàu (0). Mọi nhân vật đứng ở y = groundAt. */
-export const groundAt = (x: number, z: number) => (onDock(x, z) ? DOCK_Y : H(Math.floor(x), Math.floor(z)));
+/* ───────────── Bơi ngoài biển ─────────────
+ * Người chơi bơi được trong vùng biển cách bờ tối đa SWIM_R mét (bản đồ khoảng cách tới bờ tính một lần lúc tải). Xa hơn là "biển sâu" (không bơi tiếp).
+ * Khi bơi, chân đứng ở SWIM_Y (vai chìm dưới mặt nước, đầu nhô lên). Bot không bơi. */
+export const SWIM_R = 16;
+export const SWIM_Y = WATER_Y - 1.0;
+const SD = new Float32Array(W2 * W2).fill(1e3);
+for (let ix = -NG; ix < NG; ix++) for (let iz = -NG; iz < NG; iz++) if (H(ix, iz) >= 0) SD[(ix + NG) * W2 + iz + NG] = 0;
+{ // khoảng cách tới bờ (chamfer 2 lượt)
+  const g = (a: number, b: number) => (a < 0 || b < 0 || a >= W2 || b >= W2 ? 1e3 : SD[a * W2 + b]);
+  for (let a = 0; a < W2; a++) for (let b = 0; b < W2; b++) SD[a * W2 + b] = Math.min(SD[a * W2 + b], g(a - 1, b) + 1, g(a, b - 1) + 1, g(a - 1, b - 1) + 1.414, g(a - 1, b + 1) + 1.414);
+  for (let a = W2 - 1; a >= 0; a--) for (let b = W2 - 1; b >= 0; b--) SD[a * W2 + b] = Math.min(SD[a * W2 + b], g(a + 1, b) + 1, g(a, b + 1) + 1, g(a + 1, b + 1) + 1.414, g(a + 1, b - 1) + 1.414);
+}
+export const shoreDist = (x: number, z: number) => { const ix = Math.floor(x), iz = Math.floor(z); return ix < -NG || ix >= NG || iz < -NG || iz >= NG ? 1e3 : SD[(ix + NG) * W2 + iz + NG]; };
+/** Ô biển trong vùng bơi được (không tính cầu tàu). */
+export const swimmable = (x: number, z: number) => !onDock(x, z) && H(Math.floor(x), Math.floor(z)) < 0 && shoreDist(x, z) <= SWIM_R;
+export const groundAt = (x: number, z: number) => (onDock(x, z) ? DOCK_Y : swimmable(x, z) ? SWIM_Y : H(Math.floor(x), Math.floor(z)));
 /** Đứng được: là đất liền (không phải biển / lòng ao). */
 export const walkable = (x: number, z: number) => onDock(x, z) || (H(Math.floor(x), Math.floor(z)) >= 0 && !isPond(x, z));
 export const CAMP_Y = H(0, 0);
@@ -108,9 +123,12 @@ export const CAMP_Y = H(0, 0);
 /** Độ dốc cục bộ = chênh lệch cao nhất giữa ô và 4 ô kề. */
 export const slopeAt = (ix: number, iz: number) => { const h = H(ix, iz); return Math.max(Math.abs(H(ix + 1, iz) - h), Math.abs(H(ix - 1, iz) - h), Math.abs(H(ix, iz + 1) - h), Math.abs(H(ix, iz - 1) - h)); };
 
-/** Bước từ (fx,fz) sang (tx,tz): đi được nếu đích là đất liền và không cao hơn mặt đứng (hoặc độ cao hiện tại nếu đang nhảy) quá STEP. */
-export function canStep(fx: number, fz: number, y: number, tx: number, tz: number) {
+/** Bước từ (fx,fz) sang (tx,tz): đi được nếu đích là đất liền và không cao hơn mặt đứng (hoặc độ cao hiện tại nếu đang nhảy) quá STEP.
+ *  swim = thực thể biết bơi (người chơi): được xuống nước trong vùng bơi; đang ở dưới nước thì trèo lên được bờ cao tối đa 1 khối trên mặt nước. */
+export function canStep(fx: number, fz: number, y: number, tx: number, tz: number, swim = false) {
+  if (swim && swimmable(tx, tz)) return true;
   if (!walkable(tx, tz)) return false;
+  if (swim && y <= SWIM_Y + 0.6 && swimmable(fx, fz)) return groundAt(tx, tz) <= 1.01;       // trèo từ nước lên bờ
   return groundAt(tx, tz) <= Math.max(groundAt(fx, fz), y) + STEP + 1e-3;
 }
 

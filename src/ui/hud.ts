@@ -1,6 +1,7 @@
 import { $, show, hide, sleep } from "./dom";
 import { G } from "../state";
 import { ROLE, UI, ENDING } from "../story";
+import { HURT } from "../weaponState";
 
 export function showHud() { hide("#menu"); $("#hud").style.display = "block"; }
 export function setRoleLabel(role: 0 | 1) { $("#role").innerHTML = UI.roleLabel(role === 1); }
@@ -16,7 +17,12 @@ export async function roleSplash(role: 0 | 1) {
   { const r = role ? ROLE.spy : ROLE.crew; splash(r.title, r.sub, r.color); }
   await sleep(3500); hideSplash();
 }
-export function flashRed() { $("#fx").style.opacity = ".55"; setTimeout(() => ($("#fx").style.opacity = "0"), 350); }
+let fxTimer = 0;
+/** Mất máu: viền đỏ toàn màn hình nháy lên (mờ dần) + màn hình nghiêng theo lượng máu mất (dmg = số máu mất; 0 = chỉ nháy). */
+export function flashRed(dmg = 0) {
+  const fx = $("#fx"); fx.style.opacity = ".9"; clearTimeout(fxTimer); fxTimer = window.setTimeout(() => (fx.style.opacity = "0"), 120);
+  if (dmg > 0) HURT.target = Math.min(HURT.MAX, HURT.target + dmg * HURT.K);
+}
 export function showEnd(crewWon: boolean, youWin: boolean) {
   const e = crewWon ? ENDING.crew : ENDING.spy; show("#end"); $("#et").textContent = e.title; $("#ed").innerHTML = e.desc + "<br><br>" + (youWin ? ENDING.win : ENDING.lose);
 }

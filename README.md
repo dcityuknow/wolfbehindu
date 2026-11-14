@@ -47,7 +47,7 @@ A teammate shot to 0 HP is dead until the game ends: the client calls `reportFri
 Only squadmates who can SEE the shooter (within 16 m, inside their field of view, no wall between) accuse you. Others who hear the shot run to the victim and ask questions; if an accusation is already out and they then see you, they join in. A spy kill that someone sees exposes the spy; unseen kills stay secret. Tuning: `WIT` in `src/gameplay/hostile.ts`.
 
 ## Controls
-WASD move · Space jump · **E** interact · **Q** assassinate (spy) · Left click shoot · Right click aim · **R** reload · **G** grenade · **1–4** weapons · **V** change view.
+WASD move · Space jump · **E** interact · **Q** assassinate (spy) · Left click shoot · Right click aim · **R** reload · **G** grenade · **1** pistol · **2** long gun · **3** sniper (right click = scope) · **4** grenade (hold click = pull pin, release = throw) · **V** change view.
 
 Balance knobs: `COMBAT` in `src/config.ts` (`playerHp`, `botDmg`, `grace`) and `src/gameplay/hostile.ts`.
 
@@ -66,3 +66,7 @@ Dependencies are one-way: `world` and `web3` are independent → `gameplay` uses
 
 ## Off-chain vs on-chain
 Positions, vision, mini-games, animation, chat, bot movement, the friendly-fire fight: **client**. Roles, kills (encrypted target), task progress, votes, win conditions and the **friendly-fire execution**: **Zama FHE on-chain**.
+
+
+## Weapons (v28)
+Only 3 guns + grenades (`GUNS`, `GRENADE`, `SWAP` in `src/config.ts`). Third person: guns are slung on the back (long gun / sniper crossed in an X) and hip (pistol holster, grenades on the left hip); switching draws the gun from the back/holster, reload pulls the mag, drops it, takes a new one from the left pouch, inserts it and racks the slide; grenade = hand into the hip pocket, pin pulled by the left hand, wind-up and throw. Code: `world/guns.ts` (models + rig), `world/gunpose.ts` (animation), `world/camera.ts` (first-person), `gameplay/combat.ts` (state machine).
