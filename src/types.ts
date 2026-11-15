@@ -4,6 +4,7 @@ export type TaskType = "radio" | "decode" | "fire" | "water" | "supply";
 export interface Entity { i: number; g: THREE.Group; x: number; z: number; rot: number; vy: number; y: number; dead: boolean; out: boolean; wait: number; tx: number; tz: number; /** ghế đang ngồi quanh lửa trại (-1 = đang đứng) */ seat: number;
   /** Chiến đấu: máu · thời gian ngất (s) · mức giơ súng ngắm 0..1 · góc ngẩng/cúi · độ giật · tiến độ nạp đạn · nháy đỏ khi trúng đạn */
   /** vị trí hợp lệ ở lần va chạm trước (để chặn leo vách / lội xuống biển) */ px: number; pz: number;
+  /** hướng CHÂN (rad) + đang lùi: thân (rot) xoay theo chuột, chân giữ nguyên tới khi di chuyển */ legRot?: number; legBack?: boolean;
   hp: number; stun: number; aim: number; pitch: number; kick: number; rel: number; flash: number }
 export interface Body { x: number; z: number; g: THREE.Group; own?: boolean }
 export interface Station { x: number; z: number; type: TaskType; m: THREE.Mesh; active: boolean; done: boolean }

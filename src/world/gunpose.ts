@@ -18,13 +18,26 @@ const mix = (o: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3, t: number) =>
 
 const SH = { r: V(0.336, 1.344, 0), l: V(-0.336, 1.344, 0) }, REACH = 0.588;   // vai (tâm xoay tay) · khoảng từ vai tới giữa bàn tay
 const DOWN = V(0, -1, 0), AX = V(1, 0, 0), _a = V(), _e = new THREE.Euler();
-/** Đưa bàn tay (giữa 3 điểm ảnh dưới cùng của tay) tới đúng điểm target: xoay tay hướng về target, kéo dài / co nhẹ cho vừa. */
+const LA = 4 * 0.056, LB = 6.8 * 0.056, _q = new THREE.Quaternion(), _qx = new THREE.Quaternion(), _zw = V(), _pole = V();   // bắp tay · (cẳng tay + nửa bàn tay)
+export const ELBOW_REST = -0.22;   // cùi chỏ hơi gập khi buông tay
+/** Đưa bàn tay tới đúng điểm target bằng 2 đốt xương (bắp tay + cẳng tay) có KHỚP CÙI CHỎ: cùi chỏ gập xuống và hơi chìa ra ngoài như người cầm súng thật; xa quá thì tay duỗi thẳng và kéo dài nhẹ. */
 function reach(arm: THREE.Object3D, sh: THREE.Vector3, target: THREE.Vector3) {
-  _a.copy(target).sub(sh); const len = _a.length() || 1e-3; _a.divideScalar(len);
-  arm.quaternion.setFromUnitVectors(DOWN, _a); arm.scale.y = Math.max(0.8, Math.min(1.35, len / REACH));
+  _a.copy(target).sub(sh); const D = _a.length() || 1e-3; _a.divideScalar(D);
+  const el = arm.userData.elbow as THREE.Object3D | undefined;
+  arm.quaternion.setFromUnitVectors(DOWN, _a);
+  if (!el) { arm.scale.y = Math.max(0.8, Math.min(1.5, D / REACH)); return; }
+  const tot = LA + LB, d = Math.min(D, tot * 0.995), cg = Math.max(-1, Math.min(1, (LA * LA + LB * LB - d * d) / (2 * LA * LB))), gam = Math.acos(cg), bend = Math.PI - gam;
+  const ca = Math.max(-1, Math.min(1, (LA * LA + d * d - LB * LB) / (2 * LA * d))), al = Math.acos(ca);
+  _zw.set(0, 0, 1).applyQuaternion(arm.quaternion); _pole.set(Math.sign(sh.x) * 0.45, -1, 0);
+  const sg = _zw.dot(_pole) >= 0 ? 1 : -1;
+  _qx.setFromAxisAngle(AX, -sg * al); arm.quaternion.multiply(_qx);
+  el.rotation.set(sg * bend, 0, 0);
+  arm.scale.y = D > tot ? Math.min(1.5, D / tot) : 1;
 }
-const relax = (arm: THREE.Object3D, x: number, z: number) => { arm.quaternion.setFromEuler(_e.set(x, 0, z)); arm.scale.y = 1; };
-export function resetArms(armL: THREE.Object3D, armR: THREE.Object3D) { armL.scale.y = 1; armR.scale.y = 1; }
+const relax = (arm: THREE.Object3D, x: number, z: number) => { arm.quaternion.setFromEuler(_e.set(x, 0, z)); arm.scale.y = 1; if (arm.userData.elbow) arm.userData.elbow.rotation.set(ELBOW_REST - Math.max(0, -x) * 0.5, 0, 0); };
+/** Nắm các ngón tay (c = độ nắm 0..1.6). */
+export function curlArm(arm: THREE.Object3D, c: number, th: number) { const u = arm.userData; if (!u.fingers) return; const w = u.inw as number; (u.fingers as THREE.Group[]).forEach((f, k) => { f.rotation.z = w * c * (1 + 0.05 * k) * 0.9; (f.userData.tip as THREE.Object3D).rotation.z = w * c * 0.9; }); (u.thumb as THREE.Object3D).rotation.z = w * th * 0.8; }
+export function resetArms(armL: THREE.Object3D, armR: THREE.Object3D) { for (const a of [armL, armR]) { a.scale.y = 1; if (a.userData.elbow) a.userData.elbow.rotation.set(ELBOW_REST, 0, 0); curlArm(a, 0.9, 0.5); } }
 
 /* ───── mốc bàn tay khi cầm lựu đạn ───── */
 const GP = {
@@ -32,7 +45,9 @@ const GP = {
   pin: V(0.13, 1.2, 0.43), pull: V(-0.14, 1.14, 0.28), lwind: V(-0.22, 1.28, 0.52),
 };
 const SGP: Record<GunId, [number, number, number]> = { pistol: [-0.06, 0.05, 0.1], rifle: [0.05, 0.07, 0.12], sniper: [0.06, 0.06, 0.1] };   // chỗ tay trái kéo thanh trượt / khóa nòng (toạ độ súng)
-const HO = V(-0.04, -0.02, 0);                                                                                                                // tay nắm băng lệch khỏi tâm băng
+const HO = V(-0.04, -0.02, 0);
+/** Chỗ lòng bàn tay phải ôm trên khẩu súng (giữa báng cầm, toạ độ súng): gốc súng nằm trên thân, báng thòng xuống dưới → bàn tay phải nằm ở báng chứ không ở thân súng. */
+const GRIPV: Record<GunId, THREE.Vector3> = { pistol: V(0, -0.06, -0.01), rifle: V(0, -0.07, -0.01), sniper: V(0, -0.08, -0.03) }, _hr = V();                                                                                                                // tay nắm băng lệch khỏi tâm băng
 const CB = V(0.38, 1.5, -0.3), CPS = V(0.34, 1.0, 0.3);                                                                                       // điểm tay vòng qua vai (súng sau lưng) · (súng ngắn ở hông)
 
 /* ───── Đường đi của băng đạn + bàn tay trái khi nạp (u = 0..1) — dùng chung cho góc thứ ba và thứ nhất, toạ độ SÚNG ───── */
@@ -73,8 +88,8 @@ function swingGun(rig: GunRig, type: GunId, w: number) {
 const slotOf = () => (W.nade ? "grenade" : GUNS[W.cur].id);
 
 /** Giá súng đầy đủ của người chơi — gọi mỗi frame trước poseMe. Trả về độ nghiêng thân (rad, dương = chồm tới, âm = ngả ra sau). */
-export function poseFull(e: Entity, rig: GunRig, armL: THREE.Object3D, armR: THREE.Object3D, dt: number, swing: number): number {
-  const st = rig.st, id = GUNS[W.cur].id, gr = W.nade, slot = slotOf(), held = rig.holder, nade = rig.nade!;
+export function poseFull(e: Entity, rig: GunRig, armL: THREE.Object3D, armR: THREE.Object3D, dt: number, swing: number, gid?: GunId): number {   // gid: ép khẩu súng cầm (dùng cho màn intro, không phụ thuộc W.cur)
+  const st = rig.st, id = gid ?? GUNS[W.cur].id, gr = gid ? false : W.nade, slot = gid ?? slotOf(), held = rig.holder, nade = rig.nade!;
   const busy = MV.roll > 0 || MV.swimK > 0.5;
   const showSlung = (hand: GunId | null) => { for (const t of Object.keys(rig.slung) as GunId[]) { rig.slung[t]!.visible = t !== hand; rig.models[t]!.visible = t === hand; } };
   const showHooks = (n: number) => rig.hooks.forEach((h, i) => (h.visible = i < n));
@@ -126,13 +141,15 @@ export function poseFull(e: Entity, rig: GunRig, armL: THREE.Object3D, armR: THR
     const k = Math.min(1, dt * 22); st.rp.lerp(Rf, k); if (useL) st.lp.lerp(Lf, k);
     nade.visible = inHand; nade.position.copy(st.rp); nade.rotation.set(0, 0, 0); (nade.userData.pin as THREE.Object3D).visible = !W.gPin;
     showSlung(null); showHooks(W.grenades - (inHand ? 1 : 0)); st.handPrev = null;
-    reach(armR, SH.r, st.rp);
-    if (useL) reach(armL, SH.l, st.lp); else relax(armL, swing * 0.8, 0.05);
+    reach(armR, SH.r, st.rp); curlArm(armR, 1.2, 0.9);
+    if (useL) { reach(armL, SH.l, st.lp); curlArm(armL, 1.0, 0.8); } else { relax(armL, swing * 0.8, 0.05); curlArm(armL, 0.9, 0.5); }
   } else {
     /* ───── SÚNG: sẵn sàng bắn / nạp đạn / đổi súng ───── */
     nade.visible = false; showHooks(W.grenades); st.rp.copy(GP.rest);
-    const ptA = Math.max(-0.6, Math.min(0.9, -e.pitch)) * 0.9, pt = ptA * e.aim + -0.4 * (1 - e.aim);   // e.pitch dương = nhìn xuống; chưa ngắm thì hạ nòng chếch xuống
-    RP.set(0.07, -0.1, 0.58).applyAxisAngle(AX, -pt); RP.y += 1.344; READYQ.setFromEuler(_e.set(-pt, 0, 0));
+    const ptA = Math.max(-1.2, Math.min(1.35, -e.pitch)) * 0.9, pt = ptA * e.aim + 0.04 * (1 - e.aim);   // e.pitch dương = nhìn xuống; chưa ngắm thì hạ nòng chếch xuống
+    const ak = e.aim, pis = id === "pistol", xA = pis ? 0.12 : 0.18, yA = pis ? 0.1 : id === "rifle" ? 0.03 : 0.07, zA = pis ? 0.42 : id === "rifle" ? 0.3 : 0.36;   // ngắm: báng súng áp vai, thân súng ngang cằm, tay cầm báng cùi chỏ gập dưới sườn · chưa ngắm: súng ngang trước ngực
+    RP.set(0.16 + (xA - 0.16) * ak, -0.2 + (yA + 0.2) * ak, 0.34 + (zA - 0.34) * ak).applyAxisAngle(AX, -pt);   // tay giữ nguyên chỗ cũ, thân súng được nâng lên ngang vai / cằm, báng nằm trong tay
+    RP.y += 1.344; READYQ.setFromEuler(_e.set(-pt, 0, 0));   // đưa về toạ độ thân (vai ở y=1.344) + xoay súng theo góc ngẩng/cúi  ← dòng này trước đây bị nuốt vào comment nên súng nằm dưới đất
     let handType: GunId | null = id, magOn = true, rack = 0; const L = K5;
     const rel = !gr && W.reload > 0 ? Math.min(1, 1 - W.reload / W.reloadDur) : -1;
     if (st.swOn) {
@@ -162,7 +179,7 @@ export function poseFull(e: Entity, rig: GunRig, armL: THREE.Object3D, armR: THR
       if (on) { if (rel >= 0 && !st.swOn) (mm.userData.mag as THREE.Object3D).visible = magOn; setSlide(mm, slideK(t, rack)); }
     }
     st.handPrev = handType;
-    reach(armR, SH.r, held.position); reach(armL, SH.l, L);
+    held.updateMatrix(); reach(armR, SH.r, handType && !(st.swOn && st.swPh === 1) ? _hr.copy(GRIPV[handType]).applyMatrix4(held.matrix) : held.position); reach(armL, SH.l, L); curlArm(armR, 1.5, 0.9); curlArm(armL, 1.4, 0.9);   // tay phải ôm báng, tay trái đỡ ốp tay
   }
   // làm mượt độ nghiêng thân
   st.leanS += (lean - st.leanS) * Math.min(1, dt * (nadeHand ? 16 : 10));

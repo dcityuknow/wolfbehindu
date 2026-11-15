@@ -132,11 +132,15 @@ export const cineSfx = {
   beep: safe((vol: number = 1) => tone(1760, 0.16, 0.2 * vol)),                                  // tiếng bíp bộ phát tín hiệu (khớp giây 0:08 và 0:58)
   alarm: safe(() => { tone(2400, 0.09, 0.16); tone(2400, 0.09, 0.16, "square", 0.14); }),   // đồng hồ độ cao cảnh báo
   heart: safe(() => { thump(68, 38, 0.2, 0.9); thump(58, 36, 0.22, 0.65, 0.21); }),
+  breath: safe(() => { hiss(1400, 0.28, 0.14, "bandpass"); hiss(900, 0.3, 0.1, "bandpass", 0.34); }),   // thở gấp
+  cut: safe(() => { thump(85, 42, 0.14, 0.4); hiss(2400, 0.07, 0.2, "highpass"); }),                    // cắt cảnh: bụp + vút nhẹ
   thunder: safe((near: boolean) => { hiss(near ? 1100 : 380, near ? 1.5 : 2.6, near ? 1 : 0.7); thump(near ? 70 : 50, 22, near ? 1.3 : 2, near ? 1 : 0.8); if (near) hiss(4500, 0.12, 0.8, "highpass"); }),
   chute: safe(() => { hiss(900, 0.35, 1, "lowpass"); thump(95, 30, 0.5, 1); hiss(3200, 0.12, 0.7, "bandpass", 0.04); }),
   crack: safe(() => { hiss(2800, 0.05, 0.6, "bandpass"); hiss(1800, 0.07, 0.5, "bandpass", 0.08); hiss(3400, 0.04, 0.5, "bandpass", 0.17); }),
   thud: safe(() => { thump(120, 38, 0.3, 1); hiss(260, 0.35, 0.7); }),
   drip: safe(() => thump(1500, 650, 0.06, 0.12)),
+  whoosh: safe(() => { hiss(900, 0.28, 0.5, "bandpass"); hiss(2600, 0.18, 0.25, "highpass", 0.03); }),   // camera lia nhanh
+  pop: safe(() => { hiss(1500, 0.2, 0.55, "bandpass"); thump(110, 45, 0.28, 0.55); }),                    // dù của đồng đội bung
   cricket: safe(() => { for (let i = 0; i < 5; i++) tone(4300, 0.04, 0.035, "sine", i * 0.07); }),
   /** Bật nền âm thanh (vòng lặp nhiễu qua 2 bộ lọc: dải thấp = động cơ/sấm ì ầm, dải cao = gió/mưa). */
   ambStart: safe(() => {

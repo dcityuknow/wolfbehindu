@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { $, show, hide, toast, sleep } from "../ui/dom";
 import { G } from "../state";
 import { entities, bodies, markDead, me, setAlerts } from "../world/characters";
@@ -63,7 +64,8 @@ export async function startMeeting(why: string) {
     await callMeeting();
     const st = await fetchStatuses(entities.map((e) => e.i)); // sau callMeeting, contract cấp quyền xem status cả phòng
     st.forEach((s, i) => { if (s === 0) markDead(i, toast); });
-  } catch { G.phase = "play"; G.reporting = false; standAll(); toast("✗ Could not open the meeting on-chain — try again"); return; }
+  } catch { G.phase = "play"; G.reporting = false; standAll(); toast(t("toast.meetFail")); return; }
+  if ((G.phase as string) === "end") return;   // bị giết ngay trước cuộc họp -> ván đã kết thúc
   $("#callbar").style.display = "none"; setAlerts(() => false, 0);
 
   const dl = Number((await getRoom()).voteDeadline);
@@ -72,7 +74,7 @@ export async function startMeeting(why: string) {
   $("#mwhy").textContent = why; $("#chat").innerHTML = ""; $("#mstat").textContent = G.ghost ? UI.spectating : ""; $("#skip").style.display = G.ghost ? "none" : ""; show("#meet");
 
   let sel: number | null = null;
-  const row = () => ($("#mrow").innerHTML = entities.map((e) => `<div class="rw ${e.dead || e.out || (e.i === G.slot && G.ghost) ? "dd" : ""}${sel === e.i ? " sl" : ""}" data-i="${e.i}"><span class="dot" style="background:#${COLORS[e.i].toString(16).padStart(6, "0")}"></span>${NAMES[e.i]}${e.i === G.slot ? " (you)" : ""}${e.dead || e.out || (e.i === G.slot && G.ghost) ? " 💀" : ""}</div>`).join(""));
+  const row = () => ($("#mrow").innerHTML = entities.map((e) => `<div class="rw ${e.dead || e.out || (e.i === G.slot && G.ghost) ? "dd" : ""}${sel === e.i ? " sl" : ""}" data-i="${e.i}"><span class="dot" style="background:#${COLORS[e.i].toString(16).padStart(6, "0")}"></span>${NAMES[e.i]}${e.i === G.slot ? " " + t("w.youTag") : ""}${e.dead || e.out || (e.i === G.slot && G.ghost) ? " 💀" : ""}</div>`).join(""));
   row();
   $("#mrow").onclick = (ev) => {
     const d = (ev.target as HTMLElement).closest<HTMLElement>(".rw"); if (!d || G.voted || G.ghost) return;
@@ -80,7 +82,7 @@ export async function startMeeting(why: string) {
     sel = i; row(); $("#mstat").innerHTML = `${UI.picked(NAMES[i])} <button id="ok">${UI.confirm}</button>`; $("#ok").onclick = () => vote(i);
   };
   $("#skip").onclick = () => vote(NO_TARGET);
-  $("#cs").onclick = () => { const i = $<HTMLInputElement>("#ci"), v = i.value.trim(); if (v) { chat("You", v); i.value = ""; } };
+  $("#cs").onclick = () => { const i = $<HTMLInputElement>("#ci"), v = i.value.trim(); if (v) { chat(NAMES[G.slot], v); i.value = ""; } };
 
   const alive = entities.filter((e) => !e.dead && !e.out);
   { const op = (why === UI.callMeeting ? OPENERS.emergency : OPENERS.body), b0 = alive.find((e) => e.i !== G.slot); if (b0) chat(NAMES[b0.i], op[(Math.random() * op.length) | 0]); }

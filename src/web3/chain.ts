@@ -1,14 +1,18 @@
 import { ctx } from "./context";
-import { encrypt8, userDecrypt, publicDecryptPending } from "./fhe";
+import { Contract } from "ethers";
+import { emit } from "./events";
+import { encrypt8, userDecrypt, publicDecryptPending, publicDecryptValues } from "./fhe";
 import { toast } from "../ui/dom";
 import { NO_TARGET } from "../config";
 
 let queue: Promise<unknown> = Promise.resolve();
+/** Nhãn giao dịch → bước (để màn cuối game giải thích từng giao dịch bằng ngôn ngữ người chơi). */
+const STEP: Record<string, string> = { "Prove your death (FHE)": "req", "Submit death proof": "submit", "Unlock roles (FHE public decrypt)": "reveal", "Record your death on-chain": "exec" };
 /** Every transaction goes through a sequential queue (avoids nonce clashes) + toast. */
 export function tx(label: string, fn: () => Promise<any>): Promise<any> {
   const p = queue.then(async () => {
-    toast(label + "…");
-    try { const r = await (await fn()).wait(); toast("✓ " + label); return r; }
+    toast(label + "…"); const step = STEP[label]; if (step) emit({ kind: "tx", step, phase: "go" });
+    try { const r = await (await fn()).wait(); toast("✓ " + label); if (step) emit({ kind: "tx", step, phase: "ok", hash: String(r?.hash ?? "") }); return r; }
     catch (e: any) { toast("✗ " + label + ": " + String(e.shortMessage || e.reason || e.message || "").slice(0, 80)); throw e; }
   });
   queue = p.catch(() => {});
@@ -89,3 +93,22 @@ export async function checkpointOnChain() {
 export const reportExecution = () => tx("Record your death on-chain", () => ctx.game.reportExecution(ctx.roomId));
 /** Friendly fire: you shot a squadmate dead. Records it on-chain so the victim stays dead until the game ends. */
 export const reportFriendlyKill = (victim: number) => tx("Record teammate's death on-chain", () => ctx.game.reportFriendlyKill(ctx.roomId, victim));
+
+/** Game over -> UNLOCK every role (bots included): contract makes them publicly decryptable, then the KMS decrypts them. Returns role per slot (1 = spy, 0 = commando).
+ *  Needs the contract with `revealRoles` (npm start redeploys automatically when the .sol changed). */
+const REVEAL_ABI = ["function revealRoles(uint256) returns (bytes32[])", "function getRoleHandleOf(uint256,uint8) view returns (bytes32)", "function requestDeathProof(uint256)", "function submitDeathProof(uint256,bytes,bytes)"];
+export async function revealAllRoles(n: number): Promise<number[]> {
+  const c = new Contract(ctx.address, REVEAL_ABI, ctx.signer);
+  const handles = Promise.all(Array.from({ length: n }, (_, i) => c.getRoleHandleOf(ctx.roomId, i)));   // đọc handle song song với tx (handle có sẵn từ trước, chỉ chưa giải mã được)
+  await tx("Unlock roles (FHE public decrypt)", () => c.revealRoles(ctx.roomId));
+  return publicDecryptValues((await handles) as string[]);
+}
+
+/** VERIFIABLE assassination: the contract makes YOUR encrypted status public, the KMS decrypts + signs it, the contract checks the signatures
+ *  and only then ends the game. Nothing here is taken on the client's word. */
+export async function proveDeath() {
+  await tx("Prove your death (FHE)", () => new Contract(ctx.address, REVEAL_ABI, ctx.signer).requestDeathProof(ctx.roomId));
+  const d = await publicDecryptPending();
+  const c = new Contract(ctx.address, REVEAL_ABI, ctx.opGame?.runner ?? ctx.signer);
+  return tx("Submit death proof", () => c.submitDeathProof(ctx.roomId, d.abiEncodedClearValues, d.decryptionProof));
+}

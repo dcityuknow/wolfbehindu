@@ -1,7 +1,10 @@
 export const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** Thông báo kiểu "radio chat": nền đen, chữ trắng, góc dưới bên trái; mỗi dòng tự mờ dần rồi biến mất. */
+/** Cảnh giải mã cuối game gán vào đây để các dòng tiến trình (tx / KMS) cũng chạy trên khung radio. */
+export const toastHook: { fn: ((m: string) => void) | null } = { fn: null };
 export function toast(m: string) {
+  toastHook.fn?.(m);
   const box = $("#toast"), d = document.createElement("div");
   d.className = "rl"; d.textContent = m; box.appendChild(d);
   while (box.children.length > 6) box.firstElementChild!.remove();

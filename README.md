@@ -1,72 +1,90 @@
-# Lost Island — Paratroopers, Storm, Desert Island & a Spy (3D + Zama FHEVM, Vite + TypeScript)
+# 🪂 Lost Island — a confidential social-deduction game on the Zama Protocol
 
-**Story:** ALPHA Squad parachutes into a secret mission zone, is blown by a storm onto a desert island and loses contact; 1 of the 4+ survivors is a spy. All text/dialogue/cutscene lives in `src/story.ts` (the game is fully in English).
+> **This project is not audited, endorsed or operated by Zama. Use at your own risk.**
 
-## Run (one command)
-Double-click **`CHAY.bat`** (Windows) or `npm start`. The script installs packages → deploys the contract if missing/changed (asks for a PRIVATE_KEY of a test wallet with Sepolia ETH, stored in `.env`) → opens the game at http://localhost:3000 (MetaMask, Sepolia).
-Manual: `npm install` · `npm run deploy` · `npm run dev`. Also: `npm run typecheck` · `npm run build`.
-> **v10 changes the contract** (new `reportExecution`, new `Winner.FriendlyFire`), so it **must be redeployed**; the old contract address does not work. `CHAY.bat` does this automatically.
+A squad of paratroopers is blown onto a desert island. **One of them is a spy.** Nobody — not the other players, not the host, not a block explorer, not the contract itself — knows who, until the game is over and anyone can verify it.
 
-## Meetings at the campfire (v17)
-- A meeting can only be called by **sitting on a stool at the central campfire** (E). A bot that finds a body now runs to the campfire, sits, and only then calls the meeting. Pressing E on a body just marks it as found.
-- Once someone sits, a **30 s countdown** (`CALL_SECONDS` in `config.ts`) starts. Everyone must run to the fire and press E to sit (bots do it automatically). The meeting opens as soon as everybody alive is seated, or when time runs out.
-- Anyone not seated in time is **branded the spy**: a bot is expelled (death recorded on-chain with `reportFriendlyKill`); if it is **you**, you are executed and the game ends (`reportExecution`, text in `ENDING.absent`).
-- Your camera and controls are **never** taken over: you keep full control until you sit, and the camera stays where you left it during the meeting.
+Built for *Zama Developer Program, Mainnet Season 5 — Confidential Gaming*. Smart contract (Solidity + FHEVM), Vite/TypeScript/Three.js frontend, deployed on **Sepolia**.
 
-### v18
-- The player who calls a meeting (or a bot running to the campfire to call one) has a big bobbing red **!** above their head (visible even through fog of war).
-- The countdown is shown big in the middle of the screen for everyone who has not sat down yet (turns red and pulses in the last 10 s); once seated it shrinks to the top.
-- Characters can no longer walk through each other (`separate()` in `world/characters.ts`, body radius `BODY_R`).
+## Why this game cannot exist on a transparent chain
 
-### v21
-- Notifications are now a black-background, white-text "radio chat" feed at the bottom-left; each line fades after ~9 s.
+| What must stay hidden | On a normal chain | Here |
+|---|---|---|
+| Who the spy is | Readable from storage / calldata the moment it is dealt | `euint8` role, `FHE.allow` only to its owner |
+| Who the spy kills | The kill tx names the victim | Target is an **encrypted input**; success is computed with `FHE.select` |
+| Whether I *am* the spy | A revert / success / gas pattern would leak it | **No data-dependent revert**: every player sends the same action, crew's is a silent no-op |
+| Who voted for whom | Public calldata | Encrypted ballots, tallied with encrypted `argmax`; only the *result* is decrypted |
+| Who is alive | Public state | Encrypted `status`; revealed to the room only when a meeting opens |
+| Task progress (hints who is faking) | Public counter | Encrypted counter; the spy's tasks add 0 |
+| Cash stakes / pot (ERC-7984) | Public balances and amounts | cUSDT confidential transfers; paid amounts and the pot stay encrypted |
 
-### v20
-- **Random parachute landings:** every soldier now drops onto a different random spot on the island each game (inland, clear of buildings/rocks/bushes, ≥ ~10 m apart) instead of a tight ring around the campfire. The opening cutscene cameras were widened to follow the spread, and when the game starts every character stands where they landed.
+If the state were public the game would be over before it started — a block explorer would show the spy.
 
-## New in v10
-- **Friendly fire is recorded on-chain.** Shoot a teammate → they drop, yell "WHY YOU SHOT ME??" and aim back. Shoot again → you are marked as the spy and the whole squad shoots you. If you die, the client calls `reportExecution(roomId)`:
-  - your status becomes Dead (encrypted) and `ejected = true`,
-  - event `PlayerExecuted(roomId, slotId, round)` is emitted,
-  - the game ends **immediately** with `Winner.FriendlyFire` (3) — even though the real spy was never found.
-  The end screen shows the tx hash (with a Retry button if the transaction fails). A late checkpoint/vote result can no longer overwrite this ending.
-- **Everything is English**: UI, story, cutscene, rules, toasts, bot chat, weapon names, scripts. (A few code comments in the source are still Vietnamese.)
-- Fixed two pre-existing `tsc` errors (`lib: DOM.Iterable`, `audio.ts` type).
-> Note: combat/positions are simulated client-side (the contract has no positions), so `reportExecution` is client-attested, like the kill range. Only a player of the room can report their own death, only while the game is running.
+## Fairness (randomness + verification)
+- **Randomness is on-chain:** the spy slot is `FHE.rem(FHE.randEuint8(128), n)` inside the coprocessor. Nobody can predict or bias it, including the host. (For n = 7 the draw is biased by ~0.8 %; documented, acceptable.)
+- **Public results are KMS-verified:** win checkpoints, vote results, death proofs and the final roles go `makePubliclyDecryptable` → relayer `publicDecrypt` → `FHE.checkSignatures`. The contract refuses any cleartext the KMS did not sign for *exactly the stored handles* (tests: forged checkpoint / forged roles are rejected).
+- **Anyone can audit a finished game:** `revealRoles` makes every role public once the room is `Finished` (never earlier). The UI shows who the spy was; in staked rooms `settleStake` verifies those roles on-chain before any money moves.
 
-## One-signature start (v15)
-`createSoloGame(operator)` does room + session-wallet operator + bots + encrypted roles + start in ONE transaction (was 3). The funding transfer to the session wallet is only asked when its balance is low and is not waited for before the game tx. The EIP-712 decrypt permit is now kept in localStorage for a day (`li_permit_…`), so a page reload does not ask for it again. Steady state: 1 transaction popup to start a game.
+## Game modes
+| Mode | What it is | Where |
+|---|---|---|
+| **Solo** | 1 human + 6 bots in a 3D voxel island (campfire meetings, tasks, firefights, friendly-fire rules). One signature starts a game; a throw-away *session wallet* runs bot turns without popups. | `Play` button |
+| **PvP table (3–7 players)** | Real wallets, the chain is the shared world: tasks, an encrypted secret action, emergency meetings, shielded voting, KMS-verified endings. Invite by link `?room=ID`. | `👥 Multiplayer table` |
+| **Staked PvP** | Each player stakes cUSDT (ERC-7984) with an **encrypted transfer**. Winners split the pot; refunds if cancelled/stalled. | create a *staked room* |
 
-## Session wallet (v13)
-Bots have no wallet, so in Solo every bot step used to pop up MetaMask. Now the game creates a throw-away **session wallet** (private key in this browser's localStorage, key `li_session_key`), funds it once with 0.03 Sepolia ETH (1 popup) and registers it as the room **operator** (`setOperator`, 1 popup). The operator may only call `runBotTurns`, `runBotVotes`, `callMeeting`, `tallyVotes`, `requestCheckpoint` (and anyone can already send the proofs); it cannot kill, vote, do tasks or report deaths. It uses the public RPC `https://ethereum-sepolia-rpc.publicnode.com` (see `src/web3/operator.ts`). If funding/registration fails the game falls back to MetaMask popups. Keep only a tiny balance in it.
+### Staked rooms in detail (ERC-7984)
+1. Player approves the game as operator: `cUSDT.setOperator(game, until)` (UI does it, 30 days).
+2. `createStakedRoom(stake)` / `joinRoom(id)` pull `stake` with `confidentialTransferFrom`. If a balance is too low the token moves **0 instead of reverting** (a revert would leak the balance), so the contract stores what was **really paid** (`paid`, encrypted) and sums it into an encrypted `pot`.
+3. Game ends → `revealRoles` → `settleStake(cleartexts, proof)` verifies every role against the stored handles and fixes the winning side (all commandos, or the spy).
+4. Each winner calls `claimPayout`: `share = pot / winners` (encrypted `FHE.div`), paid only if their own stake really arrived — **no free riding**. A solo spy takes the whole pot.
+5. `cancelRoom` (host any time, anyone after 24 h) and `abortStalled` (anyone after 48 h) → everybody pulls back exactly what they paid with `claimRefund`.
 
-## Permanent friendly-fire deaths (v12)
-A teammate shot to 0 HP is dead until the game ends: the client calls `reportFriendlyKill(roomId, victim)` (status → Dead, event `FriendlyKill`) then a checkpoint. If the victim was secretly the spy, the checkpoint now ends the game with a Commando win (`_computeWinFlags`: no impostor alive). The spy's own first kill each round still uses the secret encrypted route. The old stun/revive is gone.
+## What is encrypted / verified / off-chain (honest limits)
+- **Encrypted on-chain:** role, status, kill target, votes, task counter, paid stake, pot.
+- **Public on purpose:** room membership, plaintext *turn* counters that are identical for every role (tasks done ≤ 3, "has voted", "acted"), the entry **stake amount** (a public room rule), the ejected player + ejected role after a vote, the winner, all roles after game over.
+- **Off-chain (Solo 3D layer):** movement, shooting, bot AI and positions. A real-time shooter cannot run on-chain. Two solo-only actions (`reportFriendlyKill`, `reportExecution`) are client-attested and the contract **rejects them in PvP**, so nobody can declare another player dead or end a staked game.
+- **PvP has no shared 3D world** (no netcode): the encrypted table is turn-based on purpose — every secret action is an on-chain action.
+- Known trade-offs: only one spy per game; FHE transactions need generous gas limits (the UI sets them); stake token address must be set to the real cUSDT (see below).
 
-## Witnesses (v11)
-Only squadmates who can SEE the shooter (within 16 m, inside their field of view, no wall between) accuse you. Others who hear the shot run to the victim and ask questions; if an accusation is already out and they then see you, they join in. A spy kill that someone sees exposes the spy; unseen kills stay secret. Tuning: `WIT` in `src/gameplay/hostile.ts`.
+## Run it
+Requires Node 18+, MetaMask on Sepolia, a **throw-away test wallet** with Sepolia ETH.
 
-## Controls
-WASD move · Space jump · **E** interact · **Q** assassinate (spy) · Left click shoot · Right click aim · **R** reload · **G** grenade · **1** pistol · **2** long gun · **3** sniper (right click = scope) · **4** grenade (hold click = pull pin, release = throw) · **V** change view.
+```bash
+npm install
+cp .env.example .env        # put a TEST wallet PRIVATE_KEY in .env (never commit it)
+npm run deploy              # compiles + deploys to Sepolia, writes src/config/deployment.json
+npm run dev                 # http://localhost:3000
+# or: npm start  (Windows: double-click CHAY.bat) = install + deploy-if-needed + dev
+```
 
-Balance knobs: `COMBAT` in `src/config.ts` (`playerHp`, `botDmg`, `grace`) and `src/gameplay/hostile.ts`.
+**Stake token.** `scripts/deploy.mjs` defaults to the Sepolia confidential USDT from the [Zama protocol registry](https://github.com/zama-ai/protocol-registry/blob/main/testnet.md#ethereum-sepolia-ethereum_sepolia) (`0x4E7B06D78965594eB5EF5414c357ca21E1554491`). **Re-check it on the registry before deploying**; override with `STAKE_TOKEN=0x…` in `.env`, or `0x000…0` to disable staking. You need some cUSDT in your wallet to play a staked room.
+
+## Tests (contract)
+31 Hardhat tests on the FHEVM mock: roles (exactly one spy, private, random), secret kill (crew no-op, no self-kill, once per round), tasks, checkpoints, shielded voting (ties, skip, dead voters, deadline), KMS proofs (forged proofs rejected), death proofs, role reveal, solo operator limits, **staking** (encrypted transfers, crew/spy payouts, forged settle, under-funded player, cancel, timeout, abort, refunds).
+
+```bash
+npm test        # installs ./hh and runs hardhat test
+```
+Note: the Zama Hardhat plugin (0.4.2) targets `@fhevm/solidity` 0.11.1, so the test project in `hh/` compiles the contract against 0.11.1, while the app/deploy script use 0.13.4 (the contract compiles against both). `hh/` uses the npm `solc` package, so it works offline.
+
+## Contract API (short)
+`createRoom` · `createSoloGame` · `createStakedRoom` · `joinRoom` · `startGame` · `completeTask` · `executeSecretKill` (encrypted target) · `callMeeting` · `castShieldedVote` (encrypted) · `tallyVotes` → `finalizeTally` · `requestCheckpoint` → `submitCheckpoint` · `requestDeathProof` → `submitDeathProof` · `revealRoles` · `settleStake` · `claimPayout` · `cancelRoom` · `abortStalled` · `claimRefund` · views. NatSpec in `contracts/SpaceImpostorFHE.sol`.
 
 ## Structure
 ```
-contracts/SpaceImpostorFHE.sol     FHE smart contract (incl. reportExecution)
+contracts/SpaceImpostorFHE.sol     the game + ERC-7984 stakes
+contracts/mocks/MockCUSDT.sol      test-only confidential token
+hh/                                Hardhat project: FHEVM-mock tests (test/game.test.ts, test/stake.test.ts)
 scripts/deploy.mjs · run.mjs       compile + deploy · one-command launcher
-src/story.ts                       ALL game text
-src/config.ts                      balance / lighting / guns
-src/world/                         3D (no blockchain knowledge)
-src/web3/                          wallet, FHE, contract calls (chain.ts)
-src/gameplay/                      rules: combat.ts, hostile.ts (friendly fire + execution), meeting.ts, round.ts…
-src/ui/                            DOM: HUD, intro, cutscene, weapon HUD
+src/web3/                          wallet, FHE (encrypt / user-decrypt / public-decrypt), chain.ts, pvp.ts
+src/gameplay/                      Solo rules (combat, meeting, round…) and pvp.ts (the encrypted table)
+src/world/ · src/ui/               3D island and DOM UI (no blockchain knowledge)
+docs/CHANGELOG.md                  development history
 ```
-Dependencies are one-way: `world` and `web3` are independent → `gameplay` uses both → `main`.
 
-## Off-chain vs on-chain
-Positions, vision, mini-games, animation, chat, bot movement, the friendly-fire fight: **client**. Roles, kills (encrypted target), task progress, votes, win conditions and the **friendly-fire execution**: **Zama FHE on-chain**.
+## Controls (Solo)
+WASD move · Space jump · **E** interact · **Q** assassinate (spy) · Left click shoot · Right click aim · **R** reload · **G** grenade · **1–4** weapons · **V** view · Shift roll.
 
-
-## Weapons (v28)
-Only 3 guns + grenades (`GUNS`, `GRENADE`, `SWAP` in `src/config.ts`). Third person: guns are slung on the back (long gun / sniper crossed in an X) and hip (pistol holster, grenades on the left hip); switching draws the gun from the back/holster, reload pulls the mag, drops it, takes a new one from the left pouch, inserts it and racks the slide; grenade = hand into the hip pocket, pin pulled by the left hand, wind-up and throw. Code: `world/guns.ts` (models + rig), `world/gunpose.ts` (animation), `world/camera.ts` (first-person), `gameplay/combat.ts` (state machine).
+## Security notes
+- Never commit `.env`. Use throw-away wallets only. The session wallet key lives in this browser's `localStorage`; keep a tiny balance in it.
+- Not audited. Testnet only.

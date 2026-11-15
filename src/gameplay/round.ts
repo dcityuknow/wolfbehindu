@@ -2,7 +2,9 @@ import { G } from "../state";
 import { entities, bodies, spawnAll } from "../world/characters";
 import { setRound, showEnd } from "../ui/hud";
 import { checkpointOnChain, getRoom, secretAct } from "../web3/chain";
-import { toast } from "../ui/dom";
+import { toast, $ } from "../ui/dom";
+import { revealPanel } from "./gameover";
+import { captureCrew } from "../ui/snapshot";
 import { UI } from "../story";
 import { resetRound } from "./combat";
 import { standAll } from "./seats";
@@ -25,8 +27,9 @@ export function nextRound() {
 }
 export function finish(winner: number) { // 1 = Crewmates, 2 = Impostors (3 = friendly-fire execution, handled in hostile.ts)
   if (G.phase === "end") return;   // already over (e.g. executed by the squad) — never overwrite that ending
-  G.phase = "end";
+  captureCrew(); G.phase = "end";
   showEnd(winner === 1, (winner === 2) === (G.role === 1));
+  $("#ed").insertAdjacentHTML("beforeend", '<br><br><div id="reveal"></div>'); void revealPanel();   // ván xong -> mở khoá vai trò để ai cũng đối chiếu được
 }
 export async function checkpoint(manual = false) {
   if (G.phase !== "play" || G.cpRound === G.round) return;

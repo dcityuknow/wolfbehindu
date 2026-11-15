@@ -107,7 +107,7 @@ function addHat(v: VB, def: any, U: Fn) {
 /** Dựng 1 người lính → { g, armL, armR, legL, legR }. Mặt nhìn +z, chân chạm y=0. `band` = màu băng tay nhận diện đồng đội. */
 export function buildSoldier(def: any, mat: THREE.Material, band: number) {
   const g = new THREE.Group(), U = camoFn(def.uni.pal, def.uni.kind, def.uni.seed), sk = [def.skin, shade(def.skin, 0.94)], SKN = (i: number, j: number, k: number) => (((i + j + k) & 1) ? sk[0] : sk[1]);
-  const mouth = shade(def.skin, 0.62), gl = def.glove, H = def.hair;
+  const mouth = shade(def.skin, 0.62), gl = def.glove, H = def.hair; let headRef!: THREE.Group;
   const grp = (x: number, y: number) => { const q = new THREE.Group(); q.position.set(x * PX, y * PX, 0); g.add(q); return q; };
   { // đầu vuông 8x8x8: tóc, mắt, miệng + mũ
     const hv = new VB();
@@ -123,7 +123,8 @@ export function buildSoldier(def: any, mat: THREE.Material, band: number) {
       if (i === 0 || i === 7) return j >= 4 ? H : SKN(i, j, k);
       return SKN(i, j, k);
     });
-    addHat(hv, { ...def, head: "square" }, U); g.add(hv.mesh(mat));
+    addHat(hv, { ...def, head: "square" }, U);
+    const neck = new THREE.Group(); neck.position.set(0, 24 * PX, 0); const hm = hv.mesh(mat); hm.position.set(0, -24 * PX, 0); neck.add(hm); g.add(neck); headRef = neck;   // đầu gắn vào khớp CỔ để gật / ngẩng theo chuột
   }
   { // thân: áo + áo giáp + túi đạn + thắt lưng + phù hiệu cổ áo + ba lô
     const bv = new VB(), vest = def.vest, pc = def.pouch;
@@ -143,24 +144,50 @@ export function buildSoldier(def: any, mat: THREE.Material, band: number) {
     if (pc && vest) { B(bv, -2.5, 15.5, 2.5, 2, 3, 1, pc); B(bv, 2.5, 15.5, 2.5, 2, 3, 1, pc); }
     g.add(bv.mesh(mat));
   }
-  const mkArm = (sx: number) => { // tay: tay áo rằn ri, tay trần/găng, băng màu đội, cờ ở mép ngoài tay áo
-    const q = grp(sx * 6, 24), av = new VB();
-    av.box(0, -6 * PX, 0, 4 * PX, 12 * PX, 4 * PX, (i, j, k) => (j <= 2 ? (gl || SKN(i, j, k)) : U(i + (sx > 0 ? 4 : 0), j, k, 0, 0, 0)));
-    B(av, 0, -1, 0, 4.4, 1.6, 4.4, band);
+  const mkArm = (sx: number) => { // tay: cánh tay áo rằn ri + BÀN TAY (lòng bàn tay, 4 ngón, ngón cái — mỗi ngón gập được), băng màu đội, cờ ở mép ngoài tay áo
+    const q = grp(sx * 6, 24), av = new VB(), skin = gl || def.skin;
+    av.box(0, -2 * PX, 0, 4 * PX, 4 * PX, 4 * PX, (i, j, k) => U(i + (sx > 0 ? 4 : 0), j + 7, k, 0, 0, 0));   // cánh tay trên (bắp tay)
+    B(av, 0, -1, 0, 4.5, 1.6, 4.5, band);
     const fl = FLAG[def.k];
-    if (fl) { const rows = fl.length; B(av, sx * 2.5, -3.5 - rows / 2 + 0.5, 0, 1, rows, 4, (_i, j, k) => { const c = sx > 0 ? 3 - k : k, r = rows - 1 - j; return FC[fl[r][c]]; }); }
-    q.add(av.mesh(mat)); return q;
+    if (fl) { const rows = fl.length; B(av, sx * 2.7, -(1.3 + rows / 2), 0, 1.4, rows, 4.2, (_i, j, k) => { const c = sx > 0 ? 3 - k : k, r = rows - 1 - j; return FC[fl[r][c]]; }); }
+    q.add(av.mesh(mat));
+    const elbow = new THREE.Group(); elbow.position.set(0, -4 * PX, 0); q.add(elbow);                  // KHỚP CÙI CHỎ: gập quanh trục x
+    const fv = new VB(); fv.box(0, -2.75 * PX, 0, 3.9 * PX, 5.5 * PX, 3.9 * PX, (i, j, k) => U(i + (sx > 0 ? 4 : 0), j + 3, k + 3, 0, 0, 0)); fv.box(0, 0, 0, 4.3 * PX, 0.9 * PX, 4.3 * PX, shade(def.uni.pal[0], 0.55)); fv.box(0, -5 * PX, 0, 4.3 * PX, 1.0 * PX, 4.3 * PX, 0xd8c690);   // cẳng tay dày bằng bắp tay + vòng bo cổ tay màu kem như ảnh mẫu
+       // cẳng tay + vòng khuỷu + bo cổ tay áo
+    const ep = new VB(); ep.box(0, 0.2 * PX, -1.9 * PX, 3.2 * PX, 2.2 * PX, 1.4 * PX, shade(def.uni.pal[0], 0.7)); elbow.add(fv.mesh(mat), ep.mesh(mat));   // mỏm cùi chỏ nhô ra sau
+    const hand = new THREE.Group(); hand.position.set(0, -5.5 * PX, 0); hand.scale.setScalar(0.74); elbow.add(hand);                  // cổ tay (bàn tay giữ nguyên tỉ lệ 1:1, to gần bằng cẳng tay như ảnh mẫu)
+    // BÀN TAY nắm đấm to, vuông vức như ảnh mẫu: lòng bàn tay là một khối 4.4x2.6x4.4, 4 ngón là 4 khối dày xếp cạnh nhau (rãnh nhỏ giữa các ngón) gập về phía trong, ngón cái to chắc ở phía trước
+    const pv = new VB(); pv.box(0, -1.3 * PX, 0, 4.4 * PX, 2.6 * PX, 4.4 * PX, (i, j, k) => (((i + j + k) & 1) ? skin : shade(skin, 0.94))); hand.add(pv.mesh(mat));
+    const fingers: THREE.Group[] = [], inw = -sx;                                                         // inw = phía trong (về phía thân)
+    for (let f = 0; f < 4; f++) {
+      const fg = new THREE.Group(); fg.position.set(inw * 1.7 * PX, -2.6 * PX, (1.65 - f * 1.1) * PX); hand.add(fg);   // khớp bàn–ngón (xếp dọc theo z: ngón trỏ ở phía trước, ngón út ở phía sau)
+      const len = [3.6, 3.9, 3.7, 3.1][f], v1 = new VB(); v1.box(0, -len * 0.3 * PX, 0, 2.2 * PX, len * 0.6 * PX, 1.0 * PX, shade(skin, f & 1 ? 0.82 : 1.05)); fg.add(v1.mesh(mat));
+      const tip = new THREE.Group(); tip.position.y = -len * 0.6 * PX; fg.add(tip);                       // khớp ngón giữa
+      const v2 = new VB(); v2.box(0, -len * 0.2 * PX, 0, 2.1 * PX, len * 0.4 * PX, 0.98 * PX, shade(skin, f & 1 ? 0.78 : 1.0)); tip.add(v2.mesh(mat)); fg.userData.tip = tip; fingers.push(fg);
+    }
+    const th = new THREE.Group(); th.position.set(inw * 1.5 * PX, -0.8 * PX, 2.7 * PX); hand.add(th);   // ngón cái: khối to chắc ở phía trước bàn tay
+    const tv = new VB(); tv.box(0, -1.2 * PX, 0, 1.9 * PX, 3.0 * PX, 1.8 * PX, shade(skin, 1.03)); th.add(tv.mesh(mat));
+    q.userData = { hand, fingers, thumb: th, elbow, inw }; return q;
   };
   const armL = mkArm(-1), armR = mkArm(1);
-  const mkLeg = (sx: number) => { // chân: quần rằn ri, ghệt/giày, miếng gối
-    const q = grp(sx * 2, 12), lv = new VB();
-    lv.box(0, -6 * PX, 0, 4 * PX, 12 * PX, 4 * PX, (i, j, k, _nx, _ny, nz) => {
+  const hip = new THREE.Group(); hip.position.set(0, 12 * PX, 0); g.add(hip);                             // KHỚP HÔNG: chậu + hai chân xoay quanh đây (xoay y / nghiêng z khi đi, ngồi, lăn)
+  { const pv = new VB(); pv.box(0, -1.1 * PX, 0, 8.2 * PX, 2.6 * PX, 4.4 * PX, shade(def.uni.pal[0], 0.62)); pv.box(0, 0.5 * PX, 0, 8.4 * PX, 0.8 * PX, 4.6 * PX, def.belt); hip.add(pv.mesh(mat)); }
+  const mkLeg = (sx: number) => { // chân: ĐÙI + KHỚP GỐI + CẲNG CHÂN (ghệt/giày), miếng gối; gập gối quanh `knee`
+    const q = new THREE.Group(), tv = new VB(), kv = new VB(); q.position.set(sx * 2 * PX, 0, 0); hip.add(q);
+    const hc = new VB(); hc.box(0, -0.2 * PX, 0, 4.5 * PX, 1.0 * PX, 4.5 * PX, shade(def.uni.pal[0], 0.5)); q.add(hc.mesh(mat));   // chỏm khớp hông
+    tv.box(0, -3 * PX, 0, 4 * PX, 6 * PX, 4 * PX, (i, j, k) => U(i, j + 9, k + (sx > 0 ? 5 : 0), 0, 0, 0));
+    q.add(tv.mesh(mat));
+    const knee = new THREE.Group(); knee.position.set(0, -6 * PX, 0); q.add(knee);
+    kv.box(0, -3 * PX, 0, 4 * PX, 6 * PX, 4 * PX, (i, j, k, _nx, _ny, nz) => {
       if (j <= 2) return def.boots;
-      if (def.knee && k === nz - 1 && j >= 5 && j <= 6 && i >= 1 && i <= 2) return shade(def.vest || 0x444444, 0.7);
+      if (def.knee && k === nz - 1 && j >= 4 && i >= 1 && i <= 2) return shade(def.vest || 0x444444, 0.7);
       return U(i, j + 3, k + (sx > 0 ? 5 : 0), 0, 0, 0);
     });
-    q.add(lv.mesh(mat)); return q;
+    knee.add(kv.mesh(mat));
+    const cap = new VB(); cap.box(0, 0, 1.2 * PX, 3.2 * PX, 2.2 * PX, 2.8 * PX, shade(def.vest || def.uni.pal[0], 0.7)); knee.add(cap.mesh(mat));   // xương bánh chè nhô ra phía trước
+    const joint = new VB(); joint.box(0, 0, 0, 4.4 * PX, 1 * PX, 4.4 * PX, shade(def.uni.pal[0], 0.55)); knee.add(joint.mesh(mat));                    // vòng khớp gối
+    q.userData.knee = knee; return q;
   };
   const legL = mkLeg(-1), legR = mkLeg(1);
-  return { g, armL, armR, legL, legR };
+  return { g, armL, armR, legL, legR, hip, head: headRef };
 }

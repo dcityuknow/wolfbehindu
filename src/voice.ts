@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { VOICE } from "./story";
 import { VO } from "./world/cineState";
 import { cineSfx } from "./audio";
@@ -15,8 +16,8 @@ function pick() {
 const el = (id: string) => document.getElementById(id);
 function show(l: (typeof VOICE)[number]) {
   const sub = el("cineSub"), net = el("cineNet");
-  if (sub) { sub.innerHTML = `<small>${l.who}</small><b>${l.en}</b><i>${l.vi}</i>`; sub.classList.add("on"); }
-  const T = { net: "📡 SQUAD NET", static: "📡 SQUAD NET — SIGNAL LOST", ai: "⚙ SUIT AI", private: "🔒 PRIVATE CHANNEL", "": "" }[l.chan];
+  if (sub) { sub.innerHTML = `<small>${l.who}</small><b>${l.en}</b>${l.vi ? `<i>${l.vi}</i>` : ""}`; sub.classList.add("on"); }
+  const T = { net: t("voice.net"), static: t("voice.static"), ai: t("voice.ai"), private: t("voice.private"), "": "" }[l.chan];
   if (net) { net.className = l.chan === "static" ? "on glitch" : T ? "on" : ""; net.innerHTML = T ? `${T} <u>▂▄▆█</u>` : ""; }
 }
 function hide() { const sub = el("cineSub"), net = el("cineNet"); sub?.classList.remove("on"); if (net) net.className = ""; }

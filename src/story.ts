@@ -1,4 +1,6 @@
 import type { TaskType } from "./types";
+import { applyPaths, applyStatic, has, locale, t } from "./i18n";
+import "./i18n/packs";   // đăng ký các bản dịch
 /**
  * All text/story of the game lives here (theme: paratroopers · storm · desert island · spy).
  * To change dialogue, task names, chat lines… just edit this file.
@@ -72,6 +74,7 @@ export const UI = {
 
 /** End screens */
 export const ENDING = {
+  killed: { title: "☠ ASSASSINATED", desc: "You were taken out in the dark — the spy got to you before you could expose them.<br>The mission is over for you. Unlocking the encrypted roles to reveal the traitor…" },
   crew: { title: "🎖 COMMANDOS WIN", desc: "A distress signal climbs into the island sky — or the spy has been exposed. A rescue helicopter is on its way." },
   spy: { title: "🕵 THE SPY WINS", desc: "The squad was whittled down until it could no longer fight back. The mission failed — the traitor completed their orders." },
   shot: {
@@ -141,3 +144,24 @@ export const VOICE: VoiceLine[] = [
   { id: "v6", beat: 4, t: 6.4, who: "PRIVATE CHANNEL", chan: "private", spk: -1, pitch: 0.6, rate: 0.82,
     en: "Game on. Good luck surviving... old friends.", vi: "Trò chơi bắt đầu. Chúc may mắn sống sót nhé... những người bạn cũ." },
 ];
+
+/* ───────────── Dịch theo ngôn ngữ đã chọn (xem i18n/index.ts + i18n/packs/*) ─────────────
+ * Các hằng ở trên là tiếng Anh gốc; applyPaths ghi đè bằng bản dịch của ngôn ngữ hiện tại (thiếu thì giữ tiếng Anh). */
+applyPaths({ UI, ROLE, TASKS, ENDING, CHAT_LINES, OPENERS, GAME });
+CALLSIGNS[0] = t("w.you");
+{ // roleLabel / ejected cần ghép nhiều mảnh nên dịch riêng
+  const roleWord = t("w.role");
+  UI.roleLabel = (spy: boolean) => `${roleWord}: <b style="color:${spy ? "#f55" : "#5f9"}">${spy ? ROLE.spy.badge : ROLE.crew.badge}</b>`;
+  if (has("UI.ejectedSpy")) UI.ejected = (n: string, spy: boolean) => t(spy ? "UI.ejectedSpy" : "UI.ejectedNo", n);
+  ROLE.crew.badge = "🎖 " + t("w.crew"); ROLE.crew.name = t("w.crew"); ROLE.spy.badge = "🕵 " + t("w.spy"); ROLE.spy.name = t("w.spy");
+  // phụ đề cảnh mở đầu: giọng đọc luôn là tiếng Anh; dòng phụ bên dưới là bản dịch (nếu có), không thì bỏ
+  for (const l of VOICE) l.vi = has("voice." + l.id) ? t("voice." + l.id) : locale.lang === "vi" ? l.vi : "";
+}
+
+{ // chữ có sẵn trong index.html
+  applyStatic();
+  const set = (sel: string, v: string) => { const e = document.querySelector<HTMLElement>(sel); if (e) e.textContent = v; };
+  set("#bHelp", UI.help); set("#bChk", UI.check); set("#bKill", UI.kill); set("#cs", UI.send); set("#skip", UI.skip); set("#end button", UI.again);
+  set("#role", `${t("w.role")}: ?`); set("#tk", UI.tasks(0)); set("#rd", UI.round(1)); set("#bView", `📷 ${t("view.third")} (V)`);
+  const ci = document.getElementById("ci") as HTMLInputElement | null; if (ci) ci.placeholder = UI.chatPh;
+}

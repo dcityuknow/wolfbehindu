@@ -25,7 +25,7 @@ async function install() {
     try { let n = 0; for (const d of fs.readdirSync("node_modules")) { if (d.startsWith(".")) continue; n += d.startsWith("@") ? fs.readdirSync(path.join("node_modules", d)).length : 1; } return n; } catch { return 0; }
   };
   console.log("⬇ Installing packages (npm install) — the first run may take a few minutes…");
-  const child = spawn(npm, ["install", "--no-audit", "--no-fund", "--loglevel=error"], { stdio: ["ignore", "ignore", "inherit"], shell: win });
+  const child = spawn(npm, ["install", "--legacy-peer-deps", "--no-audit", "--no-fund", "--loglevel=error"], { stdio: ["ignore", "ignore", "inherit"], shell: win });
   const iv = setInterval(() => bar(Math.min(0.99, count() / total), "Packages"), 400);
   const code = await new Promise((r) => child.on("close", r));
   clearInterval(iv);

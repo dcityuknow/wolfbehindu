@@ -1,3 +1,4 @@
+import { deathFlow } from "./gameover";
 import * as THREE from "three";
 import { entities, me, collide } from "../world/characters";
 import { walkTo } from "./walk";
@@ -10,7 +11,8 @@ import { GUNS, COMBAT, BOT_SPEED, type GunDef } from "../config";
 import { W } from "../weaponState";
 import { G } from "../state";
 import { flashRed } from "../ui/hud";
-import { $, show } from "../ui/dom";
+
+import { $ } from "../ui/dom";
 import { UI, ENDING } from "../story";
 import { reportExecution, getRoom } from "../web3/chain";
 import type { GunRig } from "../world/guns";
@@ -144,23 +146,21 @@ export function hurtPlayer(d: number) {
 /** Out of health: the squad executes you. Game over right now; the death is written to the contract. */
 export const exile = () => executed(ENDING.absent);   // missed a called meeting -> branded the spy, same recorded ending
 function executed(S: { title: string; crew: string; spy: string; over: string } = ENDING.shot) {
+  const fall = G.phase === "play";   // vắng mặt buổi họp (exile) thì không có cảnh ngã
   G.phase = "end"; G.call = null; clearTimeout(G.scheduleTimer); document.exitPointerLock(); wanted.style.display = "none";
-  $("#et").textContent = S.title;
-  $("#ed").innerHTML = (G.role === 1 ? S.spy : S.crew) + `<br><br><b>${S.over}</b><br><br><span id="chainst"></span>`;
-  show("#end");
-  void recordDeath();
+  void deathFlow({
+    title: S.title, desc: (G.role === 1 ? S.spy : S.crew) + `<br><br><b>${S.over}</b>`, fall,
+    record: recordDeath, recording: UI.chainRecording, done: (h) => UI.chainDone(h), doneRadio: false, fail: UI.chainFail, retry: UI.retry,
+  });
 }
 const short = (h: string) => (h.length > 18 ? h.slice(0, 10) + "…" + h.slice(-6) : h);
-async function recordDeath() {
-  const st = $("#chainst"); st.textContent = UI.chainRecording;
-  try {
-    const r = await reportExecution();
-    st.textContent = UI.chainDone(short(String(r?.hash ?? "")));
-  } catch {
+/** Ghi cái chết lên hợp đồng; trả về tx rút gọn. Ném lỗi nếu thất bại (deathFlow hiện nút Thử lại). */
+async function recordDeath(): Promise<string> {
+  try { const r = await reportExecution(); return String(r?.hash ?? ""); }
+  catch (e) {
     // The tx may have landed even if the wait failed: if the room is already Finished with Winner.FriendlyFire (3), it is recorded.
-    try { const r = await getRoom(); if (Number(r.phase) === 4 && Number(r.winner) === 3) { st.textContent = UI.chainDone(""); return; } } catch { /* ignore */ }
-    st.innerHTML = UI.chainFail + ` <button id="chainRetry" class="g">${UI.retry}</button>`;
-    $("#chainRetry").onclick = () => void recordDeath();
+    try { const r = await getRoom(); if (Number(r.phase) === 4 && Number(r.winner) === 3) return ""; } catch { /* ignore */ }
+    throw e;
   }
 }
 function botShot(e: Entity, g: GunDef, d: number) {

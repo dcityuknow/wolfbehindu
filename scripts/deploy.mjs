@@ -6,6 +6,10 @@ import crypto from "crypto";
 import "dotenv/config";
 
 const SRC = "contracts/SpaceImpostorFHE.sol";
+/** Confidential USDT (ERC-7984) on Sepolia, from the official Zama protocol registry (CONFIDENTIAL_USDT_MOCK).
+ *  Override with STAKE_TOKEN in .env. Use 0x000...000 to disable staking. Always re-check it against
+ *  https://github.com/zama-ai/protocol-registry/blob/main/testnet.md before deploying. */
+const DEFAULT_CUSDT = "0x4E7B06D78965594eB5EF5414c357ca21E1554491";
 const srcHash = crypto.createHash("sha256").update(fs.readFileSync(SRC, "utf8")).digest("hex").slice(0, 16);   // run.mjs dùng để biết contract đã đổi (cần deploy lại)
 const input = {
   language: "Solidity",
@@ -26,7 +30,7 @@ const c = out.contracts[SRC].SpaceImpostorFHE;
 console.log("✓ Compiled. Bytecode:", c.evm.bytecode.object.length / 2, "bytes");
 
 if (process.argv.includes("--compile-only")) {
-  fs.writeFileSync("src/config/deployment.json", JSON.stringify({ address: "", abi: c.abi, chainId: 11155111, srcHash }));
+  fs.writeFileSync("src/config/deployment.json", JSON.stringify({ address: "", token: "", abi: c.abi, chainId: 11155111, srcHash }));
   process.exit(0);
 }
 if (process.env.PRIVATE_KEY) process.env.PRIVATE_KEY = process.env.PRIVATE_KEY.trim().replace(/^["']|["']$/g, "").replace(/^(?!0x)/, "0x");
@@ -35,8 +39,11 @@ const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "https://ethe
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 console.log("Deploying from", wallet.address);
 const factory = new ethers.ContractFactory(c.abi, "0x" + c.evm.bytecode.object, wallet);
-const ct = await factory.deploy();
+const token = (process.env.STAKE_TOKEN || DEFAULT_CUSDT).trim();
+if (!ethers.isAddress(token)) { console.error("STAKE_TOKEN is not a valid address"); process.exit(1); }
+console.log("Stake token (cUSDT):", token);
+const ct = await factory.deploy(token);
 await ct.waitForDeployment();
 const address = await ct.getAddress();
-fs.writeFileSync("src/config/deployment.json", JSON.stringify({ address, abi: c.abi, chainId: 11155111, srcHash }));
+fs.writeFileSync("src/config/deployment.json", JSON.stringify({ address, token, abi: c.abi, chainId: 11155111, srcHash }));
 console.log("✓ Deployed:", address, "→ src/config/deployment.json");

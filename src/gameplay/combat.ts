@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import * as THREE from "three";
 import { G } from "../state";
 import { GUNS, GRENADE, COMBAT, SWAP, type GunId } from "../config";
@@ -32,7 +33,7 @@ const canAim = () => rig.locked;
 /** Hai tay bận: đang lăn hoặc đang bơi (di chuyển) thì không bắn / nạp / ném lựu đạn. Đứng yên trên nước vẫn bắn được. */
 const busy = () => MV.roll > 0 || MV.swimming;
 let swimHintT = 0;
-function busyHint() { if (MV.swimming && performance.now() - swimHintT > 1500) { swimHintT = performance.now(); toast("🏊 Swimming — you can't shoot · stop moving to shoot"); } }
+function busyHint() { if (MV.swimming && performance.now() - swimHintT > 1500) { swimHintT = performance.now(); toast(t("toast.swim")); } }
 const gunRig = () => me().g.userData.gunRig as GunRig;
 
 /* ───────────── Nhắm: tia ngắm (O = gốc, D = hướng) ───────────── */
@@ -171,7 +172,7 @@ function launch() {
 function updateNade(dt: number, ok: boolean) {
   if (!W.nade) return;
   if (!ok) { resetNade(); return; }
-  if (busy()) { if (W.gHold || W.gAuto) toast("🙌 Hands busy — grenade put away"); leaveNade(); return; }
+  if (busy()) { if (W.gHold || W.gAuto) toast(t("toast.hands")); leaveNade(); return; }
   if (W.grenades <= 0 && W.gThrowT <= 0) { leaveNade(); return; }
   W.gDrawT += dt; W.aimT = Math.max(W.aimT, 0.5);   // quay người theo hướng nhìn khi cầm lựu đạn
   const PT = GRENADE.pin, TH = GRENADE.throwT, ready = W.gDrawT >= GRENADE.draw * 0.7;

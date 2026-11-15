@@ -53,7 +53,7 @@ export function buildGun(id: GunId): THREE.Group {
       part(g, 0.05, 0.12, 0.06, DK2, 0, -0.075, -0.01, 0.2);
       L(0.052, 0.055, 0.12, 0.026, 0.03, 0.07, ORP);
       part(mag, 0.05, 0.17, 0.07, YLP, 0, 0, 0); mag.rotation.x = 0.25; Mg(0, -0.1, 0.0, 0.052, 0.014, 0.072, OR);
-      home.set(0, -0.12, 0.2); mz = 0.99; my = 0.035; fz = 0.5; fy = -0.03; travel = 0.07; break;
+      home.set(0, -0.12, 0.2); mz = 0.99; my = 0.035; fz = 0.38; fy = -0.03; travel = 0.07; break;
     case "sniper":   // súng ngắm: thân tím caro, vân xanh, ống ngắm lớn có kính đen, kẹp vàng, nòng dài có hãm vàng
       S(0, 0.03, 0.25, 0.09, 0.11, 0.62, DKP); S(0.049, 0.03, 0.27, 0.008, 0.06, 0.42, BLP); S(-0.049, 0.03, 0.27, 0.008, 0.06, 0.42, BLP);
       S(0, 0.0, -0.25, 0.075, 0.13, 0.36, pal(0x2b2a3a, 0x3a3850)); S(0, 0.082, -0.2, 0.062, 0.03, 0.2, BLP);
@@ -66,7 +66,7 @@ export function buildGun(id: GunId): THREE.Group {
       part(g, 0.06, 0.15, 0.08, DK2, 0, -0.085, -0.03, 0.15);
       L(0.07, 0.06, 0.1, 0.06, 0.02, 0.02, STEEL); L(0.105, 0.06, 0.1, 0.03, 0.03, 0.03, GOLD);                                       // tay khóa nòng bẻ ngang + núm vàng
       Mg(0, 0, 0, 0.07, 0.1, 0.1, YLP);
-      home.set(0, -0.105, 0.22); mz = 1.38; my = 0.04; fz = 0.62; fy = -0.03; travel = 0.09; break;
+      home.set(0, -0.105, 0.22); mz = 1.38; my = 0.04; fz = 0.4; fy = -0.03; travel = 0.09; break;
   }
   g.add(st.mesh(VMAT)); slide.add(sv.mesh(VMAT)); mag.add(mv.mesh(VMAT)); g.add(mag, slide);
   mag.position.copy(home);

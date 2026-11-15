@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import * as THREE from "three";
 import { scene } from "./scene";
 import { WALLS } from "./map";
@@ -5,7 +6,7 @@ import { walkable, canStep, groundAt, swimmable } from "./island";
 import { randomNavPoint } from "./nav";
 import { buildSoldier, defOf } from "./soldier";
 import { attachGun, type GunRig } from "./guns";
-import { poseFull } from "./gunpose";
+import { poseFull, curlArm } from "./gunpose";
 import { COLORS, NAMES, SQUAD, PLAYERS, GUNS, COMBAT, type GunId } from "../config";
 import { W, MV, ROLL_T } from "../weaponState";
 import { G } from "../state";
@@ -14,7 +15,7 @@ import type { Entity, Body } from "../types";
 /** Người lính voxel (soldier.ts): quân phục rằn ri riêng cho từng người, băng tay màu nhận diện, nhãn tên phía trên đầu. */
 export function makeCrew(i: number) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
-  const { g, armL, armR, legL, legR } = buildSoldier(defOf(SQUAD[i]), mat, COLORS[i]);
+  const { g, armL, armR, legL, legR, hip, head } = buildSoldier(defOf(SQUAD[i]), mat, COLORS[i]);
   const c = document.createElement("canvas"); c.width = 128; c.height = 32; const x = c.getContext("2d")!;
   x.font = "bold 22px system-ui"; x.textAlign = "center"; x.fillStyle = "rgba(0,0,0,.55)"; x.fillRect(4, 3, 120, 26); x.fillStyle = "#fff"; x.fillText(NAMES[i], 64, 24);
   const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); tag.scale.set(0.95, 0.24, 1); tag.position.y = 2.25; tag.renderOrder = 5; g.add(tag);
@@ -22,7 +23,7 @@ export function makeCrew(i: number) {
   const ac = document.createElement("canvas"); ac.width = ac.height = 128; const ax = ac.getContext("2d")!;
   ax.font = "900 120px system-ui"; ax.textAlign = "center"; ax.textBaseline = "middle"; ax.lineWidth = 14; ax.strokeStyle = "#fff"; ax.strokeText("!", 64, 70); ax.fillStyle = "#ff1e1e"; ax.fillText("!", 64, 70);
   const alert = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(ac), depthTest: false, transparent: true })); alert.scale.set(1.5, 1.5, 1); alert.position.y = 3.3; alert.renderOrder = 6; alert.visible = false; g.add(alert);
-  Object.assign(g.userData, { alert, m: mat, mats: [mat], legL, legR, armL, armR, tag, ph: 0, lx: 0, lz: 0 });
+  Object.assign(g.userData, { alert, m: mat, mats: [mat], legL, legR, hip, head, armL, armR, tag, ph: 0, lx: 0, lz: 0 });
   scene.add(g);
   return g;
 }
@@ -30,7 +31,8 @@ export function makeCrew(i: number) {
 const BOT_GUNS: GunId[] = ["rifle", "pistol", "rifle", "rifle", "pistol", "rifle"];
 export const entities: Entity[] = Array.from({ length: PLAYERS }, (_, i) => {
   const g = makeCrew(i); g.visible = false;
-  attachGun(g, i === 0 ? GUNS[W.cur].id : BOT_GUNS[(i - 1) % BOT_GUNS.length], i === 0, defOf(SQUAD[i]).pack ? -0.27 : -0.16);   // người chơi [0]: giá súng đầy đủ (3 súng đeo lưng / hông, lựu đạn móc hông)
+  const gid = i === 0 ? GUNS[W.cur].id : BOT_GUNS[(i - 1) % BOT_GUNS.length]; g.userData.gunId = gid;
+  attachGun(g, gid, true, defOf(SQUAD[i]).pack ? -0.27 : -0.16);   // CẢ 7 người dùng giá súng đầy đủ + poseFull (tay phải ôm báng, tay trái đỡ ốp tay) — cùng tư thế như cảnh intro
   return { i, g, x: 0, z: 0, rot: 0, vy: 0, y: 0, dead: false, out: false, wait: 0, tx: 0, tz: 0, seat: -1, px: NaN, pz: NaN, hp: COMBAT.botHp, stun: 0, aim: 0, pitch: 0, kick: 0, rel: 0, flash: 0 };
 });
 export const bodies: Body[] = [];
@@ -70,16 +72,27 @@ function constrain(e: Entity) {
 }
 const gray = (g: THREE.Group) => { suitMat(g).color.setHex(0x8a8a8a); g.userData.tag.visible = false; };
 /** Đánh dấu người chơi `i` đã chết: Bot thành xác tại chỗ; người chơi thật thành hồn ma + để lại xác. */
+/** main.ts gán: người chơi bị giết -> kết thúc ván (tránh import vòng với gameplay). */
+export const deathHooks = { selfKilled: () => {} };
+/** Xác của CHÍNH người chơi (nằm ngang, xám, tâm xác ngay chỗ ngã — cùng kiểu với xác Bot). Tạo nếu chưa có; luôn đặt lại đúng chỗ người chơi đang đứng. */
+export function ownCorpse(): Body {
+  const e = entities[G.slot];
+  let b = bodies.find((x) => x.own);
+  if (!b) { const g = makeCrew(e.i); gray(g); b = { x: e.x, z: e.z, g, own: true }; bodies.push(b); }
+  b.x = e.x; b.z = e.z;
+  b.g.rotation.set(0, e.rot, Math.PI / 2); b.g.position.set(e.x + 0.9 * Math.cos(e.rot), e.y + 0.46, e.z - 0.9 * Math.sin(e.rot));
+  return b;
+}
 export function markDead(i: number, toast: (m: string) => void) {
   if (G.dead.has(i)) return;
   G.dead.add(i);
   const e = entities[i];
   if (i === G.slot) {
     G.ghost = true;
-    const b = makeCrew(i); b.position.set(e.x + 0.9, e.y + 0.46, e.z); b.rotation.z = Math.PI / 2; gray(b);
-    bodies.push({ x: e.x, z: e.z, g: b, own: true });
+    ownCorpse();
     for (const m of e.g.userData.mats as THREE.Material[]) { m.transparent = true; m.opacity = 0.35; }
-    toast("💀 You were killed — you are now a ghost");
+    toast(t("toast.killed"));
+    deathHooks.selfKilled();
   } else {
     e.dead = true; e.g.rotation.z = Math.PI / 2; e.g.position.set(e.x + 0.9 * Math.cos(e.rot), e.y + 0.46, e.z - 0.9 * Math.sin(e.rot)); gray(e.g);   // nằm ngang, tâm xác ngay tại chỗ ngã
     bodies.push({ x: e.x, z: e.z, g: e.g });
@@ -87,25 +100,41 @@ export function markDead(i: number, toast: (m: string) => void) {
 }
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 /** Hoạt ảnh: đi bộ vung chân; hai tay luôn cầm súng (hạ súng khi đi tuần, giơ ngắm khi bắn/ngắm, cúi xuống khi nạp đạn). */
+/** Gập khớp gối theo góc đùi: chân đạp ra sau thì gối gập (gót hất lên), đùi co lên ngực (lăn) thì gối gập sâu. */
+function setElbows(u: any, x: number, c: number) { for (const a of [u.armL, u.armR]) { a.userData.elbow.rotation.x = x; curlArm(a, c, 0.8); } }
+function bendKnees(u: any) { for (const l of [u.legL, u.legR]) { const a = l.rotation.x, k = l.userData.knee; if (k) k.rotation.x = Math.max(0, a) * 1.1 + (a < -0.9 ? -(a + 0.9) * 1.3 : 0) + 0.04; } }
 export function animateCrew(dt: number, t: number) {
   for (const e of entities) {
     const u = e.g.userData; if (e.dead) continue;
     const sp = dt > 0 ? Math.hypot(e.x - u.lx, e.z - u.lz) / dt : 0; u.lx = e.x; u.lz = e.z;
     const k = Math.min(1, sp / 3) * (e.i === G.slot && e.y - groundAt(e.x, e.z) > 0.3 ? 0.3 : 1); u.ph += Math.min(sp, 8) * dt * 2.3;
-    const sw = Math.sin(u.ph) * 0.8 * k, br = Math.sin(t * 2 + e.i) * 0.03;
-    u.legL.rotation.x = sw; u.legR.rotation.x = -sw;
+    const isMe = e.i === G.slot && G.phase === "play" && !G.ghost && e.seat < 0, back = isMe && e.legBack ? -1 : 1;   // đi lùi: chân đạp ngược chiều
+    const sw = Math.sin(u.ph) * 0.8 * k * back, br = Math.sin(t * 2 + e.i) * 0.03;
+    u.legL.rotation.x = sw; u.legR.rotation.x = -sw; bendKnees(u);
+    // thân (e.rot) xoay theo chuột, CHÂN (hông trở xuống) giữ hướng legRot — chỉ quay theo khi di chuyển
+    const tw = isMe && e.legRot !== undefined ? Math.atan2(Math.sin(e.legRot - e.rot), Math.cos(e.legRot - e.rot)) : 0;
+    if (u.hip) {
+      if (!(e.i === G.slot && (MV.roll > 0 || MV.swimK > 0.02))) { u.hip.rotation.y = tw - sw * 0.2; u.hip.rotation.z = Math.sin(u.ph) * 0.035 * k; }
+      else u.hip.rotation.y = 0;
+    }
+    if (u.head) { const hp = isMe && MV.swimK < 0.3 && MV.roll <= 0 ? Math.max(-1.0, Math.min(0.9, e.pitch)) * 0.75 : 0; u.head.rotation.x += (hp - u.head.rotation.x) * Math.min(1, dt * 14); }   // đầu gật / ngẩng theo góc chuột   // khớp hông: chậu xoay ngược với vai khi bước, nghiêng nhẹ theo nhịp chân
     const gr = u.gunRig as GunRig | undefined;
     let gl = 0;
     if (gr && gr.full && e.stun <= 0) {   // người chơi: rút súng từ lưng / nạp đạn / lựu đạn — gunpose.ts
       gr.pivot.visible = gr.extra.visible = !(G.ghost && e.i === G.slot);
-      gl = poseFull(e, gr, u.armL, u.armR, dt, sw);
+      if (e.i === G.slot) gl = poseFull(e, gr, u.armL, u.armR, dt, sw);
+      else {   // Bot: ép đúng khẩu súng của nó và cách ly khỏi trạng thái của người chơi (nạp đạn / lăn / bơi)
+        const rl = W.reload, ro = MV.roll, sk = MV.swimK; W.reload = 0; MV.roll = 0; MV.swimK = 0;
+        poseFull(e, gr, u.armL, u.armR, dt, sw, u.gunId as GunId);
+        W.reload = rl; MV.roll = ro; MV.swimK = sk;
+      }
     } else if (gr && e.stun <= 0) {
       gr.pivot.visible = gr.extra.visible = !(G.ghost && e.i === G.slot);
       // góc tay: -0.95 = hạ súng chếch xuống · -π/2 + pitch = giơ ngang tầm mắt, theo góc nhìn
-      const th = lerp(-0.95, -Math.PI / 2 + e.pitch * e.aim, e.aim) + Math.sin(u.ph) * 0.06 * k * (1 - e.aim) + br + e.rel * 0.55 - e.kick * 0.1;
-      u.armL.rotation.set(th, 0, 0.3); u.armR.rotation.set(th, 0, -0.3);
-      gr.pivot.rotation.x = th + Math.PI / 2;
-    } else { u.armL.rotation.set(-sw * 0.9 + br, 0, 0); u.armR.rotation.set(sw * 0.9 - br, 0, 0); }
+      const th = lerp(-0.75, -Math.PI / 2 + e.pitch * e.aim, e.aim) + Math.sin(u.ph) * 0.06 * k * (1 - e.aim) + br + e.rel * 0.55 - e.kick * 0.1;
+      u.armL.rotation.set(th, 0, 0.3); u.armR.rotation.set(th, 0, -0.3); setElbows(u, -1.0 + 0.55 * e.aim, 1.4);
+      gr.pivot.rotation.x = lerp(0.1, th + Math.PI / 2, e.aim); gr.pivot.position.y = 1.344 - 0.14 * (1 - e.aim);   // hạ súng nhưng vẫn cầm NGANG, hai tay gập trước ngực
+    } else { u.armL.rotation.set(-sw * 0.9 + br, 0, 0); u.armR.rotation.set(sw * 0.9 - br, 0, 0); u.armL.userData.elbow.rotation.x = -0.2 - 0.6 * Math.max(0, sw); u.armR.userData.elbow.rotation.x = -0.2 - 0.6 * Math.max(0, -sw); curlArm(u.armL, 0.9, 0.5); curlArm(u.armR, 0.9, 0.5); }
     if (e.i === G.slot) poseMe(e, t, gr, gl);
   }
 }
@@ -142,6 +171,7 @@ function poseMe(e: Entity, t: number, gr: GunRig | undefined, gl: number) {
     const w2 = Math.min(1, sk * 1.5);
     if (w2 > 0) for (const [arm, o, z] of [[armR, 0, 0.2], [armL, Math.PI, -0.2]] as [THREE.Object3D, number, number][]) { _qa.setFromEuler(_qe.set(MV.stk + o, 0, z)); arm.quaternion.slerp(_qa, w2); }
   }
+  bendKnees(u);
   if (gr && (rolling || sk > 0.5)) gr.pivot.visible = false;                                                 // hai tay bận: cất súng
   if (rolling) {   // lăn trên đất: đặt thân sao cho điểm thấp nhất (đầu / lưng / chân) vừa chạm đất
     g.updateMatrixWorld(true);

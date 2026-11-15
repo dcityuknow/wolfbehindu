@@ -1,0 +1,169 @@
+import type { Dict } from "../index";
+
+/** Tiếng Việt — dịch đầy đủ (story.ts + intro + luật + kết thúc). Khoá dạng "UI.x" ghi đè thẳng hằng trong story.ts. */
+export const VI: Dict = {
+  "w.you": "Bạn", "w.youTag": "(bạn)", "w.role": "Vai trò", "w.crew": "BIỆT KÍCH", "w.spy": "GIÁN ĐIỆP",
+  "html.title": "Đảo Lạc · Gián Điệp Giữa Chúng Ta",
+  "html.lockhint": "🖱 Nhấn vào màn hình để khoá chuột · Chuột trái: bắn · Chuột phải: ngắm (súng ngắm có ống kính) · R: nạp đạn · 1 súng ngắn · 2 súng dài · 3 súng ngắm · 4 lựu đạn (giữ chuột = giật chốt, thả = ném) · G: ném nhanh · Shift: lăn · V: đổi góc nhìn",
+  "html.close": "Đóng",
+  "view.third": "Góc thứ ba", "view.first": "Góc thứ nhất",
+
+  /* ── story.ts ── */
+  "GAME.op": "CHIẾN DỊCH MŨI GIÁO ĐEN", "GAME.squad": "Đội ALPHA",
+  "ROLE.crew.title": "BẠN LÀ BIỆT KÍCH", "ROLE.crew.sub": "Hoàn thành 3 nhiệm vụ sinh tồn và tìm ra gián điệp trong 6 đồng đội. Đừng tin ai.",
+  "ROLE.spy.title": "BẠN LÀ GIÁN ĐIỆP", "ROLE.spy.sub": "Giữ vỏ bọc. Chờ ai đó đi lạc một mình rồi ám sát (Q). Dùng hang bí mật (E) để lẩn đi và giả vờ làm nhiệm vụ cho không ai nghi ngờ.",
+  "TASKS.radio.name": "Sửa radio", "TASKS.radio.prompt": "[E] 📻 Sửa radio", "TASKS.radio.hint": "Nối các dây cùng màu để khôi phục ăng-ten.",
+  "TASKS.decode.name": "Giải mã tin mật", "TASKS.decode.prompt": "[E] 🔐 Giải mã tin mật", "TASKS.decode.hint": "Ghi nhớ mã — nó biến mất sau 3 giây — rồi gõ lại.",
+  "TASKS.fire.name": "Nhóm lửa tín hiệu", "TASKS.fire.prompt": "[E] 🔥 Nhóm lửa tín hiệu", "TASKS.fire.hint": "Giữ nút để quạt lửa. Buông ra là lửa yếu đi.",
+  "TASKS.water.name": "Lọc nước biển", "TASKS.water.prompt": "[E] 💧 Chạy máy lọc nước", "TASKS.water.hint": "Mở các van theo thứ tự 1 → 5. Sai một lần là làm lại từ đầu.",
+  "TASKS.supply.name": "Thu hồi thùng tiếp tế", "TASKS.supply.prompt": "[E] 📦 Thu hồi thùng tiếp tế", "TASKS.supply.hint": "Bấm CẮT khi vạch nằm trong vùng xanh — 3 lần liên tiếp.",
+  "UI.tasks": "Nhiệm vụ: {0}/3", "UI.round": "Lượt {0}",
+  "UI.kill": "🔪 Ám sát (Q)", "UI.killUsed": "🔪 Đã ra tay (lượt này)",
+  "UI.report": "[E] 🚨 Báo cáo xác", "UI.vent": "[E] Chui vào hang bí mật", "UI.meeting": "[E] Triệu tập họp khẩn",
+  "UI.ventToast": "🕳 Bạn đã chui vào hang bí mật!",
+  "UI.ghostToast": "💀 Bạn đã bị ám sát — giờ bạn là hồn ma trên đảo, vẫn có thể quan sát",
+  "UI.bodyHint": "🚨 Có xác! Chạy tới đống lửa trại và ngồi xuống ([E]) để triệu tập họp.",
+  "UI.bodyPrompt": "[E] 🚨 Có xác — chạy tới đống lửa để gọi họp",
+  "UI.sitCall": "[E] 🪑 Ngồi xuống đống lửa & triệu tập họp", "UI.sitJoin": "[E] 🪑 Ngồi xuống — tham gia họp",
+  "UI.seated": "🪑 Bạn đã ngồi ở đống lửa — chờ những người khác…",
+  "UI.callBy": (n: string) => `${n} ngồi xuống đống lửa và triệu tập họp — mọi người chạy tới đống lửa!`,
+  "UI.callBar": (why: string, who: string, s: number) => `<div class="cb-t">🚨 TRIỆU TẬP HỌP — ${why}</div><div>${who} đang ở đống lửa. Chạy tới đó và nhấn <b>[E]</b> để ngồi xuống!</div><div class="cb-n">${s}</div><div class="cb-s">Ai không đến sẽ bị coi là GIÁN ĐIỆP!</div>`,
+  "UI.callWait": (n: number, s: number) => `🪑 Bạn đã ngồi · chờ thêm ${n} người · ${s}s`,
+  "UI.callChain": "📡 Mọi người đã ngồi — đang mở cuộc họp trên chuỗi…",
+  "UI.branded": (n: string) => `🚫 ${n} không đến đống lửa kịp giờ — bị coi là GIÁN ĐIỆP và bị trục xuất`,
+  "UI.bodyFound": "Phát hiện xác!", "UI.callMeeting": "Họp khẩn ở đống lửa!",
+  "UI.botReport": (n: string) => `📢 ${n} đã tìm thấy xác!`,
+  "UI.help": "❓ Hướng dẫn", "UI.check": "🏁 Kiểm tra nhiệm vụ", "UI.checkNone": "Nhiệm vụ vẫn tiếp diễn — chưa ai thắng.", "UI.checkLine": "Chưa ai thắng.",
+  "UI.meetTitle": "HỌP KHẨN Ở ĐỐNG LỬA TRẠI", "UI.chatPh": "Nói gì đó…", "UI.send": "Gửi", "UI.skip": "Bỏ qua — không ai bị trục xuất", "UI.confirm": "Xác nhận phiếu",
+  "UI.picked": (n: string) => `Đã chọn ${n}`,
+  "UI.sealing": "🔐 Đang niêm phong & gửi phiếu của bạn…", "UI.tally": "📊 Đồng đội đang bỏ phiếu — kiểm phiếu đã niêm phong (FHE)…",
+  "UI.sysName": "Chỉ huy", "UI.sysVote": "Phiếu của bạn đã được niêm phong (mã hoá trên chuỗi). Không ai biết bạn bầu cho ai.",
+  "UI.tieSplash": "Đội không thống nhất được — không ai bị trục xuất",
+  "UI.ejectedSpy": "{0} bị trục xuất — ĐÚNG LÀ GIÁN ĐIỆP 🎯", "UI.ejectedNo": "{0} bị trục xuất — KHÔNG phải gián điệp. Bạn đã đuổi nhầm một đồng đội vô tội 💔",
+  "UI.again": "Chơi lại",
+  "UI.mateDead": (n: string) => `☠ ${n} đã chết hẳn — bắn nhầm đồng đội được ghi lên chuỗi`,
+  "UI.opSetup": "🔑 Đang chuẩn bị ví phiên (ký thay cho các Bot)…", "UI.opFunding": "⛽ Đang nạp một ít test-ETH vào ví phiên…",
+  "UI.opReady": "✓ Ví phiên sẵn sàng — hành động của Bot chạy không cần bật cửa sổ ví", "UI.opFallback": "⚠ Không dùng được ví phiên — dùng MetaMask cho hành động của Bot",
+  "UI.spectating": "💀 Bạn đã chết — chỉ có thể xem. Đội đang bỏ phiếu mà không có bạn…", "UI.timesUp": "⏱ Hết giờ — phiếu của bạn tính là bỏ qua.",
+  "UI.retryVote": "Thử lại", "UI.voteFail": "❌ Không thể hoàn tất cuộc bỏ phiếu.",
+  "UI.whyShot": "SAO MÀY BẮN TAO??", "UI.wanted": "🕵 BẠN BỊ COI LÀ GIÁN ĐIỆP — đồng đội đang bắn bạn!", "UI.firstAccuse": "Hắn đó! Cả đội, BẮN!",
+  "UI.chainRecording": "⛓ Đang ghi cái chết của bạn lên chuỗi…", "UI.chainDone": (tx: string) => `✅ Đã ghi cái chết lên chuỗi · tx ${tx}`,
+  "UI.chainFail": "❌ Không ghi được cái chết lên chuỗi.", "UI.retry": "Thử lại",
+  "ENDING.killed.title": "☠ BỊ ÁM SÁT", "ENDING.killed.desc": "Bạn bị hạ trong bóng tối — gián điệp đã ra tay trước khi bạn kịp vạch mặt hắn.<br>Nhiệm vụ của bạn đến đây là hết. Đang mở khoá các vai trò đã mã hoá để lộ kẻ phản bội…",
+  "ENDING.crew.title": "🎖 BIỆT KÍCH THẮNG", "ENDING.crew.desc": "Tín hiệu cầu cứu vút lên bầu trời đảo — hoặc gián điệp đã bị vạch mặt. Trực thăng cứu hộ đang trên đường tới.",
+  "ENDING.spy.title": "🕵 GIÁN ĐIỆP THẮNG", "ENDING.spy.desc": "Đội bị bào mòn đến mức không còn sức chống trả. Nhiệm vụ thất bại — kẻ phản bội đã hoàn thành mệnh lệnh.",
+  "ENDING.shot.title": "☠ BỊ CHÍNH ĐỒNG ĐỘI XỬ BẮN",
+  "ENDING.shot.crew": "Bạn nổ súng vào đồng đội — và họ không nương tay.<br>Lòng tin của đội tan vỡ trên đảo, còn gián điệp thì chưa bao giờ bị tìm ra.",
+  "ENDING.shot.spy": "Tiếng súng bất cẩn làm lộ vỏ bọc của bạn. Đội bắn hạ bạn chỉ vì nghi ngờ — không bỏ phiếu, không bằng chứng, không ai thắng.",
+  "ENDING.shot.over": "GAME OVER — nhiệm vụ kết thúc khi chưa tìm ra gián điệp.",
+  "ENDING.absent.title": "🕵 BỊ COI LÀ GIÁN ĐIỆP — BẠN KHÔNG ĐẾN HỌP",
+  "ENDING.absent.crew": "Cuộc họp được triệu tập và bạn không tới đống lửa trong 30 giây. Cả đội cho rằng chỉ gián điệp mới trốn họp — và đã loại bạn.",
+  "ENDING.absent.spy": "Cuộc họp được triệu tập và bạn tránh xa đống lửa. Cả đội coi sự vắng mặt của bạn là lời thú tội và loại bạn.",
+  "ENDING.absent.over": "GAME OVER — bạn đã bỏ lỡ cuộc họp khẩn.",
+  "ENDING.win": "🎉 Bạn thắng!", "ENDING.lose": "Bạn thua.",
+  "CHAT_LINES": [
+    "{n}, lúc nãy cậu đi lang thang đâu thế? Tôi không thấy ai đi cùng cậu cả.",
+    "Tôi thấy {n} quanh quẩn gần hang cát. Giải thích đi.",
+    "Báo cáo: tôi ở trong rừng, vừa sửa xong radio. Còn {n} thì sao?",
+    "{n} im lặng đáng ngờ. Người vô tội thì chẳng có gì phải giấu.",
+    "Không có bằng chứng, nhưng linh cảm lính mách tôi là {n}.",
+    "Bình tĩnh. Đuổi nhầm đồng đội là mất thêm một người.",
+    "Có ai thấy {n} làm nhiệm vụ không? Tôi chưa thấy lần nào.",
+    "Tôi vừa thấy {n} lau dao. Đừng nói là để gọt khoai tây nhé.",
+    "Điểm danh từng người: lúc phát hiện xác mọi người ở đâu?",
+    "Gián điệp đang ngồi ngay đống lửa này. {n}, nhìn thẳng vào mắt tôi mà nói đi.",
+    "Tôi canh lửa suốt — {n} làm chứng được. Đừng đổ cho tôi.",
+    "Bỏ qua. Chưa đủ cơ sở. Mỗi lần bầu sai là mất thêm một mạng.",
+    "{n}, mật khẩu lúc nhảy dù là gì? Trả lời nhanh.",
+    "Tôi chẳng tin ai nữa. Kể cả {n}. Kể cả các cậu.",
+    "Radio vẫn hỏng, nước sắp cạn, mà các cậu còn cãi nhau. Có kẻ đang cười đấy.",
+    "{n} đáp xuống gần tôi nhất, vậy sao cậu rời khu rừng sớm thế?",
+  ],
+  "OPENERS.body": ["Tôi vừa thấy một cái xác ngoài kia. Có kẻ đã làm chuyện này — và là một trong chúng ta.", "Có người chết rồi. Không phải bão, cũng không phải thú dữ — đó là vết dao."],
+  "OPENERS.emergency": ["Tôi triệu tập cuộc họp này để làm rõ: đội ta đang bị thao túng từ bên trong.", "Có gì đó không ổn. Mọi người tập trung quanh đống lửa và nói chuyện cho rõ."],
+
+  /* ── intro ── */
+  "intro.step0": "1 · Giới thiệu", "intro.step1": "2 · Luật chơi", "intro.step2": "3 · Chơi",
+  "intro.back": "← Quay lại", "intro.next0": "Xem luật chơi →", "intro.next1": "Hiểu rồi, tiếp →",
+  "intro.rulesH": "Luật chơi trong 1 phút", "intro.playH": "Sẵn sàng chơi",
+  "intro.pause": "⏸ Tạm dừng", "intro.resume": "▶ Phát", "intro.lang": "🌐 Ngôn ngữ",
+  "sc.0.title": "Mắc kẹt trên đảo hoang",
+  "sc.0.cap": "Đội ALPHA nhảy dù tới khu vực làm nhiệm vụ bí mật, nhưng một cơn bão cuốn họ đi và thả xuống một hòn đảo hoang giữa biển. Mất liên lạc — không ai biết họ ở đâu.",
+  "sc.0.head": "🪂 Đảo hoang",
+  "sc.1.title": "Nhiệm vụ sinh tồn",
+  "sc.1.cap": "Mỗi người làm 3 nhiệm vụ tại các trạm màu cam nhấp nháy: sửa radio, giải mã tin mật, nhóm lửa tín hiệu, lọc nước biển, thu hồi thùng tiếp tế. Cả đội hoàn thành là được giải cứu!",
+  "sc.1.head": "Sinh tồn", "sc.1.sm": "3 nhiệm vụ / người",
+  "sc.2.title": "Gián điệp ẩn mình",
+  "sc.2.cap": "Một trong 7 người là gián điệp cài sẵn — có thể là bạn! Vai trò được chia ngẫu nhiên và mã hoá bằng Zama FHE: chỉ mình bạn thấy vai trò của mình.",
+  "sc.2.head": "🔐 Vai trò được mã hoá", "sc.2.banner": "Chỉ mình bạn thấy: BIỆT KÍCH 🎖",
+  "sc.3.title": "Ám sát & báo cáo xác",
+  "sc.3.cap": "Gián điệp bí mật ám sát bất kỳ ai đi lạc một mình (phím Q, tối đa một lần mỗi lượt). Ai thấy xác phải chạy tới đống lửa và ngồi xuống (E) để gọi họp; mọi người có 30 giây tới đống lửa — ai không đến bị coi là gián điệp.",
+  "sc.4.title": "Họp quanh đống lửa",
+  "sc.4.cap": "Cả đội tụ họp quanh lửa, tranh luận rồi bỏ phiếu kín. Phiếu được mã hoá trên chuỗi — không ai biết bạn bầu cho ai. Người nhiều phiếu nhất bị trục xuất.",
+  "sc.4.banner": "Bị trục xuất: ĐÚNG LÀ GIÁN ĐIỆP! 🎯",
+  "sc.5.title": "Ai sống sót?",
+  "sc.5.cap": "Sẵn sàng chưa? Mở “Luật chơi” để xem phím điều khiển, hoặc vào chơi luôn. Cảnh mở đầu sẽ chiếu khi bạn vào game.",
+  "sc.5.crewT": "🎖 BIỆT KÍCH THẮNG", "sc.5.crewA": "✔ Bỏ phiếu loại đúng gián điệp", "sc.5.or": "hoặc", "sc.5.crewB": "✔ Cả đội hoàn thành nhiệm vụ",
+  "sc.5.spyT": "🕵 GIÁN ĐIỆP THẮNG", "sc.5.spyA": "✔ Ám sát cho đến khi biệt kích còn sống", "sc.5.spyB": "≤ số gián điệp còn sống", "sc.5.spyC": "(1 biệt kích + 1 gián điệp là đủ)",
+
+  /* ── luật ── */
+  "rules.1.h": "🎯 Cốt truyện & mục tiêu",
+  "rules.1.b": `<p>Đội ALPHA bị bão thổi lạc khỏi điểm đáp và mắc kẹt trên đảo hoang, mất liên lạc. Bạn chơi cùng <b>6 đồng đội Bot</b>. Trong 7 người có <b>1 gián điệp</b> (ngẫu nhiên — có thể là bạn).</p>
+  <p><b style="color:#5f9">Biệt kích thắng</b> khi loại đúng gián điệp <i>hoặc</i> hoàn thành mọi nhiệm vụ sinh tồn.<br>
+  <b style="color:#f66">Gián điệp thắng</b> khi số biệt kích còn sống ≤ số gián điệp còn sống.</p>`,
+  "rules.2.h": "🎖 Nếu bạn là Biệt kích",
+  "rules.2.b": `<p>1. Tìm một <b style="color:#fa3">trạm cam nhấp nháy</b>, đứng gần và nhấn <kbd>E</kbd> để làm nhiệm vụ: 📻 sửa radio · 🔐 giải mã tin · 🔥 nhóm lửa tín hiệu · 💧 lọc nước · 📦 thu hồi thùng tiếp tế (mỗi người 3 việc).<br>
+  2. Thấy xác? Chạy tới đống lửa và nhấn <kbd>E</kbd> để ngồi xuống — thế là gọi họp. Mọi người có <b>30 giây</b> chạy tới lửa và ngồi; ai tránh mặt bị coi là gián điệp.<br>
+  3. Họp ở đống lửa: đọc chat, đối chiếu lời khai, rồi bỏ phiếu loại người bạn nghi ngờ (hoặc bỏ qua).</p>`,
+  "rules.3.h": "🕵 Nếu bạn là Gián điệp",
+  "rules.3.b": `<p>Chờ ai đó đi lạc một mình, tiến lại gần (&lt; 2,2 m) và nhấn <kbd>Q</kbd> để ám sát — <b>mỗi lượt một lần</b>.<br>
+  Nhấn <kbd>E</kbd> ở hang bí mật (hố đá phát sáng xanh) để chui ra ở một hang khác. Giả vờ làm nhiệm vụ để giữ vỏ bọc, rồi đổ lỗi cho người khác trong lúc họp.</p>`,
+  "rules.4.h": "🎮 Điều khiển",
+  "rules.4.b": `<p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> di chuyển theo hướng đang nhìn · <b>chuột</b> xoay camera (nhấn vào màn hình để khoá chuột)<br><kbd>V</kbd> đổi góc nhìn: thứ ba / thứ nhất · lăn chuột để zoom<br>
+  <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lăn (né về phía trước, hồi 1 giây) · đi xuống biển để bơi (đang bơi không bắn được) · <kbd>E</kbd> tương tác (nhiệm vụ / hang bí mật / ngồi ở đống lửa giữa đảo để gọi hoặc vào họp)<br>
+  <kbd>Q</kbd> ám sát (chỉ gián điệp)<br><b>Súng:</b> <kbd>Chuột trái</kbd> bắn · <kbd>Chuột phải</kbd> ngắm · <kbd>R</kbd> nạp đạn · <kbd>1</kbd> súng ngắn · <kbd>2</kbd> súng dài · <kbd>3</kbd> súng ngắm (ngắm = ống kính) · <kbd>4</kbd> lựu đạn (giữ chuột để giật chốt, thả để ném) · <kbd>G</kbd> ném nhanh (lăn chuột đổi súng ở góc nhìn thứ nhất)</p>
+  <p class="dim">Tầm nhìn bị giới hạn: bạn chỉ thấy người trong vùng sáng và không bị đá, nhà, bụi cây che. Không ai đi xuống biển sâu được.</p>`,
+  "rules.5.h": "💥 Bắn nhầm đồng đội là THẬT",
+  "rules.5.b": `<p>Bắn đồng đội tới khi họ <b>gục</b> là họ <b>chết hẳn</b> — ghi trên hợp đồng, không hồi sinh. Chỉ những đồng đội thực sự <b>NHÌN THẤY bạn làm</b> (đủ gần, đang hướng về bạn, không bị tường che) mới hét <b>“SAO MÀY BẮN TAO??”</b> và <b>quay súng bắn lại</b>. Những người còn lại chỉ chạy tới hỏi nạn nhân chuyện gì — <b>không có nhân chứng, không có buộc tội</b>. Bị thấy bắn <b>lần nữa</b> là cả đội coi bạn là gián điệp và <b>nổ súng</b>; những vụ giết thật của gián điệp cũng bị lộ theo cách đó nếu có người thấy.<br>
+  Nếu họ bắn hạ bạn, cái chết được <b>ghi lên hợp đồng thông minh</b> và ván <b>kết thúc ngay</b> — dù gián điệp thật chưa bị tìm ra. Chỉ <b>gián điệp</b> mới giết thật được (mỗi lượt một lần, dùng chung với <kbd>Q</kbd>). Hãy nghĩ trước khi bóp cò.</p>`,
+  "rules.6.h": "🔁 Một lượt chơi",
+  "rules.6.b": `<p>Đi lại & làm nhiệm vụ → có người thấy xác hoặc gọi họp → <b>họp & bỏ phiếu kín</b> → 1 người bị trục xuất (hoặc không ai) → lượt mới, cho tới khi một phe thắng.<br>
+  Nút <b>🏁 Kiểm tra nhiệm vụ</b> (góc dưới bên phải) hỏi hợp đồng xem đã có ai thắng chưa.</p>`,
+  "rules.7.h": "🔐 Vì sao dùng blockchain?",
+  "rules.7.b": `<p>Vai trò, mục tiêu ám sát, phiếu bầu và tiến độ nhiệm vụ đều được <b>mã hoá</b> trên Sepolia (Zama FHE): kể cả người theo dõi giao dịch cũng không biết ai là gián điệp. Các cái chết — kể cả bị đồng đội xử bắn — được ghi lên hợp đồng. Chỉ di chuyển và chat chạy trên máy bạn.</p>`,
+
+  /* ── bước 3 ── */
+  "conn.why.h": "🔗 Vì sao phải kết nối ví?",
+  "conn.why.b": `<p>Game chạy trên <b>Sepolia</b> — <b>mạng thử nghiệm</b> của Ethereum. Ví (MetaMask) là “tài khoản” ký các hành động của bạn: tạo phòng, làm nhiệm vụ, ám sát, bỏ phiếu.</p>
+  <ul><li>💸 <b>Không dùng tiền thật.</b> Bạn chỉ cần Sepolia ETH (miễn phí — tìm “Sepolia faucet”).</li>
+  <li>🔑 Một <b>ví phiên</b> dùng một lần được tạo ngay trong trình duyệt và nạp ~0,03 test-ETH một lần. Bắt đầu ván chơi chỉ tốn <b>một</b> giao dịch. Ví này ký hành động của các Bot (lượt Bot, phiếu Bot, kiểm phiếu) nên MetaMask chỉ hỏi bạn về <b>hành động của chính bạn</b>. Nó không bao giờ hành động thay bạn.</li>
+  <li>⛽ Hành động của bạn (nhiệm vụ, ám sát, bỏ phiếu, cái chết) vẫn tốn chút test-ETH tiền gas và cần bạn xác nhận.</li>
+  <li>✍️ Một chữ ký không tốn gas giúp bạn <b>giải mã vai trò</b> (chỉ mình bạn thấy).</li>
+  <li>🔑 Game <b>không bao giờ</b> hỏi cụm từ khôi phục / khoá riêng của bạn.</li></ul>`,
+  "conn.chk.h": "✅ Kiểm tra nhanh", "conn.tip": "Mẹo: dùng ví riêng để thử nghiệm, đừng bao giờ dùng ví đang giữ tiền thật.",
+  "conn.play": "🔗 Kết nối ví & Triển khai (bạn + 6 đồng đội Bot)",
+  "chk.none": `❌ Không tìm thấy ví. Hãy cài <a href="https://metamask.io/download" target="_blank" rel="noopener">MetaMask</a> rồi tải lại trang.`,
+  "chk.ok": "✅ Đã phát hiện ví trong trình duyệt.", "chk.sep": "✅ Bạn đang ở mạng Sepolia.",
+  "chk.notsep": "⚠️ Chưa ở mạng Sepolia — game sẽ yêu cầu chuyển mạng khi bạn bấm Chơi.", "chk.later": "ℹ️ Mạng sẽ được kiểm tra khi bạn bấm Chơi.",
+  "howto.h": "❓ Cách chơi", "howto.close": "Đóng (game vẫn chạy)",
+
+  /* ── thẻ mở khoá + kết thúc ── */
+  "rv.unlock": "🔓 ĐANG MỞ KHOÁ VAI TRÒ", "rv.spy": "🕵 GIÁN ĐIỆP: {0}", "rv.done": "🔓 ĐÃ MỞ KHOÁ VAI TRÒ", "rv.go": "Tiếp tục", "rv.stamp": "GIÁN ĐIỆP", "rv.you": "BẠN",
+  "end.spyWas": "🕵 Gián điệp là: {0}", "end.proving": "Đang chứng minh cái chết của bạn trên chuỗi (FHE)…", "end.proved": "✓ Đã chứng minh cái chết trên chuỗi (có chữ ký KMS).",
+  "tx.req.go": "Gửi giao dịch: yêu cầu chứng minh cái chết — chờ block xác nhận…", "tx.req.ok": "Giao dịch xong: hợp đồng đã công khai trạng thái mã hoá của bạn để KMS giải mã.",
+  "kms.death.go": "KMS đang giải mã công khai trạng thái của bạn (bước chờ lâu nhất)…", "kms.death.ok": "KMS đã giải mã + ký xác nhận: bạn đã chết.",
+  "tx.submit.go": "Gửi giao dịch: nộp chữ ký KMS làm bằng chứng lên hợp đồng…", "tx.submit.ok": "Giao dịch xong: hợp đồng đã kiểm tra chữ ký KMS và kết thúc ván.",
+  "tx.exec.go": "Gửi giao dịch: ghi cái chết (bị xử bắn) lên hợp đồng…", "tx.exec.ok": "Giao dịch xong: hợp đồng đã ghi nhận cái chết của bạn và kết thúc ván.",
+  "tx.reveal.go": "Gửi giao dịch: mở khoá vai trò của cả đội…", "tx.reveal.ok": "Giao dịch xong: vai trò của 7 người đã được công khai để giải mã.",
+  "kms.roles.go": "KMS đang giải mã vai trò của 7 người (lại chờ một lúc)…", "kms.roles.ok": "KMS đã giải mã vai trò — chuẩn bị đóng dấu gián điệp.", "kms.retry": "KMS chưa sẵn sàng — tự thử lại lần {0}…",
+  "end.cantProve": "Không chứng minh được cái chết trên chuỗi.", "end.unlocking": "Đang mở khoá vai trò (FHE)…",
+  "end.cantUnlock": "Không mở khoá được vai trò ({0}). Nếu hợp đồng cũ, hãy chạy <b>npm start</b> để triển khai lại.", "end.retry": "Thử lại",
+
+  /* ── mini-game, toast, súng, cảnh mở đầu ── */
+  "mg.wrong": "SAI — nhìn lại đi", "mg.blow": "🔥 THỔI", "mg.next": "Van tiếp theo: {0}", "mg.wrongOrder": "Sai thứ tự! Bắt đầu lại từ van 1", "mg.flow": "Nước đang chảy!", "mg.cut": "✂ CẮT!",
+  "toast.deep": "🌊 Biển sâu phía trước — không bơi xa hơn được", "toast.swim": "🏊 Đang bơi — không bắn được · đứng yên để bắn", "toast.hands": "🙌 Tay đang bận — đã cất lựu đạn",
+  "toast.killed": "💀 Bạn đã bị giết", "toast.meetFail": "✗ Không mở được cuộc họp trên chuỗi — thử lại", "toast.sdk": "Đang khởi tạo Zama SDK…", "toast.sign": "✍ Ký EIP-712 để giải mã (không tốn gas)…",
+  "gun.pistol": "Súng ngắn", "gun.rifle": "Súng dài (AK-47)", "gun.sniper": "Súng ngắm", "gun.grenade": "Lựu đạn", "gun.nade": "Lựu đạn · giữ chuột = giật chốt, thả = ném",
+  "cine.skip": "Bỏ qua ⏭", "cine.alt": "⚠ ĐỘ CAO NGUY HIỂM", "cine.altL": "ĐỘ CAO",
+  "voice.net": "📡 MẠNG ĐỘI", "voice.static": "📡 MẠNG ĐỘI — MẤT TÍN HIỆU", "voice.ai": "⚙ AI TRÊN ÁO GIÁP", "voice.private": "🔒 KÊNH RIÊNG",
+};

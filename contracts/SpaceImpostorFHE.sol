@@ -1,50 +1,42 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.27;
 
-import { FHE, euint8, ebool, externalEuint8 } from "@fhevm/solidity/lib/FHE.sol";
+import { FHE, euint8, euint64, ebool, externalEuint8 } from "@fhevm/solidity/lib/FHE.sol";
 import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { IERC7984 } from "@openzeppelin/confidential-contracts/interfaces/IERC7984.sol";
 
 /**
- * @title  SpaceImpostorFHE
- * @notice On-chain social deduction game (Among-Us style) built on Zama FHEVM.
+ * @title  SpaceImpostorFHE ("Lost Island")
+ * @notice Social-deduction game (one hidden spy among a squad) on the Zama FHEVM, with optional encrypted
+ *         ERC-7984 (cUSDT) stakes. Nothing that must stay secret is ever stored or emitted in clear.
  *
- * ─────────────────────────── LƯU Ý QUAN TRỌNG VỀ API ZAMA ───────────────────────────
- *  Spec gốc dùng tên cũ (`TFHE`, `TFHE.decrypt()`, `bytes encryptedVote`). Thư viện hiện tại
- *  (package fhevm/solidity 0.13.x) đã đổi:
- *   - `TFHE`                    -> `FHE`
- *   - `TFHE.randEuint8()`       -> `FHE.randEuint8(upperBound)` (upperBound phải là luỹ thừa của 2)
- *   - input mã hoá từ client    -> `externalEuint8` + `bytes inputProof`, kèm `FHE.fromExternal()`
- *   - `TFHE.decrypt()` (sync)   -> KHÔNG TỒN TẠI. Giải mã công khai là bất đồng bộ 3 bước:
- *        (1) on-chain : `FHE.makePubliclyDecryptable(handle)`
- *        (2) off-chain: relayer SDK `publicDecrypt(handles)` -> (cleartexts, decryptionProof)
- *        (3) on-chain : `FHE.checkSignatures(handles, cleartexts, proof)` xác minh chữ ký KMS
- *   - Config                    -> kế thừa `ZamaEthereumConfig`
+ * ENCRYPTED: every role (who the spy is), every alive/dead status, the spy's kill target, every vote,
+ *            the task counter, and (staked rooms) every player's paid stake and the pot.
+ * PUBLIC (only through the KMS: makePubliclyDecryptable -> relayer publicDecrypt -> FHE.checkSignatures):
+ *            checkpoint win flags, vote result + ejected role, a player's own death proof, and - once the
+ *            game is Finished - every role, so anyone can audit that the winner (and payout) was legitimate.
  *
- * ─────────────────────────────── THIẾT KẾ CHỐNG LỘ THÔNG TIN ────────────────────────
- *  Revert/branch dựa trên giá trị mã hoá là KHÔNG thể. Vì vậy mọi điều kiện bí mật
- *  (bạn có phải Impostor không? mục tiêu còn sống không?) được tính bằng `ebool` và áp dụng
- *  bằng `FHE.select` — giao dịch LUÔN thành công dù kết quả là "no-op".
+ * NO DATA-DEPENDENT REVERTS: a secret condition (am I the spy? is the target alive?) is computed as `ebool`
+ * and applied with `FHE.select`, so a transaction succeeds whether or not it had an effect. Otherwise a
+ * revert (or its absence) would leak the role.
  *
- *  Hệ quả thiết kế:
- *   1. `executeSecretKill` nhận targetId MÃ HOÁ (không phải uint8 thường): nếu để plaintext thì
- *      chỉ cần nhìn tx là biết ai là Impostor + nạn nhân là ai.
- *   2. MỌI người chơi đều gọi được `executeSecretKill` đúng 1 lần/round (Crewmate = no-op), giới
- *      hạn theo plaintext nên không phân biệt được vai trò qua việc tx thành công hay revert.
- *   3. `completeTask` cũng áp dụng cho mọi người chơi như nhau (Impostor là "fake task").
- *
- *  Vai trò (Role) : `FHE.allow(role, player)` -> chỉ ví đó user-decrypt được.
- *  Trạng thái     : handle `status` được cấp quyền cho cả phòng chỉ khi mở cuộc họp (báo xác chết).
+ * RANDOMNESS: the spy is drawn with `FHE.randEuint8` inside the FHE coprocessor - nobody (not the host, not a
+ * validator, not the contract) can predict or bias it - and the draw is publicly verifiable at game end.
  */
 contract SpaceImpostorFHE is ZamaEthereumConfig {
     // ───────────────────────────── CONSTANTS ─────────────────────────────
-    uint8 public constant MAX_PLAYERS = 7; // tổng số slot (người + bot)
+    uint8 public constant MAX_PLAYERS = 7; // total slots (humans + bots)
     uint8 public constant MIN_PVP_PLAYERS = 3;
     uint8 public constant SOLO_BOTS = 6;
-    /// @dev Số Bot xử lý mỗi giao dịch (lượt Bot / bỏ phiếu Bot). Chia lô để mỗi tx không vượt ngân sách tính toán FHE (HCU).
+    /// @dev Bots processed per transaction (bot turns / bot votes). Batched so one tx stays under the FHE compute budget (HCU).
     uint8 public constant BOTS_PER_TX = 3;
     uint8 public constant TASKS_PER_PLAYER = 3;
-    uint8 public constant NO_TARGET = 255; // vote "skip" / không ai bị eject
-    uint64 public constant VOTE_DURATION = 120; // giây
+    uint8 public constant NO_TARGET = 255; // vote "skip" / nobody is ejected
+    uint64 public constant VOTE_DURATION = 120; // seconds
+    /// @dev A staked lobby nobody started can be cancelled by anyone after this long (host can cancel any time).
+    uint64 public constant LOBBY_TIMEOUT = 1 days;
+    /// @dev A staked game that never finished can be aborted by anyone after this long; every player is refunded.
+    uint64 public constant GAME_TIMEOUT = 2 days;
 
     uint8 private constant ROLE_CREW = 0;
     uint8 private constant ROLE_IMPOSTOR = 1;
@@ -54,8 +46,9 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         Lobby,
         Playing,
         Voting,
-        Tallying, // đang chờ proof giải mã công khai của kết quả vote
-        Finished
+        Tallying, // waiting for the KMS-signed public decryption of the vote result
+        Finished,
+        Cancelled // staked room that never finished: every player can claim a refund
     }
 
     enum Winner {
@@ -68,18 +61,21 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     enum PendingKind {
         None,
         Checkpoint,
-        Tally
+        Tally,
+        Death // proof that the caller's own (encrypted) status is Dead
     }
 
     struct Player {
-        address wallet; // address(0) nếu là Bot
+        address wallet; // address(0) for a bot
         bool isBot;
-        bool hasVoted; // plaintext: đã bỏ phiếu round này chưa (không lộ vai trò)
-        bool ejected; // plaintext: bị loại bằng vote (đã công khai)
-        uint8 tasksDone; // plaintext, giới hạn bằng nhau cho mọi vai trò
-        uint32 lastActRound; // round gần nhất đã gọi executeSecretKill
-        euint8 role; // 0 = Crewmate, 1 = Impostor   (MÃ HOÁ)
-        euint8 status; // 1 = Alive,    0 = Dead       (MÃ HOÁ)
+        bool hasVoted; // plaintext: voted this round (leaks nothing about the role)
+        bool ejected; // plaintext: removed by vote or proven dead (already public)
+        uint8 tasksDone; // plaintext; same cap for every role
+        uint32 lastActRound; // last round in which executeSecretKill / the bot turn ran
+        euint8 role; // 0 = Crewmate, 1 = Impostor   (ENCRYPTED)
+        euint8 status; // 1 = Alive,    0 = Dead       (ENCRYPTED)
+        euint64 paid; // staked rooms: ENCRYPTED amount of cUSDT this player really paid in (0 if the transfer failed)
+        bool claimed; // plaintext: refund / payout already claimed
     }
 
     struct Room {
@@ -90,28 +86,44 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         PendingKind pendingKind;
         uint8 humanCount;
         uint8 totalSlots; // humans + bots
-        uint8 taskTarget; // tổng task Crewmate cần hoàn thành
+        uint8 taskTarget; // total crew tasks needed to win
         uint8 votesCast;
         uint32 round;
         uint32 lastCheckpointRound;
         uint64 voteDeadline;
         address operator; // Solo: session wallet allowed to run the bots / tally / checkpoint (no MetaMask popups)
-        euint8 taskProgress; // số task đã hoàn thành (MÃ HOÁ, Impostor không cộng)
-        euint8[MAX_PLAYERS] voteCounts; // phiếu tích luỹ theo slot (MÃ HOÁ)
+        uint64 stake; // staked rooms: public entry fee per player (cUSDT base units). 0 = free room. Balances stay encrypted.
+        uint64 createdAt;
+        uint64 startedAt;
+        uint8 winnersCount; // set by settleStake: size of the winning side (all of its members, dead or alive)
+        bool settled; // stake roles verified, payouts can be claimed
+        euint64 pot; // ENCRYPTED sum of what players really paid in
+        euint8 taskProgress; // tasks completed (ENCRYPTED; the spy never adds)
+        euint8[MAX_PLAYERS] voteCounts; // votes accumulated per slot (ENCRYPTED)
     }
 
     // ───────────────────────────── STORAGE ─────────────────────────────
     uint256 public roomCount;
     mapping(uint256 => Room) private _rooms;
-    mapping(uint256 => Player[]) private _players; // index = slotId (người trước, bot sau)
+    mapping(uint256 => Player[]) private _players; // index = slotId (humans first, then bots)
     mapping(uint256 => mapping(address => uint8)) private _slotPlusOne;
-    mapping(uint256 => bytes32[]) private _pending; // handles đang chờ public-decrypt
+    mapping(uint256 => bytes32[]) private _pending; // handles waiting for public decryption
+    mapping(uint256 => uint8) private _deathSlot; // slot whose death proof is pending
+    mapping(uint256 => bytes32[]) private _roleHandles; // handles made public by revealRoles (verified by settleStake)
+    mapping(uint256 => mapping(uint8 => bool)) private _isWinner; // set by settleStake
+
+    /// @notice ERC-7984 confidential token used for stakes (cUSDT on Sepolia). address(0) = staking disabled.
+    IERC7984 public immutable stakeToken;
+
+    constructor(address token) {
+        stakeToken = IERC7984(token);
+    }
 
     // ───────────────────────────── EVENTS ─────────────────────────────
     event RoomCreated(uint256 indexed roomId, address indexed host, bool isSolo);
     event PlayerJoined(uint256 indexed roomId, address indexed player, uint8 slotId);
     event GameStarted(uint256 indexed roomId, uint8 totalSlots);
-    /// @dev Phát cho MỌI người chơi như nhau -> không lộ ai là Impostor.
+    /// @dev Emitted for EVERY player the same way, so it does not reveal who the Impostor is.
     event Acted(uint256 indexed roomId, uint32 round, uint8 slotId);
     event TaskCompleted(uint256 indexed roomId, uint8 slotId);
     event MeetingCalled(uint256 indexed roomId, uint32 round, uint64 voteDeadline);
@@ -125,6 +137,16 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     event PlayerExecuted(uint256 indexed roomId, uint8 slotId, uint32 round);
     /// @dev A player shot a squadmate dead. The victim stays dead for the rest of the game.
     event FriendlyKill(uint256 indexed roomId, uint8 killerSlot, uint8 victimSlot, uint32 round);
+    /// @dev After the game is over the roles of every slot were made publicly decryptable (who the spy was).
+    event RolesRevealed(uint256 indexed roomId);
+    /// @dev A player's death was PROVEN by a KMS-signed public decryption of their encrypted status (nothing client-attested).
+    event PlayerAssassinated(uint256 indexed roomId, uint8 slotId, uint32 round);
+    /// @dev Stake amounts are public room parameters; who paid how much and the pot stay encrypted.
+    event StakeSet(uint256 indexed roomId, uint64 stake);
+    event RoomCancelled(uint256 indexed roomId);
+    event RefundClaimed(uint256 indexed roomId, uint8 slotId);
+    event StakeSettled(uint256 indexed roomId, uint8 winnersCount);
+    event PayoutClaimed(uint256 indexed roomId, uint8 slotId);
 
     // ───────────────────────────── MODIFIERS ─────────────────────────────
     modifier inPhase(uint256 roomId, Phase p) {
@@ -136,19 +158,40 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     //                           ROOM MANAGEMENT
     // ═════════════════════════════════════════════════════════════════════
 
-    /// @notice Tạo phòng. isSolo = true -> 1 người + 6 Bot (Bot được thêm lúc startGame).
+    /// @notice Create a free room. isSolo = true -> 1 human + 6 bots (bots are added on start).
     function createRoom(bool isSolo) external returns (uint256 roomId) {
         roomId = ++roomCount;
         Room storage r = _rooms[roomId];
         r.host = msg.sender;
         r.isSolo = isSolo;
         r.phase = Phase.Lobby;
+        r.createdAt = uint64(block.timestamp);
 
         _addHuman(roomId, msg.sender);
         emit RoomCreated(roomId, msg.sender, isSolo);
     }
 
-    /// @notice Tham gia phòng PvP (tối đa 5 người).
+    /// @notice Create a PvP room where every player stakes `stake` cUSDT (ERC-7984). The caller must first call
+    ///         `cUSDT.setOperator(thisContract, until)`. The stake is moved with an ENCRYPTED transfer, so the
+    ///         pot and each player's balance never become public. The winning side shares the pot (see settleStake).
+    function createStakedRoom(uint64 stake) external returns (uint256 roomId) {
+        require(address(stakeToken) != address(0), "Staking disabled");
+        require(stake > 0, "Stake is zero");
+        roomId = ++roomCount;
+        Room storage r = _rooms[roomId];
+        r.host = msg.sender;
+        r.phase = Phase.Lobby;
+        r.createdAt = uint64(block.timestamp);
+        r.stake = stake;
+        r.pot = FHE.asEuint64(0);
+        FHE.allowThis(r.pot);
+
+        _addHuman(roomId, msg.sender);
+        emit RoomCreated(roomId, msg.sender, false);
+        emit StakeSet(roomId, stake);
+    }
+
+    /// @notice Join a PvP room (up to MAX_PLAYERS). Staked rooms charge the stake here (needs the cUSDT operator approval).
     function joinRoom(uint256 roomId) external inPhase(roomId, Phase.Lobby) {
         Room storage r = _rooms[roomId];
         require(r.host != address(0), "No such room");
@@ -160,15 +203,15 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     }
 
     /**
-     * @notice Bắt đầu game: thêm Bot (Solo), chia vai trò MÃ HOÁ, cấp quyền giải mã.
+     * @notice Start the game: add bots (Solo), deal ENCRYPTED roles, grant decryption rights.
      *
-     * Chia vai trò (đúng 1 Impostor):
-     *   impIdx = FHE.rem(FHE.randEuint8(128), n)            // slot Impostor, mã hoá
-     *   role_i = FHE.select(FHE.eq(impIdx, i), 1, 0)        // mã hoá
-     *   FHE.allow(role_i, wallet_i)                         // CHỈ ví i giải mã được
+     * Role deal (exactly one Impostor):
+     *   impIdx = FHE.rem(FHE.randEuint8(128), n)            // Impostor slot, encrypted
+     *   role_i = FHE.select(FHE.eq(impIdx, i), 1, 0)        // encrypted
+     *   FHE.allow(role_i, wallet_i)                         // ONLY wallet i can decrypt it
      *
-     * Với Bot: handle chỉ `allowThis` -> chỉ contract dùng được (để bot hành động trong FHE).
-     * `randEuint8(128)` rồi `rem n`: n=7 (Solo) lệch ~0.8% (chấp nhận được).
+     * Bots: the handle is `allowThis` only -> only the contract can use it (bots act inside FHE).
+     * `randEuint8(128)` then `rem n`: for n = 7 the draw is biased by ~0.8% (documented, acceptable).
      */
     function startGame(uint256 roomId) external inPhase(roomId, Phase.Lobby) {
         require(msg.sender == _rooms[roomId].host, "Only host");
@@ -206,10 +249,11 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
 
         uint8 n = uint8(_players[roomId].length);
         r.totalSlots = n;
-        r.taskTarget = (n - 1) * TASKS_PER_PLAYER; // (n-1) Crewmate; Impostor không đóng góp
+        r.taskTarget = (n - 1) * TASKS_PER_PLAYER; // (n-1) crewmates; the Impostor does not contribute
         r.round = 1;
+        r.startedAt = uint64(block.timestamp);
 
-        // ── Chia vai trò ──
+        // ── Deal roles ──
         euint8 impIdx = FHE.rem(FHE.randEuint8(128), n);
         Player[] storage ps = _players[roomId];
         for (uint8 i = 0; i < n; i++) {
@@ -218,13 +262,13 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
             ebool isImp = FHE.eq(impIdx, i);
             euint8 role = FHE.select(isImp, FHE.asEuint8(ROLE_IMPOSTOR), FHE.asEuint8(ROLE_CREW));
             p.role = role;
-            FHE.allowThis(role); // contract cần dùng lại ở các tx sau
-            if (!p.isBot) FHE.allow(role, p.wallet); // ← CHỈ chủ nhân thấy vai trò
+            FHE.allowThis(role); // the contract reuses it in later transactions
+            if (!p.isBot) FHE.allow(role, p.wallet); // <- ONLY the owner can see the role
 
             _setStatus(p, FHE.asEuint8(1)); // Alive
         }
 
-        // ── Khởi tạo bộ đếm mã hoá ──
+        // ── Initialise the encrypted counters ──
         r.taskProgress = FHE.asEuint8(0);
         FHE.allowThis(r.taskProgress);
         for (uint8 i = 0; i < MAX_PLAYERS; i++) {
@@ -241,16 +285,16 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     // ═════════════════════════════════════════════════════════════════════
 
     /**
-     * @notice Hành động "kill" ẩn. MỌI người chơi gọi 1 lần/round (Crewmate = no-op) để che vai trò.
-     * @param encTarget  slotId nạn nhân, mã hoá phía client (externalEuint8)
-     * @param inputProof ZK proof của input (fhevmjs/relayer-sdk tạo ra)
+     * @notice Hidden "kill" action. EVERY player calls it once per round (Crewmate = no-op) to hide the role.
+     * @param encTarget  victim slotId, encrypted client-side (externalEuint8)
+     * @param inputProof input ZK proof (made by the relayer SDK)
      *
      * canKill  = (role == Impostor) AND (status == Alive)                     [ebool]
      * hit_i    = canKill AND (target == i) AND (role_i == Crewmate)           [ebool]
      * status_i = select(hit_i, 0, status_i)
-     * Không có revert nào phụ thuộc dữ liệu mã hoá.
+     * No revert depends on encrypted data.
      *
-     * Solo: lượt của 6 Bot chạy riêng qua `runBotTurns` (chia lô BOTS_PER_TX Bot/tx).
+     * Solo: the 6 bots run separately via `runBotTurns` (batches of BOTS_PER_TX bots per tx).
      */
     function executeSecretKill(
         uint256 roomId,
@@ -266,21 +310,21 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         require(me.lastActRound < r.round, "Already acted this round");
         me.lastActRound = r.round;
 
-        euint8 target = FHE.fromExternal(encTarget, inputProof); // xác thực proof + lấy handle
+        euint8 target = FHE.fromExternal(encTarget, inputProof); // verifies the proof + gets the handle
         ebool canKill = FHE.and(FHE.eq(me.role, ROLE_IMPOSTOR), FHE.eq(me.status, 1));
         _applyKill(ps, slot, canKill, target);
 
         emit Acted(roomId, r.round, slot);
     }
 
-    /// @notice Hoàn thành 1 task. Chỉ Crewmate làm tăng tiến độ (mã hoá); Impostor "fake task".
+    /// @notice Complete 1 task. Only a Crewmate advances the (encrypted) progress; the Impostor "fakes" it.
     function completeTask(uint256 roomId) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
         require(r.pendingKind == PendingKind.None, "Decryption pending");
 
         uint8 slot = _slotOf(roomId, msg.sender);
         Player storage me = _players[roomId][slot];
-        require(me.tasksDone < TASKS_PER_PLAYER, "No tasks left"); // giới hạn giống nhau cho mọi vai trò
+        require(me.tasksDone < TASKS_PER_PLAYER, "No tasks left"); // same cap for every role
         me.tasksDone++;
 
         _addTask(r, me.role);
@@ -288,9 +332,9 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     }
 
     /**
-     * @notice Kiểm tra điều kiện thắng (Impostor thắng khi Crew sống <= Impostor sống; Crew thắng khi đủ task).
-     *         Chỉ 2 bit kết quả được công khai, không lộ danh tính hay số lượng.
-     *  Bước 1/2: hàm này. Bước 2/2: gọi `submitCheckpoint` với proof từ relayer.
+     * @notice Check the win conditions (Impostor wins when crew alive <= impostor alive; Crew wins on enough tasks).
+     *         Only 2 result bits become public - never an identity or a count.
+     *  Step 1/2: this function. Step 2/2: `submitCheckpoint` with the relayer proof.
      */
     function requestCheckpoint(uint256 roomId) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
@@ -309,7 +353,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         emit DecryptionRequested(roomId, PendingKind.Checkpoint, h);
     }
 
-    /// @notice Bước 2/2 của checkpoint. `cleartexts` = abi.encode(bool impostorWins, bool tasksDone).
+    /// @notice Step 2/2 of the checkpoint. `cleartexts` = abi.encode(bool impostorWins, bool tasksDone).
     function submitCheckpoint(
         uint256 roomId,
         bytes calldata cleartexts,
@@ -318,7 +362,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         Room storage r = _rooms[roomId];
         require(r.pendingKind == PendingKind.Checkpoint, "No checkpoint pending");
 
-        // Xác minh chữ ký KMS cho ĐÚNG các handle đã lưu (không cho caller tự chọn handle).
+        // Verify the KMS signatures for EXACTLY the stored handles (the caller cannot choose handles).
         FHE.checkSignatures(_pending[roomId], cleartexts, decryptionProof);
         delete _pending[roomId];
         r.pendingKind = PendingKind.None;
@@ -338,6 +382,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
      */
     function reportFriendlyKill(uint256 roomId, uint8 victim) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
+        require(r.isSolo, "Solo only: client-attested");   // in PvP nobody may declare another player dead
         uint8 killer = _slotOf(roomId, msg.sender);
         require(victim < r.totalSlots, "Bad victim");
         require(victim != killer, "Cannot target yourself");
@@ -356,6 +401,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
      */
     function reportExecution(uint256 roomId) external {
         Room storage r = _rooms[roomId];
+        require(r.isSolo, "Solo only: client-attested");   // in PvP nobody may end the game for everyone
         require(r.phase == Phase.Playing || r.phase == Phase.Voting, "Game not running");
         uint8 slot = _slotOf(roomId, msg.sender);
         Player storage me = _players[roomId][slot];
@@ -371,12 +417,52 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         _finish(roomId, Winner.FriendlyFire);
     }
 
+    /**
+     * @notice VERIFIABLE death (assassination). Step 1/2: makes the caller's OWN encrypted status publicly decryptable.
+     *         It only reveals "dead or alive" of the caller, which the caller already knows.
+     */
+    function requestDeathProof(uint256 roomId) external {
+        Room storage r = _rooms[roomId];
+        require(r.phase == Phase.Playing || r.phase == Phase.Voting, "Game not running");
+        require(r.pendingKind == PendingKind.None, "Decryption pending");
+        uint8 slot = _slotOf(roomId, msg.sender);
+        require(!_players[roomId][slot].ejected, "Already dead");
+
+        bytes32[] storage h = _pending[roomId];
+        delete _pending[roomId];
+        h.push(_publish(_players[roomId][slot].status));
+        _deathSlot[roomId] = slot;
+        r.pendingKind = PendingKind.Death;
+        emit DecryptionRequested(roomId, PendingKind.Death, h);
+    }
+
+    /// @notice Step 2/2. `cleartexts` = abi.encode(uint8 status). The KMS signatures are checked against the stored handle,
+    ///         so the caller cannot claim a death that did not happen (a still-alive status just closes the request). Solo: the game ends (the spy won). PvP: the player is out, the game goes on.
+    function submitDeathProof(uint256 roomId, bytes calldata cleartexts, bytes calldata decryptionProof) external {
+        Room storage r = _rooms[roomId];
+        require(r.phase == Phase.Playing || r.phase == Phase.Voting, "Game not running");
+        require(r.pendingKind == PendingKind.Death, "No death proof pending");
+
+        FHE.checkSignatures(_pending[roomId], cleartexts, decryptionProof);
+        delete _pending[roomId];
+        r.pendingKind = PendingKind.None;
+
+        uint8 status = abi.decode(cleartexts, (uint8));
+        // A living player may request a proof too. Do NOT revert then: the pending request is already cleared above,
+        // so a griefer cannot freeze the room by requesting a proof that can never be accepted.
+        if (status != 0) return;
+        uint8 slot = _deathSlot[roomId];
+        _players[roomId][slot].ejected = true;
+        emit PlayerAssassinated(roomId, slot, r.round);
+        if (r.isSolo) _finish(roomId, Winner.Impostors);
+    }
+
     // ═════════════════════════════════════════════════════════════════════
-    //                         BOT (SOLO) — CHIA LÔ
+    //                         BOTS (SOLO) - BATCHED
     // ═════════════════════════════════════════════════════════════════════
 
-    /// @notice Solo: chạy lượt của Bot (làm task + Bot Impostor giết ngẫu nhiên), tối đa BOTS_PER_TX Bot mỗi giao dịch.
-    ///         Client gọi lặp lại tới khi `pendingBotTurns` = 0 (mỗi round mỗi Bot chỉ chạy 1 lần).
+    /// @notice Solo: run the bots' turn (do a task; an Impostor bot kills at random), at most BOTS_PER_TX bots per transaction.
+    ///         The client calls it repeatedly until `pendingBotTurns` = 0 (each bot runs once per round).
     function runBotTurns(uint256 roomId) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
         require(r.isSolo, "Solo only");
@@ -394,7 +480,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         require(done > 0, "Bots already acted");
     }
 
-    /// @notice Solo: Bot bỏ phiếu ngẫu nhiên (mã hoá), tối đa BOTS_PER_TX Bot mỗi giao dịch. Phải xong hết trước `tallyVotes`.
+    /// @notice Solo: bots vote at random (encrypted), at most BOTS_PER_TX bots per transaction. All must finish before `tallyVotes`.
     function runBotVotes(uint256 roomId) external inPhase(roomId, Phase.Voting) {
         Room storage r = _rooms[roomId];
         require(r.isSolo, "Solo only");
@@ -412,7 +498,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         require(done > 0, "Bots already voted");
     }
 
-    /// @notice Số Bot chưa chạy lượt trong round hiện tại (0 nếu không phải Solo / không ở pha Playing).
+    /// @notice Bots that have not acted yet this round (0 if not Solo / not in the Playing phase).
     function pendingBotTurns(uint256 roomId) external view returns (uint8 n) {
         Room storage r = _rooms[roomId];
         if (!r.isSolo || r.phase != Phase.Playing) return 0;
@@ -422,7 +508,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         }
     }
 
-    /// @notice Số Bot chưa bỏ phiếu trong cuộc họp hiện tại (0 nếu không phải Solo / không ở pha Voting).
+    /// @notice Bots that have not voted yet in this meeting (0 if not Solo / not in the Voting phase).
     function pendingBotVotes(uint256 roomId) external view returns (uint8 n) {
         Room storage r = _rooms[roomId];
         if (!r.isSolo || r.phase != Phase.Voting) return 0;
@@ -436,7 +522,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     //                         MEETING & SHIELDED VOTING
     // ═════════════════════════════════════════════════════════════════════
 
-    /// @notice Mở cuộc họp: reset phiếu, và cấp quyền xem `status` của mọi slot cho người trong phòng (báo xác chết).
+    /// @notice Open a meeting: reset the votes and let the room read every slot's `status` (body report).
     function callMeeting(uint256 roomId) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
         _requireMemberOrOperator(roomId);
@@ -450,7 +536,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
             FHE.allowThis(r.voteCounts[i]);
             ps[i].hasVoted = false;
 
-            // Cho cả phòng thấy ai còn sống / đã chết (chỉ người trong phòng, không công khai).
+            // Let the whole room see who is alive / dead (room members only, not public).
             for (uint8 j = 0; j < r.humanCount; j++) {
                 FHE.allow(ps[i].status, ps[j].wallet);
             }
@@ -463,13 +549,13 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     }
 
     /**
-     * @notice Bỏ phiếu kín. `encVote` = slotId mục tiêu (hoặc giá trị >= totalSlots / 255 để skip).
+     * @notice Secret vote. `encVote` = target slotId (or a value >= totalSlots / 255 to skip).
      *
-     * Với mỗi slot i:
+     * For every slot i:
      *   counts_i += select( (vote == i) AND (status_i == Alive), voterStatus, 0 )
-     * - Phiếu của người đã chết có trọng số 0.
-     * - Phiếu vào người đã chết bị bỏ qua.
-     * - Không ai (kể cả validator) thấy phiếu của ai: chỉ có ciphertext.
+     * - A dead voter's ballot has weight 0.
+     * - A vote for a dead player is ignored.
+     * - Nobody (not even a validator) sees who voted for whom: only ciphertext exists.
      */
     function castShieldedVote(
         uint256 roomId,
@@ -492,13 +578,13 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     }
 
     /**
-     * @notice Kết thúc vote: tìm argmax mã hoá, loại người bị bầu, rồi yêu cầu giải mã công khai.
-     *  Bước 1/2: hàm này. Bước 2/2: `finalizeTally` với proof từ relayer.
+     * @notice Close the vote: find the encrypted argmax, eject the elected player, then request public decryption.
+     *  Step 1/2: this function. Step 2/2: `finalizeTally` with the relayer proof.
      *
-     * Công khai (makePubliclyDecryptable) CHỈ 4 giá trị:
-     *   [ejectedSlot (255 = không ai), ejectedRole, impostorWins, tasksDone]
-     * Phiếu chi tiết từng người KHÔNG bao giờ được giải mã.
-     * Hoà phiếu (hoặc không ai có phiếu) => không ai bị loại.
+     * Made public (makePubliclyDecryptable) are ONLY 4 values:
+     *   [ejectedSlot (255 = nobody), ejectedRole, impostorWins, tasksDone]
+     * Individual ballots are NEVER decrypted.
+     * A tie (or no votes at all) => nobody is ejected.
      */
     function tallyVotes(uint256 roomId) external inPhase(roomId, Phase.Voting) {
         Room storage r = _rooms[roomId];
@@ -515,7 +601,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
             for (uint8 b = r.humanCount; b < n; b++) require(ps[b].hasVoted, "Bots must vote first");
         }
 
-        // ── argmax mã hoá + phát hiện hoà ──
+        // ── encrypted argmax + tie detection ──
         euint8 maxV = FHE.asEuint8(0);
         euint8 idx = FHE.asEuint8(NO_TARGET);
         ebool tied = FHE.asEbool(false);
@@ -523,14 +609,14 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
             euint8 c = r.voteCounts[i];
             ebool gt = FHE.gt(c, maxV);
             ebool eqPos = FHE.and(FHE.eq(c, maxV), FHE.gt(c, 0));
-            // gt và eqPos loại trừ nhau
+            // gt and eqPos are mutually exclusive
             tied = FHE.or(FHE.and(tied, FHE.not(gt)), eqPos);
             maxV = FHE.select(gt, c, maxV);
             idx = FHE.select(gt, FHE.asEuint8(i), idx);
         }
         euint8 ejectIdx = FHE.select(tied, FHE.asEuint8(NO_TARGET), idx);
 
-        // ── áp dụng loại người chơi lên status mã hoá + lấy role của người bị loại ──
+        // ── apply the ejection to the encrypted status + fetch the ejected role ──
         euint8 ejectedRole = FHE.asEuint8(0);
         for (uint8 i = 0; i < n; i++) {
             Player storage p = ps[i];
@@ -553,7 +639,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         emit DecryptionRequested(roomId, PendingKind.Tally, h);
     }
 
-    /// @notice Bước 2/2. `cleartexts` = abi.encode(uint8 ejectedSlot, uint8 ejectedRole, bool impostorWins, bool tasksDone).
+    /// @notice Step 2/2. `cleartexts` = abi.encode(uint8 ejectedSlot, uint8 ejectedRole, bool impostorWins, bool tasksDone).
     function finalizeTally(
         uint256 roomId,
         bytes calldata cleartexts,
@@ -579,7 +665,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
             emit NoEjection(roomId, r.round);
         }
 
-        // Thứ tự ưu tiên: vote đúng Impostor > Impostor đủ quân > Crew đủ task
+        // Priority: voted out the Impostor > Impostor has enough force > Crew finished the tasks
         if (someoneEjected && ejectedRole == ROLE_IMPOSTOR) {
             _finish(roomId, Winner.Crewmates);
         } else if (impWin) {
@@ -593,15 +679,124 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     }
 
     // ═════════════════════════════════════════════════════════════════════
+    //                     STAKES (ERC-7984 / cUSDT) - PvP
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// @notice Cancel a staked lobby that was never started. Host any time; anyone after LOBBY_TIMEOUT.
+    function cancelRoom(uint256 roomId) external inPhase(roomId, Phase.Lobby) {
+        Room storage r = _rooms[roomId];
+        require(r.stake > 0, "Not a staked room");
+        require(msg.sender == r.host || block.timestamp >= r.createdAt + LOBBY_TIMEOUT, "Only host (or after timeout)");
+        r.phase = Phase.Cancelled;
+        emit RoomCancelled(roomId);
+    }
+
+    /// @notice Abort a staked game that stalled (players left). Anyone, after GAME_TIMEOUT. Everyone is refunded.
+    function abortStalled(uint256 roomId) external {
+        Room storage r = _rooms[roomId];
+        require(r.stake > 0, "Not a staked room");
+        require(r.phase == Phase.Playing || r.phase == Phase.Voting || r.phase == Phase.Tallying, "Not running");
+        require(block.timestamp >= r.startedAt + GAME_TIMEOUT, "Too early");
+        r.phase = Phase.Cancelled;
+        r.pendingKind = PendingKind.None;
+        delete _pending[roomId];
+        emit RoomCancelled(roomId);
+    }
+
+    /// @notice Cancelled room: each player pulls back exactly what they really paid (encrypted amount).
+    function claimRefund(uint256 roomId) external inPhase(roomId, Phase.Cancelled) {
+        uint8 slot = _slotOf(roomId, msg.sender);
+        Player storage me = _players[roomId][slot];
+        require(!me.claimed, "Already claimed");
+        me.claimed = true;
+        FHE.allowTransient(me.paid, address(stakeToken));
+        stakeToken.confidentialTransfer(msg.sender, me.paid);
+        emit RefundClaimed(roomId, slot);
+    }
+
+    /**
+     * @notice Finished staked room, step 2 after `revealRoles`: verifies the KMS-signed cleartext roles of EVERY slot
+     *         against the stored handles (so nobody can claim a role that was not dealt) and fixes the winning side.
+     *         `cleartexts` is the relayer's abiEncodedClearValues: one 32-byte word per role, in slot order.
+     */
+    function settleStake(
+        uint256 roomId,
+        bytes calldata cleartexts,
+        bytes calldata decryptionProof
+    ) external inPhase(roomId, Phase.Finished) {
+        Room storage r = _rooms[roomId];
+        require(r.stake > 0, "Not a staked room");
+        require(!r.settled, "Already settled");
+        bytes32[] storage hs = _roleHandles[roomId];
+        require(hs.length == r.totalSlots, "Call revealRoles first");
+        require(cleartexts.length == hs.length * 32, "Bad cleartexts");
+        FHE.checkSignatures(hs, cleartexts, decryptionProof);
+
+        // Crewmates win -> every crewmate (role 0) is a winner; Impostors win -> the spy (role 1). Dead or alive.
+        uint256 wantRole = r.winner == Winner.Impostors ? 1 : 0;
+        require(r.winner == Winner.Crewmates || r.winner == Winner.Impostors, "No staked winner");
+        uint8 count;
+        for (uint8 i = 0; i < hs.length; i++) {
+            if (uint256(bytes32(cleartexts[i * 32:(i + 1) * 32])) == wantRole) {
+                _isWinner[roomId][i] = true;
+                count++;
+            }
+        }
+        require(count > 0, "No winners");
+        r.winnersCount = count;
+        r.settled = true;
+        emit StakeSettled(roomId, count);
+    }
+
+    /// @notice Settled room: a winner pulls their equal share of the pot (encrypted transfer). A winner whose own
+    ///         stake transfer had failed (balance too low) gets 0, so nobody can free-ride on the pot.
+    function claimPayout(uint256 roomId) external inPhase(roomId, Phase.Finished) {
+        Room storage r = _rooms[roomId];
+        require(r.settled, "Not settled");
+        uint8 slot = _slotOf(roomId, msg.sender);
+        Player storage me = _players[roomId][slot];
+        require(_isWinner[roomId][slot], "Not a winner");
+        require(!me.claimed, "Already claimed");
+        me.claimed = true;
+
+        euint64 share = FHE.div(r.pot, uint64(r.winnersCount));
+        euint64 amount = FHE.select(FHE.eq(me.paid, r.stake), share, FHE.asEuint64(0));
+        FHE.allowTransient(amount, address(stakeToken));
+        euint64 sent = stakeToken.confidentialTransfer(msg.sender, amount);
+        FHE.allow(sent, msg.sender);
+        emit PayoutClaimed(roomId, slot);
+    }
+
+    function getStakeInfo(
+        uint256 roomId
+    ) external view returns (uint64 stake, bool settled, uint8 winnersCount, bytes32 potHandle) {
+        Room storage r = _rooms[roomId];
+        return (r.stake, r.settled, r.winnersCount, FHE.toBytes32(r.pot));
+    }
+
+    /// @notice Handle of what a player REALLY paid (encrypted; only that player can decrypt it).
+    function getPaidHandle(uint256 roomId, uint8 slotId) external view returns (bytes32) {
+        return FHE.toBytes32(_players[roomId][slotId].paid);
+    }
+
+    function isWinner(uint256 roomId, uint8 slotId) external view returns (bool) {
+        return _isWinner[roomId][slotId];
+    }
+
+    function hasClaimed(uint256 roomId, uint8 slotId) external view returns (bool) {
+        return _players[roomId][slotId].claimed;
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
     //                               VIEWS
     // ═════════════════════════════════════════════════════════════════════
 
-    /// @notice Handle vai trò của `player`. Chỉ ví `player` mới user-decrypt được (ACL), nên trả handle là an toàn.
+    /// @notice Role handle of `player`. Only `player`'s wallet can user-decrypt it (ACL), so returning the handle is safe.
     function getRoleHandle(uint256 roomId, address player) external view returns (euint8) {
         return _players[roomId][_slotOf(roomId, player)].role;
     }
 
-    /// @notice Handle trạng thái sống/chết của 1 slot (decrypt được khi đã được cấp quyền: bản thân, hoặc sau callMeeting).
+    /// @notice Alive/dead handle of a slot (decryptable once allowed: yourself, or everyone after callMeeting).
     function getStatusHandle(uint256 roomId, uint8 slotId) external view returns (euint8) {
         return _players[roomId][slotId].status;
     }
@@ -612,6 +807,24 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
 
     function getSlotOf(uint256 roomId, address player) external view returns (uint8) {
         return _slotOf(roomId, player);
+    }
+
+    /**
+     * @notice Game over -> unlock the roles. Makes the (encrypted) role of EVERY slot publicly decryptable so the
+     *         client can show who the spy was. Only possible once the room is Finished, so it never leaks a live game.
+     */
+    function revealRoles(uint256 roomId) external inPhase(roomId, Phase.Finished) returns (bytes32[] memory handles) {
+        _requireMemberOrOperator(roomId);
+        Player[] storage ps = _players[roomId];
+        handles = new bytes32[](ps.length);
+        for (uint256 i = 0; i < ps.length; i++) handles[i] = _publish(ps[i].role);
+        _roleHandles[roomId] = handles;
+        emit RolesRevealed(roomId);
+    }
+
+    /// @notice Role handle of a slot (bots included). Useless until `revealRoles` made it public, so safe to expose.
+    function getRoleHandleOf(uint256 roomId, uint8 slotId) external view returns (bytes32) {
+        return FHE.toBytes32(_players[roomId][slotId].role);
     }
 
     function getRoom(
@@ -674,7 +887,21 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         uint8 slot = uint8(ps.length - 1);
         _slotPlusOne[roomId][who] = slot + 1;
         r.humanCount++;
+        if (r.stake > 0) _collectStake(r, p, who);
         emit PlayerJoined(roomId, who, slot);
+    }
+
+    /// @dev Pull the stake with an ENCRYPTED ERC-7984 transfer. If the player's balance is too low the token moves 0
+    ///      instead of reverting (a revert would leak the balance), so we record what was REALLY paid, encrypted.
+    function _collectStake(Room storage r, Player storage p, address who) private {
+        euint64 amount = FHE.asEuint64(r.stake);
+        FHE.allowTransient(amount, address(stakeToken));
+        euint64 got = stakeToken.confidentialTransferFrom(who, address(this), amount);
+        p.paid = got;
+        FHE.allowThis(got);
+        FHE.allow(got, who); // the player can always check what they paid
+        r.pot = FHE.add(r.pot, got);
+        FHE.allowThis(r.pot);
     }
 
     /// @notice Solo only: a room member registers a session wallet (kept in the browser) that may run the technical,
@@ -706,16 +933,16 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         return s - 1;
     }
 
-    /// @dev Lưu status mới + cấp lại quyền (mỗi phép FHE tạo handle MỚI nên ACL phải cấp lại).
+    /// @dev Store the new status and re-grant access (every FHE op makes a NEW handle, so the ACL must be re-granted).
     function _setStatus(Player storage p, euint8 s) private {
         p.status = s;
         FHE.allowThis(s);
-        if (!p.isBot) FHE.allow(s, p.wallet); // người chơi luôn xem được trạng thái của chính mình
+        if (!p.isBot) FHE.allow(s, p.wallet); // a player can always read their own status
     }
 
     function _applyKill(Player[] storage ps, uint8 killerSlot, ebool canKill, euint8 target) private {
         for (uint8 i = 0; i < ps.length; i++) {
-            if (i == killerSlot) continue; // plaintext: không tự giết mình
+            if (i == killerSlot) continue; // plaintext: no self-kill
             Player storage v = ps[i];
             ebool hit = FHE.and(FHE.and(canKill, FHE.eq(target, i)), FHE.eq(v.role, ROLE_CREW));
             _setStatus(v, FHE.select(hit, FHE.asEuint8(0), v.status));
@@ -737,8 +964,8 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
         }
     }
 
-    /// @dev Lượt của 1 Bot: làm task; Bot Impostor (nếu có) giết ngẫu nhiên.
-    ///      Bot "AI" ở đây chỉ là ngẫu nhiên mã hoá: contract không biết bot nào là Impostor ở dạng plaintext.
+    /// @dev One bot's turn: do a task; an Impostor bot (if any) kills at random.
+    ///      The bot "AI" is just encrypted randomness: the contract never knows in plaintext which bot is the Impostor.
     function _botTurn(Room storage r, Player[] storage ps, uint8 b) private {
         Player storage bot = ps[b];
 
@@ -755,7 +982,7 @@ contract SpaceImpostorFHE is ZamaEthereumConfig {
     /**
      * @dev impWin    = (crewAlive <= impostorAlive)
      *      tasksDone = (taskProgress >= taskTarget)
-     *      crewAlive = aliveTotal - impostorAlive,  impostorAlive = Σ role_i * status_i
+     *      crewAlive = aliveTotal - impostorAlive,  impostorAlive = sum(role_i * status_i)
      */
     function _computeWinFlags(uint256 roomId) private returns (ebool impWin, ebool tasksDone) {
         Room storage r = _rooms[roomId];

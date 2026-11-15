@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { ethers } from "ethers";
 import deployment from "../config/deployment.json";
 import { ctx } from "./context";
@@ -14,7 +15,7 @@ export async function connect() {
   ctx.account = await ctx.signer.getAddress();
   ctx.address = deployment.address;
   ctx.game = new ethers.Contract(deployment.address, deployment.abi, ctx.signer);
-  toast("Initializing Zama SDK…");
+  toast(t("toast.sdk"));
   const L = window.relayerSDK;
   await L.initSDK();
   ctx.inst = await L.createInstance({ ...L.SepoliaConfig, network: window.ethereum });

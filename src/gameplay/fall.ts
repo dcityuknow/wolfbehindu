@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import * as THREE from "three";
 import { W } from "../weaponState";
 import { G } from "../state";
@@ -26,5 +27,5 @@ export function onLanding(vy: number, x: number, z: number) {
 }
 /** Nhắc nhẹ khi bơi chạm mép vùng bơi ("biển sâu"). */
 export function swimEdgeHint(x: number, z: number, now: number) {
-  if (swimmable(x, z) && shoreDist(x, z) > SWIM_R - 1 && now - lastHint > 6) { lastHint = now; toast("🌊 Biển sâu phía trước — không bơi xa hơn được"); }
+  if (swimmable(x, z) && shoreDist(x, z) > SWIM_R - 1 && now - lastHint > 6) { lastHint = now; toast(t("toast.deep")); }
 }

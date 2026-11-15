@@ -3,7 +3,8 @@ import * as THREE from "three";
 import { G } from "./state";
 import { torch, scene, render } from "./world/scene";
 import "./world/map";
-import { entities, bodies, me, collide, separate } from "./world/characters";
+import { entities, bodies, me, collide, separate, deathHooks } from "./world/characters";
+import { endBecauseKilled } from "./gameplay/gameover";
 import { groundAt, CAMP_Y, swimmable, SWIM_Y } from "./world/island";
 import { onLanding, swimEdgeHint } from "./gameplay/fall";
 import { canSee } from "./world/visibility";
@@ -12,6 +13,7 @@ import { updateBots } from "./gameplay/bots";
 import { interact, doKill, refreshPrompt, shake } from "./gameplay/actions";
 import { ejecting, updateCall } from "./gameplay/meeting";
 import { startSolo } from "./gameplay/session";
+import { initPvp, open as openPvp } from "./gameplay/pvp";
 import { PLAYER_SPEED, LIGHT, NAMES } from "./config";
 import { sfx } from "./audio";
 import { UI } from "./story";
@@ -31,13 +33,15 @@ import { lethal, friendlyKill } from "./gameplay/actions";
 import { cineUpdate } from "./world/cine3d";
 import { updateHostile } from "./gameplay/hostile";
 import { CINE } from "./world/cineState";
+import { tickDeath } from "./ui/deathSeq";
 
 bindInput({ onWeapon: selectWeapon, onReload: startReload, onGrenade: throwGrenade, onInteract: interact, onKill: doKill, onView: cycleView, onJump: () => { const m = me(); if (G.phase === "play" && m.y <= groundAt(m.x, m.z) + 0.05 && m.seat < 0 && !swimmable(m.x, m.z)) m.vy = 5.6; } });
-initIntro(startSolo); initHowTo();
+initIntro(startSolo, openPvp); initPvp(); initHowTo();
 $("#bKill").onclick = doKill; $("#bView").onclick = cycleView; bindMouse(); initCombat();
-hooks.lethal = lethal; hooks.friendlyKill = friendlyKill; hooks.shake = (v) => { shake.v = Math.max(shake.v, v); };
+deathHooks.selfKilled = endBecauseKilled; hooks.lethal = lethal; hooks.friendlyKill = friendlyKill; hooks.shake = (v) => { shake.v = Math.max(shake.v, v); };
 canvasEl.addEventListener("wheel", (e) => { if (G.phase === "play" && rig.mode === "first") cycleWeapon(Math.sign(e.deltaY)); }, { passive: true });   // lăn chuột đổi súng (góc 1 / từ trên)
 
+const TWIST_MAX = 1.35, TWIST_WALK = 1.0;   // rad: thân vặn tối đa so với chân khi đứng yên (~77°) · khi đi ngang/lùi (~57°)
 function update(dt: number) {
   const m = me();
   if (G.phase !== "play") { MV.roll = 0; MV.swimming = false; MV.swimK = 0; MV.inWater = false; }
@@ -57,13 +61,25 @@ function update(dt: number) {
       if (MV.roll > 0) {
         MV.roll = Math.max(0, MV.roll - dt);
         const sp = PLAYER_SPEED * (0.5 + 1.5 * (MV.roll / ROLL_T));   // lao ra nhanh, chậm dần
-        m.x += MV.dx * sp * dt; m.z += MV.dz * sp * dt; m.rot = Math.atan2(MV.dx, MV.dz);
+        m.x += MV.dx * sp * dt; m.z += MV.dz * sp * dt; m.rot = m.legRot = Math.atan2(MV.dx, MV.dz); m.legBack = false;
       } else {
         const sp = PLAYER_SPEED * (MV.inWater ? 0.55 : 1);   // bơi chậm hơn đi bộ
-        if (l) { m.x += (vx / l) * sp * dt; m.z += (vz / l) * sp * dt; m.rot = rig.mode === "first" || W.aimT > 0 ? rig.yaw : Math.atan2(vx, vz); }
-        else if (rig.mode === "first" || W.aimT > 0) m.rot = rig.yaw;
+        if (l) { m.x += (vx / l) * sp * dt; m.z += (vz / l) * sp * dt; }
+        // Thân (từ hông lên) luôn xoay theo chuột; khi bơi thì cả người hướng theo hướng bơi
+        m.rot = MV.swimming && l ? Math.atan2(vx, vz) : rig.yaw;
+        // CHÂN: đứng yên thì giữ nguyên hướng; chỉ khi di chuyển mới xoay về hướng đi (đi lùi thì giữ hướng thân, chân đạp ngược)
+        const wr = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+        m.legRot ??= m.rot;
+        if (l) {
+          const mv = Math.atan2(vx, vz); let d = wr(mv - m.rot); m.legBack = Math.abs(d) > Math.PI / 2; if (m.legBack) d = wr(d + Math.PI);
+          m.legRot += wr(m.rot + Math.max(-TWIST_WALK, Math.min(TWIST_WALK, d)) - m.legRot) * Math.min(1, dt * 12);
+        } else {
+          m.legBack = false;
+          const over = wr(m.legRot - m.rot);   // thân vặn quá giới hạn → chân bước xoay theo cho tự nhiên
+          if (Math.abs(over) > TWIST_MAX) m.legRot = m.rot + Math.sign(over) * TWIST_MAX;
+        }
       }
-    } else MV.roll = 0;
+    } else { MV.roll = 0; m.legRot = m.rot; m.legBack = false; }
     if (m.seat < 0) collide(m);
     {   // tốc độ ngang (đã làm mượt) → trạng thái BƠI: đang xuống nước VÀ đang di chuyển; đứng yên thì chỉ đạp nước (vẫn bắn được)
       const spd = dt > 0 ? Math.hypot(m.x - MV.lx, m.z - MV.lz) / dt : 0; MV.lx = m.x; MV.lz = m.z;
@@ -109,7 +125,7 @@ function update(dt: number) {
   }
   shake.v = Math.max(0, shake.v - dt);
   tNow += dt; updateFx(dt); updateWeaponHud(); animateCrew(dt, tNow); updateMap(tNow, dt); updateTerrain(tNow, dt);
-  cineUpdate(dt);
+  cineUpdate(dt); tickDeath(dt);
   updateCamera(dt, tNow, shake.v);
   followSun(m.x, m.y, m.z); torch.position.set(m.x, m.y + 3, m.z);
   if (!CINE.active) (scene.fog as THREE.FogExp2).density = G.ghost ? LIGHT.fogGhost : LIGHT.fogPlay;

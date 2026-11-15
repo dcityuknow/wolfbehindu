@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import * as THREE from "three";
 import { camera, scene, canvasEl } from "./scene";
 import { wallMeshes } from "./map";
@@ -8,13 +9,14 @@ import { defOf } from "./soldier";
 import { buildGun, buildGrenade, setSlide, type GunRig } from "./guns";
 import { reloadPose, newRelOut, slideK, e3, cl } from "./gunpose";
 import { W, MV, HURT, ROLL_T } from "../weaponState";
+import { DEATH } from "../ui/deathSeq";
 import { CINE } from "./cineState";
 import { groundAt, terrainRay, CAMP_Y } from "./island";
 
 /** Camera 2 chế độ: thứ ba (qua vai) · thứ nhất. Quy ước: hướng nhìn = (sin yaw, cos yaw). */
 export type ViewMode = "third" | "first";
 export const rig = { mode: "third" as ViewMode, yaw: Math.PI, pitch: 0.5, dist: 6, locked: false };
-const ORDER: ViewMode[] = ["third", "first"], LABEL: Record<ViewMode, string> = { third: "3rd person", first: "1st person" };
+const ORDER: ViewMode[] = ["third", "first"], LABEL: Record<ViewMode, string> = { third: t("view.third"), first: t("view.first") };
 
 export const facing = (_m?: { rot: number }) => rig.yaw;
 export function setView(v: ViewMode) {
@@ -33,7 +35,7 @@ export function bindMouse() {
   addEventListener("mousemove", (e) => {
     if (!(rig.locked || drag) || G.phase !== "play" || G.mini) return;
     const k = W.scoped ? 0.28 : 1; rig.yaw -= e.movementX * S * k; rig.pitch += e.movementY * S * k;
-    rig.pitch = Math.max(rig.mode === "first" ? -1.35 : -0.15, Math.min(rig.mode === "first" ? 1.35 : 1.15, rig.pitch));
+    rig.pitch = Math.max(rig.mode === "first" ? -1.35 : -1.45, Math.min(rig.mode === "first" ? 1.35 : 1.45, rig.pitch));   // góc 3: ngước hẳn lên trời (−) / nhìn thẳng xuống đất (+)
   });
   canvasEl.addEventListener("wheel", (e) => { if (rig.mode === "third") rig.dist = Math.max(2.5, Math.min(9, rig.dist + Math.sign(e.deltaY) * 0.5)); }, { passive: true });
 }
@@ -173,6 +175,12 @@ export function updateCamera(dt: number, t: number, shake: number) {
 
   if (G.phase === "menu") { // quay quanh đảo
     const a = t * 0.06 + 0.6; camera.position.set(Math.sin(a) * 128, 58, Math.cos(a) * 128); camera.lookAt(0, 9, 0); return;
+  }
+  if (DEATH.active) { // bị hạ: ngã sang trái — mắt tụt sát đất, đầu chúi xuống, góc nhìn nghiêng gần 90° (giống game tham khảo)
+    const de = DEATH.k, lx = Math.cos(rig.yaw), lz = -Math.sin(rig.yaw);   // lx,lz = hướng "trái" của nhân vật
+    camera.position.set(m.x + lx * 0.5 * de + sx, m.y + 1.62 * (1 - de) + 0.3 * de, m.z + lz * 0.5 * de + sz);
+    camera.rotation.set(-(rig.pitch - W.recoil) * (1 - de) - 0.25 * de, rig.yaw + Math.PI, 1.5 * de);
+    m.g.visible = false; camera.updateMatrixWorld(); return;
   }
   if (G.phase === "end") { // kết thúc: nhìn đống lửa từ trên cao (khi họp, camera của người chơi được giữ nguyên)
     const a = t * 0.12; camera.position.set(Math.sin(a) * 3, CAMP_Y + 10.5, 9 + Math.cos(a) * 1.2); camera.lookAt(0, CAMP_Y + 0.5, 0); return;

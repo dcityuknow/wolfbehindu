@@ -1,3 +1,4 @@
+import { locale } from "./i18n";
 /** Hằng số game — chỉnh cân bằng/giao diện tại đây. */
 export const NO_TARGET = 255;          // = NO_TARGET trong contract (skip vote / kill giả)
 export const TASKS_PER_PLAYER = 3;     // = TASKS_PER_PLAYER trong contract
@@ -12,8 +13,13 @@ export const CALL_SECONDS = 30;
 export const CAMP_REACH = 4.5;
 export const seatPos = (k: number) => { const a = (k / PLAYERS) * Math.PI * 2 + 0.3; return { x: Math.cos(a) * 2.5, z: Math.sin(a) * 2.5 }; };
 export const COLORS = [0xff4d4d, 0x4da6ff, 0x4dff88, 0xffd24d, 0xff9f43, 0xc77dff, 0x2ee6d6];
-/** Đội hình 7 người (mã quân phục trong soldier.ts: vn us ru ng bd id in cn ph ua kr). [0] = bạn. */
-export const SQUAD = ["vn", "us", "id", "ph", "ru", "kr", "ng"];
+/** Đội hình 7 người (mã quân phục trong soldier.ts: vn us ru ng bd id in cn ph ua kr — đủ 11 nước = 11 ngôn ngữ). [0] = bạn = lính của quốc gia bạn đang truy cập
+ *  (i18n/index.ts: theo IP hoặc ngôn ngữ đã chọn). 6 Bot còn lại: mỗi ván bốc ngẫu nhiên 6 trong 10 nước còn lại, nên cả 11 kiểu lính đều có lúc xuất hiện.
+ *  (Hợp đồng chỉ có 7 slot — MAX_PLAYERS — nên một ván không thể có đủ 11 người.) */
+const ALL_NATIONS = ["vn", "us", "ru", "ng", "bd", "id", "in", "cn", "ph", "ua", "kr"];
+const others = ALL_NATIONS.filter((c) => c !== locale.nation);
+for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
+export const SQUAD = [locale.nation, ...others.slice(0, 6)];
 export { CALLSIGNS as NAMES, CHAT_LINES } from "./story";
 // Ánh sáng ngoài trời (three >= r155, đơn vị vật lý). Tối/sáng quá thì chỉnh ở đây.
 export const LIGHT = { ambient: 1.6, sun: 3.2, torch: 18, torchRange: 12, fogPlay: 0.0045, fogGhost: 0.0032 };
