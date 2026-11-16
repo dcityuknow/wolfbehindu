@@ -91,3 +91,10 @@ Only 3 guns + grenades (`GUNS`, `GRENADE`, `SWAP` in `src/config.ts`). Third per
 - **Bản dịch**: `src/i18n/packs/` — `en.ts` (gốc/dự phòng), `vi.ts` và `full/*.ts` (đủ cả 11 ngôn ngữ: luật chơi, intro, lời Bot, kết thúc, minigame, phụ đề…); `more.ts` là lớp giao diện cơ bản bên dưới `full/`. Thiếu khoá nào tự dùng tiếng Anh.
   Chữ trong `story.ts` được ghi đè theo đường dẫn (`"UI.tasks"`, `"ROLE.spy.title"`…). Thêm bản dịch = thêm khoá cùng tên vào pack.
 - **Thẻ mở khoá vai trò** (`ui/revealCards.ts`): 7 thẻ xếp 2 hàng (4+3) chiếm trọn màn hình, ảnh chụp 720×800 nên không bị bóp; điện thoại/màn hình dọc xếp 2 cột. Con dấu GIÁN ĐIỆP kẹp trong màn hình.
+
+
+## v5.0.0
+- Contracts split into core modules + StakeVault, LostIslandStats, BountyBoard, LastWill, BribeEscrow, RoomChat.
+- `settleStake` became `settleRoom` (works for free PvP rooms too and feeds the leaderboard); claims moved to the vault.
+- `npm install` uses `--legacy-peer-deps` (peer conflict between @fhevm/solidity 0.13.4 and @openzeppelin/confidential-contracts 0.5.3).
+- NOT compiled or run by the author of this change (no network in the sandbox): first `npm run compile`, then `npm test`.

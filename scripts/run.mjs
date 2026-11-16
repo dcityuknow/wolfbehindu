@@ -2,7 +2,7 @@
 // 1) cài thư viện (có % tiến độ)  2) deploy contract nếu chưa có / contract đã đổi  3) mở game (vite).
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
+import { srcHash } from "./srchash.mjs";
 import readline from "readline";
 import { spawn } from "child_process";
 
@@ -63,7 +63,7 @@ async function ensureKey() {
 
 async function deployIfNeeded() {
   const dep = JSON.parse(fs.readFileSync("src/config/deployment.json", "utf8"));
-  const hash = crypto.createHash("sha256").update(fs.readFileSync("contracts/SpaceImpostorFHE.sol", "utf8")).digest("hex").slice(0, 16);
+  const hash = srcHash();
   if (dep.address && dep.srcHash === hash) { console.log(`✓ Contract already deployed: ${dep.address}`); return; }
   console.log(dep.address ? "↻ Contract changed — it must be redeployed." : "→ No contract yet — deploying to Sepolia.");
   await ensureKey();

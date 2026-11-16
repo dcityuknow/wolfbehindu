@@ -4,7 +4,9 @@
   "type": "commonjs",
   "scripts": {
     "test": "hardhat test",
-    "compile": "hardhat compile"
+    "compile": "hardhat compile",
+    "pretest": "node ../scripts/sync-hh.mjs",
+    "precompile": "node ../scripts/sync-hh.mjs"
   },
   "devDependencies": {
     "@fhevm/hardhat-plugin": "0.4.2",

@@ -6,6 +6,14 @@ A squad of paratroopers is blown onto a desert island. **One of them is a spy.**
 
 Built for *Zama Developer Program, Mainnet Season 5 — Confidential Gaming*. Smart contract (Solidity + FHEVM), Vite/TypeScript/Three.js frontend, deployed on **Sepolia**.
 
+## What's new in v5 (PvP depth)
+* **Quick Match** and public lobbies; any member can start a public lobby after 2 minutes. Private rooms still work with a code/link.
+* **Encrypted prize pool**: stakes go to a separate `StakeVault`; the pot is only revealed (publicly decrypted) after the game.
+* **Secret task bounties** paid from the pot; **last will** of a murdered player (encrypted, table-only); **bribe fund** with conditional encrypted payment; **table chat**.
+* **Leaderboard**: detectives (crew wins), assassins (spy wins), and cUSDT winners who opt in to publish their encrypted total.
+* **FHE overlay** (matrix rain + glitch) while roles are dealt / decrypted / settled; **footsteps**, **emergency siren**, murder sting and a racing heartbeat before a meeting ends.
+* Contracts split into modules and satellites — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ## Why this game cannot exist on a transparent chain
 
 | What must stay hidden | On a normal chain | Here |

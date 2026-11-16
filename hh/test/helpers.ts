@@ -7,13 +7,30 @@ export enum Phase { Lobby, Playing, Voting, Tallying, Finished, Cancelled }
 export enum Winner { None, Crewmates, Impostors, FriendlyFire }
 export const NO_TARGET = 255;
 
+/** Deploys the whole system exactly like scripts/deploy.mjs: stats, vault (only with a token), game, the modules, then the one-shot wiring. */
 export async function deployAll(withToken = true) {
   const signers = await ethers.getSigners();
-  let token: any = null;
-  if (withToken) { token = await (await ethers.getContractFactory("MockCUSDT")).deploy(); await token.waitForDeployment(); }
-  const game: any = await (await ethers.getContractFactory("SpaceImpostorFHE")).deploy(withToken ? await token.getAddress() : ethers.ZeroAddress);
-  await game.waitForDeployment();
-  return { game, token, signers };
+  const F = async (name: string, ...args: any[]) => { const c: any = await (await ethers.getContractFactory(name)).deploy(...args); await c.waitForDeployment(); return c; };
+  const token: any = withToken ? await F("MockCUSDT") : null;
+  const stats = await F("LostIslandStats");
+  const vault: any = withToken ? await F("StakeVault", await token.getAddress()) : null;
+  const game = await F("SpaceImpostorFHE");
+  const ga = await game.getAddress();
+  const will = await F("LastWill", ga), chat = await F("RoomChat", ga);
+  const bounty: any = withToken ? await F("BountyBoard", ga, await vault.getAddress()) : null;
+  const bribe: any = withToken ? await F("BribeEscrow", ga, await token.getAddress()) : null;
+  const va = vault ? await vault.getAddress() : ethers.ZeroAddress;
+  const hooks = [bounty, bribe].filter(Boolean);
+  await (await game.configure(va, await stats.getAddress(), await Promise.all(hooks.map((x: any) => x.getAddress())))).wait();
+  await (await stats.wire(ga, va)).wait();
+  if (vault) await (await vault.wire(ga, await stats.getAddress(), bounty ? [await bounty.getAddress()] : [])).wait();
+  return { game, token, vault, stats, will, chat, bounty, bribe, signers };
+}
+
+/** Encrypt values for ANY contract (the proof is bound to that contract + the user). */
+export async function encFor(contract: string, user: HardhatEthersSigner, build: (b: any) => void) {
+  const b = fhevm.createEncryptedInput(contract, user.address); build(b);
+  return b.encrypt();
 }
 
 /** Encrypt one uint8 for `user` -> call args [handle, proof]. */
