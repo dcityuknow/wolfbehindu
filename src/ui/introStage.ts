@@ -12,24 +12,24 @@ import { COLORS, SQUAD, NAMES, type GunId } from "../config";
  * Dùng WebGLRenderer riêng, chỉ vẽ khi màn hình intro đang hiện.
  */
 
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-const sm = (x: number) => { x = clamp01(x); return x * x * (3 - 2 * x); };
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const BOT_GUNS: GunId[] = ["rifle", "pistol", "rifle", "rifle", "pistol", "rifle", "rifle"];
+export const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+export const sm = (x: number) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+export const BOT_GUNS: GunId[] = ["rifle", "pistol", "rifle", "rifle", "pistol", "rifle", "rifle"];
 
 /* ───── nhân vật ───── */
-interface Actor {
+export interface Actor {
   i: number; root: THREE.Group; s: ReturnType<typeof buildSoldier>; mat: THREE.MeshStandardMaterial; gr: GunRig;
   ph: number; tag: THREE.Sprite; you: THREE.Sprite; q: THREE.Sprite; knife: THREE.Group;
 }
 
-function textSprite(draw: (x: CanvasRenderingContext2D, w: number, h: number) => void, cw: number, ch: number, sw: number, sh: number) {
+export function textSprite(draw: (x: CanvasRenderingContext2D, w: number, h: number) => void, cw: number, ch: number, sw: number, sh: number) {
   const c = document.createElement("canvas"); c.width = cw; c.height = ch; draw(c.getContext("2d")!, cw, ch);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
   sp.scale.set(sw, sh, 1); sp.renderOrder = 5; return sp;
 }
 
-function makeActor(i: number): Actor {
+export function makeActor(i: number): Actor {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
   const def = defOf(SQUAD[i]), s = buildSoldier(def, mat, COLORS[i]);
   const gr = attachGun(s.g, BOT_GUNS[i], true, def.pack ? -0.27 : -0.16)   // full = cùng bộ súng + tư thế cầm súng như người chơi trong game;
@@ -48,22 +48,22 @@ function makeActor(i: number): Actor {
   return { i, root, s, mat, gr, ph: 0, tag, you, q, knife };
 }
 
-const kneeBend = (a: Actor) => { for (const l of [a.s.legL, a.s.legR]) { const x = l.rotation.x, k = l.userData.knee as THREE.Object3D | undefined; if (k) k.rotation.x = Math.max(0, x) * 1.1 + (x < -0.9 ? -(x + 0.9) * 1.3 : 0) + 0.04; } };
-const place = (a: Actor, x: number, y: number, z: number, ry: number) => { a.root.position.set(x, y, z); a.root.rotation.y = ry; a.root.visible = true; };
-const stand = (a: Actor) => { a.s.legL.rotation.x = 0; a.s.legR.rotation.x = 0; kneeBend(a); };
+export const kneeBend = (a: Actor) => { for (const l of [a.s.legL, a.s.legR]) { const x = l.rotation.x, k = l.userData.knee as THREE.Object3D | undefined; if (k) k.rotation.x = Math.max(0, x) * 1.1 + (x < -0.9 ? -(x + 0.9) * 1.3 : 0) + 0.04; } };
+export const place = (a: Actor, x: number, y: number, z: number, ry: number) => { a.root.position.set(x, y, z); a.root.rotation.y = ry; a.root.visible = true; };
+export const stand = (a: Actor) => { a.s.legL.rotation.x = 0; a.s.legR.rotation.x = 0; kneeBend(a); };
 /** đi bộ: vung chân theo tốc độ; trả về biên độ vung (dùng để vung tay) */
-function stride(a: Actor, dt: number, spd: number) {
+export function stride(a: Actor, dt: number, spd: number) {
   a.ph += Math.min(spd, 8) * dt * 2.3; const sw = Math.sin(a.ph) * 0.8 * Math.min(1, spd / 3);
   a.s.legL.rotation.x = sw; a.s.legR.rotation.x = -sw; kneeBend(a); return sw;
 }
 /** hai tay cầm súng — dùng chính poseFull của người chơi (tay phải ôm báng, tay trái đỡ ốp tay, súng ngang ngực) */
 const _ps = { aim: 0, pitch: 0 } as Entity;
-function carry(a: Actor, _t: number) {
+export function carry(a: Actor, _t: number) {
   a.gr.pivot.visible = true;
   poseFull(_ps, a.gr, a.s.armL, a.s.armR, 1 / 60, 0, BOT_GUNS[a.i]);
 }
 /** hai tay buông tự do (cất súng cầm trên tay, cả 3 súng đeo trên người vẫn thấy) */
-function free(a: Actor, sw = 0) {
+export function free(a: Actor, sw = 0) {
   a.gr.pivot.visible = true;
   for (const t of Object.keys(a.gr.slung) as GunId[]) { a.gr.slung[t]!.visible = true; a.gr.models[t]!.visible = false; }
   a.gr.hooks.forEach((h) => (h.visible = true)); if (a.gr.nade) a.gr.nade.visible = false; a.gr.st.handPrev = null; a.gr.st.swPrev = null;
@@ -71,11 +71,11 @@ function free(a: Actor, sw = 0) {
   a.s.armL.userData.elbow.rotation.x = -0.2 - 0.6 * Math.max(0, sw); a.s.armR.userData.elbow.rotation.x = -0.2 - 0.6 * Math.max(0, -sw);
   curlArm(a.s.armL, 0.9, 0.5); curlArm(a.s.armR, 0.9, 0.5);
 }
-function sit(a: Actor, on: boolean) {
+export function sit(a: Actor, on: boolean) {
   const k = on ? 1 : 0;
   a.s.legL.rotation.x = a.s.legR.rotation.x = -Math.PI / 2 * k; kneeBend(a); a.s.g.position.y = -0.34 * k;
 }
-function resetActor(a: Actor) {
+export function resetActor(a: Actor) {
   a.root.visible = false; a.root.position.set(0, 0, 0); a.root.rotation.set(0, 0, 0); a.root.scale.setScalar(1);
   a.s.g.position.set(0, 0, 0); a.s.g.rotation.set(0, 0, 0); a.mat.color.setHex(0xffffff); a.mat.transparent = false; a.mat.opacity = 1;
   a.tag.visible = true; a.you.visible = false; a.q.visible = false; a.knife.visible = false; a.ph = 0;
@@ -84,7 +84,7 @@ function resetActor(a: Actor) {
 
 /* ───── cảnh nền: bãi biển lúc hoàng hôn ───── */
 const SUNSET = { top: 0x16294a, mid: 0x6a5a82, hor: 0xe59a62 };
-function buildWorld(scene: THREE.Scene) {
+export function buildWorld(scene: THREE.Scene) {
   const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: { top: { value: new THREE.Color(SUNSET.top) }, mid: { value: new THREE.Color(SUNSET.mid) }, hor: { value: new THREE.Color(SUNSET.hor) } },
@@ -111,16 +111,16 @@ function buildWorld(scene: THREE.Scene) {
   const clouds: THREE.Mesh[] = [];
   for (let k = 0; k < 6; k++) { const c = new THREE.Mesh(new THREE.BoxGeometry(18 + (k % 3) * 8, 2.4, 6), new THREE.MeshBasicMaterial({ color: k & 1 ? 0xf3c7a6 : 0xd9a89a, fog: false })); c.position.set(-80 + k * 32, 26 + (k % 3) * 5, -150 - (k % 2) * 30); scene.add(c); clouds.push(c); }
   // ánh sáng
-  scene.add(new THREE.HemisphereLight(0xffe2c0, 0x7a6a50, 1.15));
+  const hemi = new THREE.HemisphereLight(0xffe2c0, 0x7a6a50, 1.15); scene.add(hemi);
   const key = new THREE.DirectionalLight(0xfff0dd, 2.4); key.position.set(-5, 7, 9); key.target.position.set(0, 1, 0);
   key.castShadow = true; key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 }); key.shadow.bias = -0.0008; key.shadow.normalBias = 0.04;
   scene.add(key, key.target);
   const rim = new THREE.DirectionalLight(0xff9a5a, 1.3); rim.position.set(12, 4, -9); scene.add(rim);
-  return { clouds };
+  return { clouds, sky, sun, hemi, key, rim };
 }
 
 /* ───── công trình / đạo cụ riêng từng cảnh ───── */
-function makeStation() {
+export function makeStation() {
   const g = new THREE.Group(), m = (c: number) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 });
   const base = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.7, 0.9), m(0x5a3a1a)); base.position.y = 0.85; base.castShadow = true; g.add(base);
   const top = new THREE.Mesh(new THREE.BoxGeometry(1.64, 0.14, 1.04), m(0x3d2810)); top.position.y = 1.77; g.add(top);
@@ -130,7 +130,7 @@ function makeStation() {
   lbl.position.set(0, 2.35, 0.2); g.add(lbl);
   return { g, scr, lbl };
 }
-function makeFire() {
+export function makeFire() {
   const g = new THREE.Group(), brown = new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 1 });
   for (let k = 0; k < 5; k++) { const lg = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.16, 0.16), brown); lg.position.y = 0.1 + (k % 2) * 0.12; lg.rotation.y = (k / 5) * Math.PI; lg.castShadow = true; g.add(lg); }
   const flames: THREE.Mesh[] = [];

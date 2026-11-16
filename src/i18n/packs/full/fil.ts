@@ -1,5 +1,6 @@
 import type { Dict } from "../../index";
 export const FIL: Dict = {
+  "conn.pvp": "👥 Multiplayer table (PvP) · opsyonal na cUSDT stake",
   "html.title": "Nawalang Isla · Espiya sa Gitna Natin",
   "html.lockhint": "🖱 I-click ang screen para i-lock ang mouse · Kaliwang click: bumaril · Kanang click: tumutok (may scope ang sniper) · R: mag-reload · 1 pistola · 2 mahabang baril · 3 sniper · 4 granada (hawakan = hugutin ang pin, bitawan = ihagis) · G: mabilis na granada · Shift: gumulong · V: palitan ang view",
   "view.third": "Third person", "view.first": "First person",

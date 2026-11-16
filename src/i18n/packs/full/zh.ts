@@ -1,5 +1,6 @@
 import type { Dict } from "../../index";
 export const ZH: Dict = {
+  "conn.pvp": "👥 多人牌桌 (PvP) · 可选 cUSDT 下注",
   "html.title": "迷失之岛 · 我们中的间谍",
   "html.lockhint": "🖱 点击屏幕锁定鼠标 · 左键：射击 · 右键：瞄准（狙击枪有瞄准镜）· R：换弹 · 1 手枪 · 2 长枪 · 3 狙击枪 · 4 手雷（按住=拉环，松开=投掷）· G：快速投雷 · Shift：翻滚 · V：切换视角",
   "view.third": "第三人称", "view.first": "第一人称",

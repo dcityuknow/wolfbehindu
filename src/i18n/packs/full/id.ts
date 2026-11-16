@@ -1,5 +1,6 @@
 import type { Dict } from "../../index";
 export const ID: Dict = {
+  "conn.pvp": "👥 Meja multipemain (PvP) · taruhan cUSDT opsional",
   "html.title": "Pulau Hilang · Mata-Mata di Antara Kita",
   "html.lockhint": "🖱 Klik layar untuk mengunci mouse · Klik kiri: tembak · Klik kanan: bidik (sniper pakai scope) · R: isi ulang · 1 pistol · 2 senjata panjang · 3 sniper · 4 granat (tahan = cabut pin, lepas = lempar) · G: granat cepat · Shift: berguling · V: ganti sudut pandang",
   "view.third": "Orang ketiga", "view.first": "Orang pertama",

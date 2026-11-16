@@ -1,5 +1,6 @@
 import type { Dict } from "../../index";
 export const KO: Dict = {
+  "conn.pvp": "👥 멀티플레이 테이블 (PvP) · cUSDT 베팅 선택",
   "html.title": "잃어버린 섬 · 우리 중의 스파이",
   "html.lockhint": "🖱 화면을 클릭해 마우스 잠금 · 좌클릭: 사격 · 우클릭: 조준(저격총은 스코프) · R: 재장전 · 1 권총 · 2 장총 · 3 저격총 · 4 수류탄(누르고 있으면 핀 뽑기, 떼면 투척) · G: 빠른 투척 · Shift: 구르기 · V: 시점 변경",
   "view.third": "3인칭", "view.first": "1인칭",

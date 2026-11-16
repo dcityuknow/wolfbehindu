@@ -2,6 +2,7 @@ import type { Dict } from "../index";
 
 /** Tiếng Việt — dịch đầy đủ (story.ts + intro + luật + kết thúc). Khoá dạng "UI.x" ghi đè thẳng hằng trong story.ts. */
 export const VI: Dict = {
+  "conn.pvp": "👥 Bàn nhiều người (PvP) · cược cUSDT tuỳ chọn",
   "w.you": "Bạn", "w.youTag": "(bạn)", "w.role": "Vai trò", "w.crew": "BIỆT KÍCH", "w.spy": "GIÁN ĐIỆP",
   "html.title": "Đảo Lạc · Gián Điệp Giữa Chúng Ta",
   "html.lockhint": "🖱 Nhấn vào màn hình để khoá chuột · Chuột trái: bắn · Chuột phải: ngắm (súng ngắm có ống kính) · R: nạp đạn · 1 súng ngắn · 2 súng dài · 3 súng ngắm · 4 lựu đạn (giữ chuột = giật chốt, thả = ném) · G: ném nhanh · Shift: lăn · V: đổi góc nhìn",
@@ -143,6 +144,15 @@ export const VI: Dict = {
   "rules.7.b": `<p>Vai trò, mục tiêu ám sát, phiếu bầu và tiến độ nhiệm vụ đều được <b>mã hoá</b> trên Sepolia (Zama FHE): kể cả người theo dõi giao dịch cũng không biết ai là gián điệp. Các cái chết — kể cả bị đồng đội xử bắn — được ghi lên hợp đồng. Chỉ di chuyển và chat chạy trên máy bạn.</p>`,
 
   /* ── bước 3 ── */
+  /* ── sơ đồ "Vì sao cần kết nối ví" (walletDiagram.ts) ── */
+  "wd.you": "Bạn", "wd.you2": "trình duyệt của bạn",
+  "wd.mm": "MetaMask", "wd.mm2": "ví của bạn", "wd.confirm": "✋ bạn bấm xác nhận",
+  "wd.sess": "Ví phiên", "wd.sess2": "tạo tự động, dùng 1 lần", "wd.sess3": "nạp ~0.03 ETH thử nghiệm",
+  "wd.chain": "Sepolia", "wd.chain2": "mạng THỬ NGHIỆM", "wd.chain3": "luật game + mã hoá FHE",
+  "wd.a": "Việc CỦA BẠN", "wd.a2": "nhiệm vụ · giết · bỏ phiếu",
+  "wd.c": "Lượt của BOT", "wd.c2": "🤖 ví phiên tự ký — không hiện popup làm phiền bạn",
+  "wd.e": "🔐 Giải mã vai trò của bạn", "wd.e2": "1 chữ ký · không tốn gas · chỉ bạn thấy",
+  "wd.p1": "Không dùng tiền thật — chỉ cần ETH Sepolia miễn phí (faucet)", "wd.p2": "Không bao giờ hỏi seed phrase / khoá riêng", "wd.p3": "Hành động của bạn tốn chút ETH thử nghiệm làm gas",
   "conn.why.h": "🔗 Vì sao phải kết nối ví?",
   "conn.why.b": `<p>Game chạy trên <b>Sepolia</b> — <b>mạng thử nghiệm</b> của Ethereum. Ví (MetaMask) là “tài khoản” ký các hành động của bạn: tạo phòng, làm nhiệm vụ, ám sát, bỏ phiếu.</p>
   <ul><li>💸 <b>Không dùng tiền thật.</b> Bạn chỉ cần Sepolia ETH (miễn phí — tìm “Sepolia faucet”).</li>

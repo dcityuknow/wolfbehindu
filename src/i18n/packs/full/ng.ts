@@ -1,5 +1,6 @@
 import type { Dict } from "../../index";
 export const NG: Dict = {
+  "conn.pvp": "👥 Multiplayer table (PvP) · you fit stake cUSDT if you want",
   "html.title": "Lost Island · Spy Dey Among Us",
   "html.lockhint": "🖱 Click di screen make e lock di mouse · Left click: shoot · Right click: aim (sniper get scope) · R: reload · 1 pistol · 2 long gun · 3 sniper · 4 grenade (hold click = pull pin, leave am = throw) · G: quick grenade · Shift: roll · V: change view",
   "view.third": "3rd person", "view.first": "1st person",

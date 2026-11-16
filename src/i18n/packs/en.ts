@@ -6,6 +6,7 @@ import type { Dict } from "../index";
  * file này chứa phần còn lại: intro, luật chơi, màn hình kết thúc, thẻ mở khoá vai trò, HUD…
  */
 export const EN: Dict = {
+  "conn.pvp": "👥 Multiplayer table (PvP) · optional cUSDT stake",
   "w.you": "You", "w.youTag": "(you)", "w.role": "Role", "w.crew": "COMMANDO", "w.spy": "SPY",
   "html.title": "Lost Island · The Spy Among Us",
   "html.lockhint": "🖱 Click the screen to lock the mouse · Left click: shoot · Right click: aim (scope on the sniper) · R: reload · 1 pistol · 2 long gun · 3 sniper · 4 grenade (hold click = pull pin, release = throw) · G: quick grenade · Shift: roll · V: change view",
@@ -73,6 +74,15 @@ export const EN: Dict = {
   "rules.7.b": `<p>Roles, assassination targets, votes and task progress are <b>encrypted</b> on Sepolia (Zama FHE): even someone watching the transactions cannot tell who the spy is. Deaths — including being executed by your squad — are written to the contract. Only movement and chat run on your machine.</p>`,
 
   /* ── connect (step 3) ── */
+  /* ── "Why connect a wallet" diagram (walletDiagram.ts) ── */
+  "wd.you": "You", "wd.you2": "your browser",
+  "wd.mm": "MetaMask", "wd.mm2": "your own wallet", "wd.confirm": "✋ you press confirm",
+  "wd.sess": "Session wallet", "wd.sess2": "auto-created, throw-away", "wd.sess3": "funded ~0.03 test-ETH",
+  "wd.chain": "Sepolia", "wd.chain2": "TEST network", "wd.chain3": "game rules + FHE encryption",
+  "wd.a": "YOUR actions", "wd.a2": "tasks · kills · votes",
+  "wd.c": "BOT turns", "wd.c2": "🤖 the session wallet signs — no popups for you",
+  "wd.e": "🔐 Decrypt YOUR role", "wd.e2": "1 signature · no gas · only you see it",
+  "wd.p1": "No real money — only free Sepolia ETH (faucet)", "wd.p2": "Never asks for your seed phrase / private key", "wd.p3": "Your own actions cost a little test-ETH as gas",
   "conn.why.h": "🔗 Why connect a wallet?",
   "conn.why.b": `<p>The game runs on <b>Sepolia</b> — Ethereum's <b>test network</b>. Your wallet (MetaMask) is the “account” that signs your actions: create the room, do tasks, assassinate, vote.</p>
   <ul><li>💸 <b>No real money.</b> You only need Sepolia ETH (free — search “Sepolia faucet”).</li>
