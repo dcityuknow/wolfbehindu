@@ -1,5 +1,6 @@
 import { $ } from "./dom";
 import { initStage } from "./introStage";
+import { clipHtml, mountClips } from "./ruleClips";
 import { t, LANGS, locale, chooseLang, type Lang } from "../i18n";
 import "../i18n/packs";
 
@@ -87,7 +88,7 @@ function trailer(S: ReturnType<typeof scenes>) {
 
 export const rulesHtml = () => `
 <div class="rg">
- ${[1, 2, 3, 4, 5, 6, 7].map((n) => `<div class="card"><h3>${t(`rules.${n}.h`)}</h3>${t(`rules.${n}.b`)}</div>`).join("\n ")}
+ ${[1, 2, 3, 4, 5, 6, 7].map((n) => `<div class="card">${clipHtml(n)}<h3>${t(`rules.${n}.h`)}</h3>${t(`rules.${n}.b`)}</div>`).join("\n ")}
 </div>`;
 
 
@@ -150,7 +151,7 @@ export function initIntro(onPlay: () => void, onPvp?: () => void) {
   $("#obBack").onclick = () => set(step - 1); $("#obNext").onclick = () => set(step + 1);
   $("#bPlay").onclick = onPlay;
   $("#bPvp").onclick = () => onPvp?.();
-  trailer(S);
+  trailer(S); mountClips(ob);
   // sau khi đổi ngôn ngữ (tải lại trang) thì quay lại đúng bước đang xem; lần sau: nhảy thẳng tới bước 3 (bấm “1 · Intro” để xem lại)
   let back = -1; try { back = Number(sessionStorage.getItem("si_step") ?? -1); sessionStorage.removeItem("si_step"); } catch { /* bỏ qua */ }
   set(back >= 0 && back <= 2 ? back : store.get() ? 2 : 0);
@@ -159,6 +160,7 @@ export function initIntro(onPlay: () => void, onPvp?: () => void) {
 /** The ❓ button in game: shows the rules again (the game does not pause). */
 export function initHowTo() {
   $("#howto").innerHTML = `<div class="pn wide"><h2>${t("howto.h")}</h2>${rulesHtml()}<button id="hx" class="g">${t("howto.close")}</button></div>`;
+  mountClips($("#howto"));
   $("#bHelp").onclick = () => ($("#howto").style.display = "flex");
   $("#hx").onclick = () => ($("#howto").style.display = "none");
 }

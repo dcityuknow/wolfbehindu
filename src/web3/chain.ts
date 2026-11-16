@@ -3,6 +3,7 @@ import { Contract } from "ethers";
 import { emit } from "./events";
 import { encrypt8, userDecrypt, publicDecryptPending, publicDecryptValues } from "./fhe";
 import { toast } from "../ui/dom";
+import { showCrypt, wantsFx } from "../ui/cryptFx";
 import { NO_TARGET } from "../config";
 
 let queue: Promise<unknown> = Promise.resolve();
@@ -12,8 +13,10 @@ const STEP: Record<string, string> = { "Prove your death (FHE)": "req", "Submit 
 export function tx(label: string, fn: () => Promise<any>): Promise<any> {
   const p = queue.then(async () => {
     toast(label + "…"); const step = STEP[label]; if (step) emit({ kind: "tx", step, phase: "go" });
+    const fx = wantsFx(label) ? showCrypt(label) : null;   // cyberpunk "FHE at work" overlay for the heavy steps
     try { const r = await (await fn()).wait(); toast("✓ " + label); if (step) emit({ kind: "tx", step, phase: "ok", hash: String(r?.hash ?? "") }); return r; }
     catch (e: any) { toast("✗ " + label + ": " + String(e.shortMessage || e.reason || e.message || "").slice(0, 80)); throw e; }
+    finally { fx?.(); }
   });
   queue = p.catch(() => {});
   return p;

@@ -531,7 +531,11 @@ const HEARTS: number[] = (() => { const o: number[] = []; for (let t = 1.5; t < 
 const EV: { t: number; f: () => void }[][] = [
   [...HEARTS.map((t) => ({ t, f: () => cineSfx.heart() })), ...CUTS.filter((t) => t > 0).map((t) => ({ t, f: () => cineSfx.cut() })),
     ...[0.9, 2.5, SA(4) + 0.2, SA(4) + 1.0, SA(4) + 1.8, SA(4) + 2.4, MASTER2 + 0.6].map((t) => ({ t, f: () => cineSfx.breath() })),                       // thở gấp
-    { t: SA(6) + 4.2, f: () => cineSfx.beep() }, { t: 0.5, f: () => say("v1") }, { t: SA(2) + 1.9, f: () => say("v2") }],      // bíp của bộ phát tín hiệu · lời thoại
+    { t: SA(6) + 4.2, f: () => cineSfx.beep() },
+    // lời thoại: mỗi người nói đúng trong cú cận cảnh của mình (giờ khớp với VOICE trong story.ts)
+    { t: 0.5, f: () => say("v1") }, { t: SA(1) + 0.15, f: () => say("v1b") }, { t: SA(3) + 0.1, f: () => say("v7") }, { t: SA(4) + 0.05, f: () => say("v8") },
+    { t: SA(5) + 0.1, f: () => say("v9") }, { t: SA(0) + 0.3, f: () => say("v10") }, { t: SA(6) + 0.25, f: () => say("v11") },
+    { t: SA(2) + 0.4, f: () => say("v2") }, { t: SA(2) + 1.9, f: () => say("v2b") }, { t: SA(2) + 3.0, f: () => say("v2c") }, { t: MASTER2 + 0.05, f: () => say("v12") }],      // bíp của bộ phát tín hiệu · lời thoại
   [{ t: 0.8, f: () => say("v3") }],
   [...[0.8, 3.7, 5.0, 8.2, 14.6].map((t) => ({ t: t + 0.15, f: () => cineSfx.thunder(false) })), { t: 12.0, f: () => cineSfx.thunder(true) }, { t: 2.0, f: () => say("v4a") }, { t: 5.2, f: () => say("v4b") }, { t: 8.0, f: () => say("v4c") }, { t: 4.6, f: () => cineSfx.static(0.5, 0.6) }, { t: 7.5, f: () => cineSfx.static(0.5, 0.6) }],
   [...[0.2, 0.7, 1.2, 1.7, 2.2].map((t) => ({ t: t + EXT, f: () => cineSfx.alarm() })), { t: 2.4 + EXT, f: () => cineSfx.chute() }, { t: EXT, f: () => say("v5") },

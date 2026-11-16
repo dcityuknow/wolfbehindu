@@ -39,6 +39,7 @@ button.r{background:#c0392b}button.g{background:#3b4160}#hud{position:fixed;inse
 .rg{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}.rg.two{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
 .card{background:#10163a;border:1px solid #34407a;border-radius:12px;padding:14px 16px;line-height:1.55}
 .card h3{margin:0 0 8px;font-size:16px}.card p{margin:6px 0}.card ul{margin:6px 0;padding-left:18px}.card li{margin:5px 0}
+.card canvas.clip{display:block;width:100%;height:auto;aspect-ratio:16/9;margin:-4px 0 12px;border-radius:9px;background:#05081a;border:1px solid #34407a;box-shadow:0 4px 14px #0007}
 .dim{color:#8f9bd6;font-size:12px}
 kbd{display:inline-block;min-width:24px;padding:1px 7px;margin:1px 2px;border-radius:6px;background:#26306e;border:1px solid #5566c0;border-bottom-width:3px;font:600 12px system-ui;text-align:center;color:#fff}
 button.big{font-size:16px;padding:14px 18px;width:100%;margin:10px 0 0}
@@ -184,3 +185,18 @@ a{color:#8fb0ff}
 #pvp input[type=number],#pvp input[readonly]{width:100%;box-sizing:border-box;background:#0c1130;border:1px solid #34407a;border-radius:8px;color:#fff;padding:8px;margin:6px 0}
 #pvp .bad{color:#ff7a6b}#pvp .ok{color:#6be39a}#pvp .card.warn{border-color:#d4a72c}
 .pvlog{margin:10px 0 0;max-height:110px;overflow:auto;text-align:left;font-size:11px;color:#9fb0ff;white-space:pre-wrap}
+
+/* ── FHE overlay (src/ui/cryptFx.ts) ── */
+#cryptfx{position:fixed;inset:0;z-index:20;pointer-events:none;background:rgba(2,6,16,.78);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .25s}
+#cryptfx.on{opacity:1}#cryptfx canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.55}
+#cryptfx .t{position:relative;font:700 clamp(22px,4.4vw,44px) ui-monospace,Consolas,monospace;letter-spacing:.22em;color:#3ef0ff;text-shadow:0 0 14px #3ef0ff,2px 0 #ff2bd6,-2px 0 #00ff9c;animation:cglitch 1.2s infinite}
+#cryptfx .s{position:relative;margin-top:10px;font:13px ui-monospace,Consolas,monospace;color:#9fe9ff;letter-spacing:.08em}
+#cryptfx .l{position:relative;margin:18px 0 0;min-height:64px;font:11px ui-monospace,Consolas,monospace;color:#13f0c0;text-align:left;white-space:pre}
+@keyframes cglitch{0%,92%,100%{transform:translate(0,0);filter:none}93%{transform:translate(-3px,1px);filter:hue-rotate(40deg)}95%{transform:translate(3px,-1px)}97%{transform:translate(-2px,0);filter:hue-rotate(-40deg)}}
+/* ── PvP extras ── */
+#pvp .chatlog{max-height:150px;overflow:auto;text-align:left;font-size:13px;background:#0c1130;border:1px solid #34407a;border-radius:8px;padding:6px 8px;margin:6px 0}
+#pvp .chatlog div{margin:2px 0}#pvp .chatlog b{color:#9fb0ff}
+#pvp input[type=text],#pvp select{width:100%;box-sizing:border-box;background:#0c1130;border:1px solid #34407a;border-radius:8px;color:#fff;padding:8px;margin:6px 0}
+#pvp .will{border-left:3px solid #d4a72c;padding:4px 8px;margin:6px 0;text-align:left;background:#14100a}
+#pvp table.board{width:100%;border-collapse:collapse;font-size:13px}#pvp table.board td,#pvp table.board th{padding:4px 6px;border-bottom:1px solid #26306a;text-align:left}
+#pvp .pill{display:inline-block;font-size:11px;border:1px solid #34407a;border-radius:999px;padding:1px 8px;margin:0 4px 4px 0;color:#9fb0ff}

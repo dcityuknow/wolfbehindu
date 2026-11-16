@@ -12,14 +12,16 @@ import { callMeeting, castVote, fetchStatuses, getRoom, parseEvents, tallyAndFin
 import { ensureActed, finish, nextRound, checkpoint } from "./round";
 import { splash, hideSplash } from "../ui/hud";
 import { UI, OPENERS } from "../story";
+import { sfx, cineSfx } from "../audio";
 
+let beat = -1;   // last second at which the countdown heartbeat played
 export const ejecting = { cur: null as null | { e: (typeof entities)[number]; t: number; dx: number; dz: number; done: () => void } };
 const chat = (n: string, t: string) => { const c = $("#chat"); c.innerHTML += `<div><b>${n}:</b> ${t}</div>`; c.scrollTop = 1e9; };
 
 /** Ai đó ngồi vào ghế quanh lửa trại -> cuộc họp được gọi, mọi người có CALL_SECONDS giây để chạy tới lửa trại và ngồi. Camera + điều khiển của người chơi giữ nguyên. */
 export function openCall(why: string, caller: number) {
   if (G.phase !== "play" || G.call) return;
-  G.call = { why, caller, t: CALL_SECONDS }; G.reporting = true; G.reporter = -1;
+  G.call = { why, caller, t: CALL_SECONDS }; G.reporting = true; G.reporter = -1; beat = -1; sfx.siren();
   clearCombat(); clearTimeout(G.scheduleTimer); hide("#mini"); G.mini = false;
   toast("🚨 " + why); toast(UI.callBy(NAMES[caller]));
 }
@@ -41,6 +43,7 @@ export function updateCall(dt: number) {
   const absent = alive().filter((e) => e.seat < 0), s = Math.ceil(c.t), seated = me().seat >= 0 || G.ghost;
   setAlerts((i) => c.caller === i, performance.now() / 1e3);
   bar.style.display = "block"; bar.className = seated ? "sm" : s <= 10 ? "hurry" : "";
+  if (!seated && s <= 10 && s !== beat) { beat = s; cineSfx.heart(); if (s <= 5) cineSfx.breath(); }   // racing heart: run to the fire!
   bar.innerHTML = seated ? UI.callWait(absent.length, s) : UI.callBar(c.why, NAMES[c.caller], s);
   if (!absent.length || c.t <= 0) void beginMeeting(absent);
 }

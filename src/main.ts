@@ -16,6 +16,7 @@ import { startSolo } from "./gameplay/session";
 import { initPvp, open as openPvp } from "./gameplay/pvp";
 import { PLAYER_SPEED, LIGHT, NAMES } from "./config";
 import { sfx } from "./audio";
+import { updateFootsteps } from "./world/footsteps";
 import { UI } from "./story";
 import { $, toast } from "./ui/dom";
 import { rig, cycleView, bindMouse, updateCamera } from "./world/camera";
@@ -89,7 +90,7 @@ function update(dt: number) {
       if (MV.swimK > 0.02) MV.stk += dt * (4.2 + Math.min(MV.speed, 6) * 0.6);
     }
     swimFx(dt, m.x, m.z, m.rot, MV.inWater && !G.ghost, MV.swimming, MV.speed);
-    updateBots(dt); updateCombat(dt); updateHostile(dt); separate();
+    updateBots(dt); updateCombat(dt); updateHostile(dt); separate(); updateFootsteps(dt);
     // Độ cao: người chơi có trọng lực + nhảy, tự bước lên bậc 1 khối; Bot bám theo mặt đất (trượt mượt qua từng bậc)
     for (const e of entities) {
       if (e.seat >= 0 || e.dead || e.out) continue;
@@ -109,7 +110,7 @@ function update(dt: number) {
     if (!G.reporting && !G.call) for (const b of bodies) {
       if (b.own || !b.g.visible) continue;
       const bot = entities.find((e) => e.i !== G.slot && !e.dead && !e.out && Math.hypot(e.x - b.x, e.z - b.z) < 3);
-      if (bot) { G.reporting = true; G.reporter = bot.i; G.bodyKnown = true; toast(UI.botReport(NAMES[bot.i])); break; }   // the bot runs to the campfire and sits down to call the meeting
+      if (bot) { G.reporting = true; G.reporter = bot.i; G.bodyKnown = true; sfx.siren(); toast(UI.botReport(NAMES[bot.i])); break; }   // the bot runs to the campfire and sits down to call the meeting
     }
     updateCall(dt); refreshPrompt();
   }

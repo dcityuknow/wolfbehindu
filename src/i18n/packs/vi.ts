@@ -107,6 +107,16 @@ export const VI: Dict = {
   "sc.5.spyT": "🕵 GIÁN ĐIỆP THẮNG", "sc.5.spyA": "✔ Ám sát cho đến khi biệt kích còn sống", "sc.5.spyB": "≤ số gián điệp còn sống", "sc.5.spyC": "(1 biệt kích + 1 gián điệp là đủ)",
 
   /* ── luật ── */
+  /* ── chữ trên video minh hoạ (ruleClips.ts) ── */
+  "clip.1.spy": "🕵 1 KẺ PHẢN BỘI giữa 7 người",
+  "clip.2.task": "📻 Sửa radio", "clip.2.body": "Có xác!", "clip.2.meet": "HỌP KHẨN", "clip.2.vote": "Đối chiếu & bỏ phiếu",
+  "clip.3.stab": "Ám sát", "clip.3.burrow": "Hang bí mật", "clip.3.alibi": "Ngoại phạm",
+  "clip.4.check": "🏁 Kiểm tra nhiệm vụ", "clip.4.win": "CHIẾN THẮNG!",
+  "clip.5.pistol": "Súng ngắn", "clip.5.scope": "Ngắm bắn (chuột phải)", "clip.5.nade": "Giữ chuột để giật chốt",
+  "clip.5.ouch": "SAO MÀY BẮN TAO??", "clip.5.banner": "BẮN NHẦM ĐỒNG ĐỘI LÀ THẬT", "clip.5.over": "VÁN KẾT THÚC NGAY",
+  "clip.6.a": "Nhiệm vụ", "clip.6.b": "Thấy xác / Họp", "clip.6.c": "Bỏ phiếu kín", "clip.6.d": "Trục xuất", "clip.6.round": "Lượt {0}", "clip.6.check": "Kiểm tra", "clip.6.win": "Có phe thắng",
+  "clip.7.enc": "vai trò được mã hoá", "clip.7.rev": "hết ván: công khai", "clip.7.spy": "GIÁN ĐIỆP", "clip.7.crew": "BIỆT KÍCH",
+
   "rules.1.h": "🎯 Cốt truyện & mục tiêu",
   "rules.1.b": `<p>Đội ALPHA bị bão thổi lạc khỏi điểm đáp và mắc kẹt trên đảo hoang, mất liên lạc. Bạn chơi cùng <b>6 đồng đội Bot</b>. Trong 7 người có <b>1 gián điệp</b> (ngẫu nhiên — có thể là bạn).</p>
   <p><b style="color:#5f9">Biệt kích thắng</b> khi loại đúng gián điệp <i>hoặc</i> hoàn thành mọi nhiệm vụ sinh tồn.<br>

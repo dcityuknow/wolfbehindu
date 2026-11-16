@@ -14,7 +14,7 @@ export function beginDeath(fall = true): Promise<void> {
   dim?.remove(); dim = document.createElement("div");
   dim.style.cssText = "position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:7";
   document.body.appendChild(dim);
-  snapped = false; DEATH.t = 0; DEATH.k = 0; sfx.hit();
+  snapped = false; DEATH.t = 0; DEATH.k = 0; sfx.hit(); sfx.kill();
   if (!fall) { captureCrew(); snapped = true; dim.style.opacity = "1"; return Promise.resolve(); }
   DEATH.active = true;
   return new Promise<void>((r) => (onDark = r));

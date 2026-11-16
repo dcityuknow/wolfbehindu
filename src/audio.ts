@@ -117,6 +117,21 @@ export const sfx = {
   nadeLaunch: safe(() => snd(200, 0.12, "sine", 0.05)),     // lựu đạn rời tay
   hit: safe(() => thump(900, 400, 0.06, 0.18)),
   explode: safe((dist: number = 0) => boom(dist)),
+  /** Footstep: v = loudness 0..1 (bots far away are quieter). Soft thud + a little crunch. */
+  step: safe((v: number = 1) => { hiss(520 + Math.random() * 220, 0.06, 0.2 * v, "lowpass"); thump(125 + Math.random() * 30, 62, 0.055, 0.2 * v); }),
+  /** Emergency siren (body found / meeting called): 4 rising-falling wails. */
+  siren: safe(() => {
+    const a = A(), o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime;
+    o.type = "sawtooth"; f.type = "lowpass"; f.frequency.value = 2400;
+    for (let k = 0; k < 4; k++) { const b = t + k * 0.56; o.frequency.setValueAtTime(600, b); o.frequency.exponentialRampToValueAtTime(1000, b + 0.28); o.frequency.exponentialRampToValueAtTime(600, b + 0.56); }
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2 * VOL, t + 0.05); g.gain.setValueAtTime(0.2 * VOL, t + 2.0); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.3);
+    o.connect(f); f.connect(g); g.connect(a.destination); o.start(t); o.stop(t + 2.4);
+  }),
+  /** Murder sting: low thump + two clashing notes (minor second) + a hiss. */
+  kill: safe(() => { thump(150, 38, 0.4, 1); hiss(3200, 0.12, 0.5, "highpass"); tone(233, 0.9, 0.14, "sawtooth", 0.04); tone(247, 0.9, 0.14, "sawtooth", 0.04); }),
+  coin: safe(() => { tone(1320, 0.09, 0.12, "sine"); tone(1760, 0.22, 0.1, "sine", 0.07); }),
+  will: safe(() => { tone(196, 1.3, 0.13, "sine"); tone(294, 1.1, 0.07, "sine", 0.12); }),
+  tick: safe(() => tone(980, 0.05, 0.06, "sine")),
 };
 
 /** Âm thanh cho cảnh mở đầu: bíp của kẻ nội gián, tim đập, sấm, dù bung, rừng đêm + tiếng nền (động cơ / gió / mưa) chạy vòng lặp. */

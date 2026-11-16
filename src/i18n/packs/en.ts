@@ -37,6 +37,16 @@ export const EN: Dict = {
   "sc.5.spyT": "🕵 THE SPY WINS", "sc.5.spyA": "✔ Assassinate until living commandos", "sc.5.spyB": "≤ number of living spies", "sc.5.spyC": "(1 commando + 1 spy is enough)",
 
   /* ── rules ── */
+  /* ── text on the illustrated clips (ruleClips.ts) ── */
+  "clip.1.spy": "🕵 1 TRAITOR among 7",
+  "clip.2.task": "📻 Repair the radio", "clip.2.body": "A body!", "clip.2.meet": "EMERGENCY MEETING", "clip.2.vote": "Compare stories & vote",
+  "clip.3.stab": "Assassinate", "clip.3.burrow": "Secret burrow", "clip.3.alibi": "Alibi",
+  "clip.4.check": "🏁 Check tasks", "clip.4.win": "VICTORY!",
+  "clip.5.pistol": "Pistol", "clip.5.scope": "Scope (right mouse)", "clip.5.nade": "Hold to pull the pin",
+  "clip.5.ouch": "WHY DID YOU SHOOT ME??", "clip.5.banner": "FRIENDLY FIRE IS REAL", "clip.5.over": "GAME OVER — INSTANTLY",
+  "clip.6.a": "Tasks", "clip.6.b": "Body / Meeting", "clip.6.c": "Secret vote", "clip.6.d": "Ejected", "clip.6.round": "Round {0}", "clip.6.check": "Check", "clip.6.win": "A side wins",
+  "clip.7.enc": "roles are encrypted", "clip.7.rev": "game over: public", "clip.7.spy": "SPY", "clip.7.crew": "COMMANDO",
+
   "rules.1.h": "🎯 Story & goal",
   "rules.1.b": `<p>ALPHA Squad was blown off its drop zone by a storm and is stranded on a desert island with no contact. You play alongside <b>6 Bot squadmates</b>. Among the 7 of you is <b>1 spy</b> (random — it may be you).</p>
   <p><b style="color:#5f9">Commandos win</b> by ejecting the real spy <i>or</i> by finishing every survival task.<br>

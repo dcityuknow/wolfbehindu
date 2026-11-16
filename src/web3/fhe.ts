@@ -2,6 +2,7 @@ import { t } from "../i18n";
 import { ctx } from "./context";
 import { toast } from "../ui/dom";
 import { emit } from "./events";
+import { showCrypt } from "../ui/cryptFx";
 
 /** Mã hoá 1 giá trị uint8 phía client (vote / mục tiêu kill). */
 export async function encrypt8(v: number) {
@@ -41,6 +42,10 @@ export async function publicDecryptPending() {
 
 /** KMS public decrypt, tự thử lại khi relayer báo chưa sẵn sàng (ngay sau tx handle thường chưa kịp đồng bộ) — không bắt người chơi bấm Retry. */
 export async function kms(hs: string[], step: string) {
+  const done = showCrypt("KMS public decryption");
+  try { return await kmsInner(hs, step); } finally { done(); }
+}
+async function kmsInner(hs: string[], step: string) {
   let last: unknown;
   for (let k = 0; k < 6; k++) {
     toast(k ? `🔑 KMS decrypt — retry ${k}…` : "🔑 KMS decrypting (FHE)…"); emit(k ? { kind: "kms", step, phase: "retry", n: k } : { kind: "kms", step, phase: "go" });
