@@ -1,4 +1,5 @@
 import { collide } from "../world/characters";
+import { groundAt, STEP } from "../world/island";
 import { findPath } from "../world/nav";
 import type { Entity } from "../types";
 
@@ -19,7 +20,12 @@ export function walkTo(e: Entity, gx: number, gz: number, dt: number, speed: num
   st.set(e.i, s);
   while (s.i < s.path.length - 1 && Math.hypot(s.path[s.i][0] - e.x, s.path[s.i][1] - e.z) < 0.7) s.i++;
   const tgt = s.path[s.i] ?? [gx, gz], dx = tgt[0] - e.x, dz = tgt[1] - e.z, l = Math.hypot(dx, dz);
-  if (l > 0.02) { const k = Math.min(speed * dt, l) / l; e.x += dx * k; e.z += dz * k; e.rot = Math.atan2(dx, dz); }
+  if (l > 0.02) {
+    // NHẢY: phía trước (≤ ~1,2 m) có bậc cao hơn 1 khối → nhảy lên (lực nhảy bằng người chơi; trên không được leo tối đa 2 khối, xem constrain trong characters.ts)
+    const gy0 = groundAt(e.x, e.z), ux = dx / l, uz = dz / l;
+    if (e.y <= gy0 + 0.05 && e.vy <= 0) for (let t = 0.3; t <= 1.2; t += 0.3) if (groundAt(e.x + ux * t, e.z + uz * t) - gy0 > STEP + 0.01) { e.vy = 5.6; break; }
+    const k = Math.min(speed * dt, l) / l; e.x += dx * k; e.z += dz * k; e.rot = Math.atan2(dx, dz);
+  }
   collide(e);
   // kẹt: gần như không nhích được dù đang đi → tính lại đường
   const moved = Math.hypot(e.x - s.lx, e.z - s.lz); s.lx = e.x; s.lz = e.z;

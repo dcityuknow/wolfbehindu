@@ -104,10 +104,10 @@ function votesFly(votes: THREE.Sprite[], from: Actor[], to: [number, number], t0
   });
 }
 
-/* ═════════════════════════════ 1 · CỐT TRUYỆN — bão, máy bay nổ, 7 người nhảy dù xuống đảo, 1 kẻ phản bội (10 s) ═════════════════════════════ */
+/* ═════════════════════════════ 1 · CỐT TRUYỆN — bão, máy bay nổ, 11 người nhảy dù xuống đảo, 1 kẻ phản bội (10 s) ═════════════════════════════ */
 function clip1(E: Env): Clip {
-  const group = new THREE.Group(), A = newActors([0, 1, 2, 3, 4, 5, 6], group);
-  const X = [0, -4.6, 4.4, -8.4, 8.6, -2.5, 2.8], Z = [1.4, -0.2, -0.5, -1.2, -1.0, -2.2, -2.5], Y0 = [9, 11, 10, 12.5, 9.5, 13.5, 11.5], TL = [8.8, 8.0, 8.4, 7.4, 8.2, 7.2, 7.7];
+  const group = new THREE.Group(), A = newActors([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], group);
+  const X = [0, -4.6, 4.4, -8.4, 8.6, -2.5, 2.8, -6.4, 6.5, -11, 11], Z = [1.4, -0.2, -0.5, -1.2, -1.0, -2.2, -2.5, 0.4, 0.2, -2.8, -2.4], Y0 = [9, 11, 10, 12.5, 9.5, 13.5, 11.5, 10.5, 12, 11, 13], TL = [8.8, 8.0, 8.4, 7.4, 8.2, 7.2, 7.7, 8.6, 7.9, 7.0, 7.5];
   const chutes = A.map(() => { const c = chute(); group.add(c); return c; });
   // máy bay bị trúng đạn (thân + cánh bằng khối), kèm cầu lửa
   const plane = new THREE.Group(); bxm(plane, 6, 0.9, 0.9, stdM(0x8a929c), 0, 0, 0); bxm(plane, 1, 0.2, 7, stdM(0x7a828c), -0.5, 0, 0); bxm(plane, 0.8, 1.3, 0.2, stdM(0x7a828c), 2.6, 0.9, 0); group.add(plane);
@@ -117,7 +117,7 @@ function clip1(E: Env): Clip {
   const FL = [1.0, 2.6, 6.4]; let lg = 0;
   const reset = () => { A.forEach(resetActor); A.forEach((a) => (a.root.visible = false)); A[0].you.visible = true; };
   const tick = (t: number, dt: number) => {
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 11; i++) {
       const a = A[i], u = clamp01(t / TL[i]), y = Y0[i] * Math.pow(1 - u, 1.15), land = t - TL[i], c = chutes[i];
       const sx = X[i] + Math.sin(t * 1.1 + i * 1.7) * 0.5 * (1 - u), sz = Z[i];
       a.root.visible = true; a.root.position.set(sx, y, sz); a.root.rotation.y = Math.sin(t * 0.9 + i) * 0.35 * (1 - u);
@@ -141,14 +141,14 @@ function clip1(E: Env): Clip {
   const ov = (g: G, t: number) => {
     flash(g, lg * 0.35, "200,220,255"); flash(g, t > 2.4 && t < 2.8 ? 0.4 * (1 - (t - 2.4) / 0.4) : 0, "255,190,110");
     if (t < 4.4) return;
-    const k = seg(t, 4.4, 4.9), bx = OW / 2 - 7 * 18; g.save(); g.globalAlpha = k; g.fillStyle = "#000b"; g.fillRect(bx - 8, 10, 7 * 36 + 16, 42);
-    const spyI = 4, run = t < 8.4 ? Math.floor(t * 8) : -1, act = run >= 0 ? Math.floor(hash(run) * 7) : spyI;
-    for (let i = 0; i < 7; i++) {
+    const k = seg(t, 4.4, 4.9), bx = OW / 2 - 11 * 18; g.save(); g.globalAlpha = k; g.fillStyle = "#000b"; g.fillRect(bx - 8, 10, 11 * 36 + 16, 42);
+    const spyI = 4, run = t < 8.4 ? Math.floor(t * 8) : -1, act = run >= 0 ? Math.floor(hash(run) * 11) : spyI;
+    for (let i = 0; i < 11; i++) {
       const on = i === act, x = bx + i * 36 + 3, pl = 0.55 + 0.45 * Math.sin(t * 22), col = "#" + COLORS[i].toString(16).padStart(6, "0");
       g.fillStyle = on ? `rgba(255,40,40,${run < 0 ? 0.6 + 0.4 * Math.sin(t * 10) : pl})` : "#17301f"; g.fillRect(x, 15, 30, 32); g.fillStyle = col; g.fillRect(x, 44, 30, 3);
       g.fillStyle = on ? "#fdd" : "#e8b98a"; g.fillRect(x + 9, 22, 12, 12); g.fillStyle = on ? "#a22" : "#4b5a35"; g.fillRect(x + 7, 18, 16, 6); if (on && run < 0) emo(g, "🕵", x + 15, 38, 12);
     }
-    g.restore(); chip(g, t < 8.4 ? "ALPHA · 7" : tr("clip.1.spy"), OW / 2, 70, t < 8.4 ? "#000a" : "#a11d", "#fff");
+    g.restore(); chip(g, t < 8.4 ? "ALPHA · 11" : tr("clip.1.spy"), OW / 2, 70, t < 8.4 ? "#000a" : "#a11d", "#fff");
   };
   return { d: 10, look: STORM, group, t: 0, reset, tick, ov };
 }
@@ -202,7 +202,7 @@ function clip2(E: Env): Clip {
     if (t > 10.4) {
       chip(g, "💬 " + tr("clip.2.vote"), OW / 2, 28, "#124a8cee"); const L = ["…?!", "🔍", "😠", "👉", "🗳"];
       for (let k = 1; k <= 5; k++) if (Math.sin(t * 3 + k * 2) > -0.1) { const [hx, hy] = E.head(A[k], -0.3); bubble(g, hx, hy, L[(Math.floor(t * 1.4) + k) % 5], seg(t, 10.4, 11)); }
-      if (t > 12.7) { const [hx, hy] = E.head(A[4], 0.2); chip(g, "⏏ 4/7", hx, hy - 30, "#a11d"); }
+      if (t > 12.7) { const [hx, hy] = E.head(A[4], 0.2); chip(g, "⏏ 6/11", hx, hy - 30, "#a11d"); }
     }
   };
   return { d: 14, look: SUNSET, group, t: 0, reset, tick: (t, dt) => { tick(t, dt); }, ov };
@@ -412,7 +412,7 @@ function clip6(E: Env): Clip {
     if (u < 0.15) flash(g, 0.7 - u * 4.5);
     if (b === 0) { const [hx, hy] = E.head(A[0], 0.2); bar(g, hx - 30, hy - 22, 60, seg(u, 0.3, 2.6)); keyHint(g, hx + 28, hy + 8, "E", t); }
     if (b === 1 && u > 1.8) { const [hx, hy] = E.head(A[0]); bubble(g, hx, hy - 4, "!?"); const [bx, by] = E.proj(BODY[0], 1.2, BODY[1]); chip(g, "🚨 " + tr("clip.2.body"), bx, by - 14, "#a11d"); }
-    if (b === 3 && u > 1.5) { const x = A[4]; void x; chip(g, "⏏ 4/7", OW / 2, 235, "#a11d"); }
+    if (b === 3 && u > 1.5) { const x = A[4]; void x; chip(g, "⏏ 6/11", OW / 2, 235, "#a11d"); }
   };
   return { d: 12, look: SUNSET, group, t: 0, reset, tick, ov };
 }

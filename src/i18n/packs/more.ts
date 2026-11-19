@@ -16,7 +16,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} изгнан — ЭТО БЫЛ ШПИОН 🎯", "UI.ejectedNo": "{0} изгнан — НЕ шпион. Вы изгнали невиновного товарища 💔",
     "ENDING.killed.title": "☠ УБИТ", "ENDING.crew.title": "🎖 КОМАНДОСЫ ПОБЕДИЛИ", "ENDING.spy.title": "🕵 ШПИОН ПОБЕДИЛ", "ENDING.win": "🎉 Вы победили!", "ENDING.lose": "Вы проиграли.",
     "intro.step0": "1 · Вступление", "intro.step1": "2 · Правила", "intro.step2": "3 · Игра", "intro.back": "← Назад", "intro.next0": "Смотреть правила →", "intro.next1": "Понятно, дальше →", "intro.rulesH": "Правила за 1 минуту", "intro.playH": "Готовы играть",
-    "conn.play": "🔗 Подключить кошелёк и развернуть (вы + 6 ботов)",
+    "conn.play": "🔗 Подключить кошелёк и развернуть (вы + 10 ботов)",
     "rv.unlock": "🔓 РАСКРЫТИЕ РОЛЕЙ", "rv.spy": "🕵 ШПИОН: {0}", "rv.done": "🔓 РОЛИ РАСКРЫТЫ", "rv.go": "Продолжить", "rv.stamp": "ШПИОН", "rv.you": "ВЫ", "end.spyWas": "🕵 Шпионом был: {0}",
   },
   ng: {
@@ -29,7 +29,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} don comot — NA DI SPY 🎯", "UI.ejectedNo": "{0} don comot — E NO BE di spy. You don throw innocent person out 💔",
     "ENDING.killed.title": "☠ THEY DON KILL YOU", "ENDING.crew.title": "🎖 COMMANDOS WIN", "ENDING.spy.title": "🕵 DI SPY WIN", "ENDING.win": "🎉 You win!", "ENDING.lose": "You lose.",
     "intro.step0": "1 · Intro", "intro.step1": "2 · Rules", "intro.step2": "3 · Play", "intro.back": "← Go back", "intro.next0": "See di rules →", "intro.next1": "I don understand, next →", "intro.rulesH": "Di rules for 1 minute", "intro.playH": "Ready to play",
-    "conn.play": "🔗 Connect wallet & Deploy (you + 6 Bot squadmates)",
+    "conn.play": "🔗 Connect wallet & Deploy (you + 10 Bot squadmates)",
     "rv.unlock": "🔓 DEY OPEN ROLES", "rv.spy": "🕵 DI SPY: {0}", "rv.done": "🔓 ROLES DON OPEN", "rv.go": "Continue", "rv.stamp": "SPY", "rv.you": "YOU", "end.spyWas": "🕵 Di spy na: {0}",
   },
   bn: {
@@ -42,7 +42,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} বহিষ্কৃত — সে-ই ছিল গুপ্তচর 🎯", "UI.ejectedNo": "{0} বহিষ্কৃত — সে গুপ্তচর নয়। আপনি একজন নিরপরাধ সঙ্গীকে তাড়িয়েছেন 💔",
     "ENDING.killed.title": "☠ আপনাকে হত্যা করা হয়েছে", "ENDING.crew.title": "🎖 কমান্ডোরা জিতেছে", "ENDING.spy.title": "🕵 গুপ্তচর জিতেছে", "ENDING.win": "🎉 আপনি জিতেছেন!", "ENDING.lose": "আপনি হেরেছেন।",
     "intro.step0": "১ · পরিচিতি", "intro.step1": "২ · নিয়ম", "intro.step2": "৩ · খেলা", "intro.back": "← পেছনে", "intro.next0": "নিয়ম দেখুন →", "intro.next1": "বুঝেছি, পরেরটি →", "intro.rulesH": "১ মিনিটে নিয়ম", "intro.playH": "খেলার জন্য প্রস্তুত",
-    "conn.play": "🔗 ওয়ালেট সংযুক্ত করুন ও ডিপ্লয় করুন (আপনি + ৬ বট)",
+    "conn.play": "🔗 ওয়ালেট সংযুক্ত করুন ও ডিপ্লয় করুন (আপনি + ১০ বট)",
     "rv.unlock": "🔓 ভূমিকা উন্মোচন হচ্ছে", "rv.spy": "🕵 গুপ্তচর: {0}", "rv.done": "🔓 ভূমিকা উন্মোচিত", "rv.go": "চালিয়ে যান", "rv.stamp": "গুপ্তচর", "rv.you": "আপনি", "end.spyWas": "🕵 গুপ্তচর ছিল: {0}",
   },
   id: {
@@ -55,7 +55,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} diusir — DIA MEMANG MATA-MATA 🎯", "UI.ejectedNo": "{0} diusir — BUKAN mata-mata. Kamu mengusir rekan yang tidak bersalah 💔",
     "ENDING.killed.title": "☠ DIBUNUH", "ENDING.crew.title": "🎖 KOMANDO MENANG", "ENDING.spy.title": "🕵 MATA-MATA MENANG", "ENDING.win": "🎉 Kamu menang!", "ENDING.lose": "Kamu kalah.",
     "intro.step0": "1 · Pengantar", "intro.step1": "2 · Aturan", "intro.step2": "3 · Main", "intro.back": "← Kembali", "intro.next0": "Lihat aturan →", "intro.next1": "Mengerti, lanjut →", "intro.rulesH": "Aturan dalam 1 menit", "intro.playH": "Siap bermain",
-    "conn.play": "🔗 Hubungkan dompet & Deploy (kamu + 6 Bot)",
+    "conn.play": "🔗 Hubungkan dompet & Deploy (kamu + 10 Bot)",
     "rv.unlock": "🔓 MEMBUKA PERAN", "rv.spy": "🕵 MATA-MATA: {0}", "rv.done": "🔓 PERAN TERBUKA", "rv.go": "Lanjut", "rv.stamp": "MATA-MATA", "rv.you": "KAMU", "end.spyWas": "🕵 Mata-matanya adalah: {0}",
   },
   hi: {
@@ -68,7 +68,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} को बाहर किया गया — वही जासूस था 🎯", "UI.ejectedNo": "{0} को बाहर किया गया — वह जासूस नहीं था। आपने एक निर्दोष साथी को निकाल दिया 💔",
     "ENDING.killed.title": "☠ आपकी हत्या हो गई", "ENDING.crew.title": "🎖 कमांडो जीते", "ENDING.spy.title": "🕵 जासूस जीता", "ENDING.win": "🎉 आप जीत गए!", "ENDING.lose": "आप हार गए।",
     "intro.step0": "1 · परिचय", "intro.step1": "2 · नियम", "intro.step2": "3 · खेलें", "intro.back": "← वापस", "intro.next0": "नियम देखें →", "intro.next1": "समझ गया, आगे →", "intro.rulesH": "1 मिनट में नियम", "intro.playH": "खेलने के लिए तैयार",
-    "conn.play": "🔗 वॉलेट जोड़ें और डिप्लॉय करें (आप + 6 बॉट साथी)",
+    "conn.play": "🔗 वॉलेट जोड़ें और डिप्लॉय करें (आप + 10 बॉट साथी)",
     "rv.unlock": "🔓 भूमिकाएँ खुल रही हैं", "rv.spy": "🕵 जासूस: {0}", "rv.done": "🔓 भूमिकाएँ खुल गईं", "rv.go": "जारी रखें", "rv.stamp": "जासूस", "rv.you": "आप", "end.spyWas": "🕵 जासूस था: {0}",
   },
   zh: {
@@ -81,7 +81,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} 被驱逐 — 他就是间谍 🎯", "UI.ejectedNo": "{0} 被驱逐 — 他不是间谍。你驱逐了一名无辜的队友 💔",
     "ENDING.killed.title": "☠ 你被暗杀了", "ENDING.crew.title": "🎖 突击队获胜", "ENDING.spy.title": "🕵 间谍获胜", "ENDING.win": "🎉 你赢了！", "ENDING.lose": "你输了。",
     "intro.step0": "1 · 介绍", "intro.step1": "2 · 规则", "intro.step2": "3 · 开始", "intro.back": "← 返回", "intro.next0": "查看规则 →", "intro.next1": "明白了，下一步 →", "intro.rulesH": "1 分钟了解规则", "intro.playH": "准备开始",
-    "conn.play": "🔗 连接钱包并部署（你 + 6 名机器人队友）",
+    "conn.play": "🔗 连接钱包并部署（你 + 10 名机器人队友）",
     "rv.unlock": "🔓 正在解锁身份", "rv.spy": "🕵 间谍：{0}", "rv.done": "🔓 身份已解锁", "rv.go": "继续", "rv.stamp": "间谍", "rv.you": "你", "end.spyWas": "🕵 间谍是：{0}",
   },
   fil: {
@@ -94,7 +94,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "Pinalayas si {0} — SIYA NGA ANG ESPIYA 🎯", "UI.ejectedNo": "Pinalayas si {0} — HINDI siya ang espiya. Nagpalayas ka ng inosenteng kasamahan 💔",
     "ENDING.killed.title": "☠ PINATAY KA", "ENDING.crew.title": "🎖 PANALO ANG MGA KOMANDO", "ENDING.spy.title": "🕵 PANALO ANG ESPIYA", "ENDING.win": "🎉 Panalo ka!", "ENDING.lose": "Talo ka.",
     "intro.step0": "1 · Panimula", "intro.step1": "2 · Mga Patakaran", "intro.step2": "3 · Laro", "intro.back": "← Bumalik", "intro.next0": "Tingnan ang patakaran →", "intro.next1": "Gets ko na, susunod →", "intro.rulesH": "Ang patakaran sa loob ng 1 minuto", "intro.playH": "Handa nang maglaro",
-    "conn.play": "🔗 Ikonekta ang wallet at i-deploy (ikaw + 6 na Bot)",
+    "conn.play": "🔗 Ikonekta ang wallet at i-deploy (ikaw + 10 na Bot)",
     "rv.unlock": "🔓 BINUBUKSAN ANG MGA PAPEL", "rv.spy": "🕵 ANG ESPIYA: {0}", "rv.done": "🔓 BUKAS NA ANG MGA PAPEL", "rv.go": "Magpatuloy", "rv.stamp": "ESPIYA", "rv.you": "IKAW", "end.spyWas": "🕵 Ang espiya ay si: {0}",
   },
   uk: {
@@ -107,7 +107,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} вигнано — ЦЕ БУВ ШПИГУН 🎯", "UI.ejectedNo": "{0} вигнано — НЕ шпигун. Ви вигнали невинного побратима 💔",
     "ENDING.killed.title": "☠ ВАС ВБИЛИ", "ENDING.crew.title": "🎖 КОМАНДОСИ ПЕРЕМОГЛИ", "ENDING.spy.title": "🕵 ШПИГУН ПЕРЕМІГ", "ENDING.win": "🎉 Ви перемогли!", "ENDING.lose": "Ви програли.",
     "intro.step0": "1 · Вступ", "intro.step1": "2 · Правила", "intro.step2": "3 · Гра", "intro.back": "← Назад", "intro.next0": "Дивитися правила →", "intro.next1": "Зрозуміло, далі →", "intro.rulesH": "Правила за 1 хвилину", "intro.playH": "Готові грати",
-    "conn.play": "🔗 Підключити гаманець і розгорнути (ви + 6 ботів)",
+    "conn.play": "🔗 Підключити гаманець і розгорнути (ви + 10 ботів)",
     "rv.unlock": "🔓 РОЗКРИТТЯ РОЛЕЙ", "rv.spy": "🕵 ШПИГУН: {0}", "rv.done": "🔓 РОЛІ РОЗКРИТО", "rv.go": "Продовжити", "rv.stamp": "ШПИГУН", "rv.you": "ВИ", "end.spyWas": "🕵 Шпигуном був: {0}",
   },
   ko: {
@@ -120,7 +120,7 @@ export const MORE: Partial<Record<Lang, Dict>> = {
     "UI.ejectedSpy": "{0} 추방 — 스파이가 맞았습니다 🎯", "UI.ejectedNo": "{0} 추방 — 스파이가 아니었습니다. 무고한 동료를 내쫓았습니다 💔",
     "ENDING.killed.title": "☠ 암살당했습니다", "ENDING.crew.title": "🎖 특공대 승리", "ENDING.spy.title": "🕵 스파이 승리", "ENDING.win": "🎉 승리!", "ENDING.lose": "패배.",
     "intro.step0": "1 · 소개", "intro.step1": "2 · 규칙", "intro.step2": "3 · 플레이", "intro.back": "← 뒤로", "intro.next0": "규칙 보기 →", "intro.next1": "알겠어요, 다음 →", "intro.rulesH": "1분 규칙 안내", "intro.playH": "플레이 준비 완료",
-    "conn.play": "🔗 지갑 연결 및 배포 (나 + 봇 동료 6명)",
+    "conn.play": "🔗 지갑 연결 및 배포 (나 + 봇 동료 10명)",
     "rv.unlock": "🔓 역할 공개 중", "rv.spy": "🕵 스파이: {0}", "rv.done": "🔓 역할 공개 완료", "rv.go": "계속", "rv.stamp": "스파이", "rv.you": "나", "end.spyWas": "🕵 스파이는: {0}",
   },
 };

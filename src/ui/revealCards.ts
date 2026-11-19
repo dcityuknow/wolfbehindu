@@ -31,12 +31,12 @@ function css() {
 #rvc{--rvbar:clamp(70px,15vh,128px);position:fixed;inset:0;z-index:40;background:radial-gradient(ellipse at 50% 40%,#1e2246,#03040e);color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
 #rvc .rvt{position:absolute;left:0;right:0;top:0;z-index:5;padding:clamp(10px,2.2vh,26px) 12px clamp(26px,5vh,60px);text-align:center;font-weight:900;letter-spacing:4px;font-size:clamp(18px,3.2vw,40px);color:#ffd24d;text-shadow:0 2px 14px #000,0 0 30px #000;background:linear-gradient(rgba(0,0,0,.8),transparent);pointer-events:none}
 #rvc .rvrow{position:absolute;inset:0;display:flex;flex-wrap:wrap;justify-content:center;align-content:stretch;gap:clamp(4px,.6vw,10px);padding:clamp(4px,.6vw,10px);padding-top:clamp(40px,7vh,80px);padding-bottom:calc(var(--rvbar) + clamp(12px,2vw,24px));perspective:1200px}
-.rvcard{box-sizing:border-box;position:relative;flex:0 0 calc(25% - clamp(4px,.6vw,10px));min-width:0;height:calc(50% - clamp(4px,.6vw,10px) / 2);border-radius:clamp(8px,1.2vw,18px);border:clamp(4px,.5vw,8px) solid transparent;background:linear-gradient(#1a1d26,#1a1d26) padding-box,linear-gradient(145deg,#e3e7ec,#7b828c 38%,#cfd4da 58%,#6a717b) border-box;box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 0 0 2px rgba(0,0,0,.35);opacity:0;transform:translateX(-130vw) skewX(-24deg);transition:filter .5s}
+.rvcard{box-sizing:border-box;position:relative;flex:0 0 calc(16.666% - clamp(4px,.6vw,10px));min-width:0;height:calc(50% - clamp(4px,.6vw,10px) / 2);border-radius:clamp(8px,1.2vw,18px);border:clamp(4px,.5vw,8px) solid transparent;background:linear-gradient(#1a1d26,#1a1d26) padding-box,linear-gradient(145deg,#e3e7ec,#7b828c 38%,#cfd4da 58%,#6a717b) border-box;box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 0 0 2px rgba(0,0,0,.35);opacity:0;transform:translateX(-130vw) skewX(-24deg);transition:filter .5s}
 .rvcard.shown{opacity:1;transform:none}
 .rvcard.in{animation:rvIn .36s cubic-bezier(.15,.9,.25,1) forwards}
 .rvcard .rvimg{position:absolute;inset:0;border-radius:inherit;background-size:cover;background-position:center 35%}
 .rvcard .rvbadge{position:absolute;top:clamp(34px,7vh,80px);left:clamp(4px,.6vw,12px);width:clamp(30px,4.2vw,64px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#eef0f3,#8a919b);border:3px solid #5a606a;display:flex;align-items:center;justify-content:center;font-size:clamp(14px,2.2vw,32px);box-shadow:0 2px 6px rgba(0,0,0,.5);z-index:2}
-.rvcard .rvname{position:absolute;left:0;right:0;bottom:0;padding:clamp(24px,6vh,70px) 4px clamp(12px,3vh,36px);border-radius:0 0 inherit inherit;background:linear-gradient(transparent,rgba(0,0,0,.88));font-weight:800;font-size:clamp(13px,1.9vw,30px);text-align:center;text-shadow:0 2px 6px #000;z-index:2}
+.rvcard .rvname{position:absolute;left:0;right:0;bottom:0;padding:clamp(24px,6vh,70px) 4px clamp(12px,3vh,36px);border-radius:0 0 inherit inherit;background:linear-gradient(transparent,rgba(0,0,0,.88));font-weight:800;font-size:clamp(11px,1.5vw,24px);text-align:center;text-shadow:0 2px 6px #000;z-index:2}
 .rvcard .rvstamp{position:absolute;top:50%;pointer-events:none;opacity:0;z-index:4}   /* rộng/vị trí do JS đặt (placeStamp) để con dấu không bị cắt ở mép màn hình */
 .rvcard.hit{animation:rvShake .35s;z-index:6}
 .rvcard.hit .rvstamp{animation:rvStamp .34s cubic-bezier(.2,.8,.3,1.1) forwards}
@@ -49,7 +49,7 @@ function css() {
 #rvc .rvlog .rl:last-child.typing:after{content:"▌";animation:rvBlink .6s steps(1) infinite}
 #rvc button{align-self:center;flex:none;padding:clamp(8px,1.4vh,14px) clamp(18px,2.8vw,40px);font-size:clamp(14px,1.7vw,22px);border-radius:10px;border:0;font-weight:800;cursor:pointer;display:none}
 #rvc button.on{display:block}
-@media (max-aspect-ratio:1/1){#rvc{--rvbar:clamp(96px,18vh,150px)}.rvcard{flex:0 0 calc(50% - clamp(4px,.6vw,10px));height:calc(25% - clamp(4px,.6vw,10px))}.rvcard .rvbadge{top:6px}}
+@media (max-aspect-ratio:1/1){#rvc{--rvbar:clamp(96px,18vh,150px)}.rvcard{flex:0 0 calc(33.333% - clamp(4px,.6vw,10px));height:calc(25% - clamp(4px,.6vw,10px))}.rvcard .rvbadge{top:6px}}
 @keyframes rvBlink{50%{opacity:0}}
 @keyframes rvIn{0%{opacity:1;transform:translateX(-130vw) skewX(-24deg)}70%{opacity:1;transform:translateX(14px) skewX(5deg)}100%{opacity:1;transform:none}}
 @keyframes rvStamp{0%{opacity:0;transform:scale(3.4) rotate(-38deg)}60%{opacity:.95;transform:scale(.93) rotate(-12deg)}100%{opacity:.93;transform:scale(1) rotate(-14deg)}}

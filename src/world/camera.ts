@@ -48,13 +48,14 @@ const VM: Record<string, { p: [number, number, number]; s: number; ads: [number,
   sniper: { p: [0.15, -0.23, -0.45], s: 1, ads: [0, -0.15, -0.194] },   // ads: kính ngắm sau (gốc súng +0.15 cao, +0.026 dài) trùng tâm camera — thấy ống ngắm / thân súng quanh viền kính như game tham khảo
 };
 const FP_POUCH = new THREE.Vector3(0.3, -0.4, -0.35);   // túi băng đạn (toạ độ súng, súng đã xoay 180° nên +x = bên trái màn hình, -z = về phía người chơi)
+export const fpMats: THREE.Material[] = [];     // vật liệu tay áo + găng ở góc nhìn thứ nhất (altitude.ts phủ băng lên đây)
 export const viewGuns: THREE.Group[] = [];
 export const swimArms: THREE.Group[] = [];   // hai tay quạt nước ở góc nhìn thứ nhất khi bơi
 export let viewNade: THREE.Group;            // tay phải cầm lựu đạn (góc thứ nhất)
 let fpHandL: THREE.Group;                    // tay trái: nắm băng đạn / kéo thanh trượt / giật chốt lựu đạn
 {
   const d0 = defOf(SQUAD[0]), sleeve = d0.uni.pal[Math.min(1, d0.uni.pal.length - 1)] as number, glove = (d0.glove ?? d0.skin) as number;
-  const mSleeve = new THREE.MeshStandardMaterial({ color: sleeve }), mGlove = new THREE.MeshStandardMaterial({ color: glove });
+  const mSleeve = new THREE.MeshStandardMaterial({ color: sleeve }), mGlove = new THREE.MeshStandardMaterial({ color: glove }); fpMats.push(mSleeve, mGlove);
   const arm = (g: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
   for (const def of GUNS) {
     const vg = buildGun(def.id);

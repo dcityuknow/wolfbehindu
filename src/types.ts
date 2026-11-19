@@ -6,7 +6,7 @@ export interface Entity { i: number; g: THREE.Group; x: number; z: number; rot: 
   /** vị trí hợp lệ ở lần va chạm trước (để chặn leo vách / lội xuống biển) */ px: number; pz: number;
   /** hướng CHÂN (rad) + đang lùi: thân (rot) xoay theo chuột, chân giữ nguyên tới khi di chuyển */ legRot?: number; legBack?: boolean;
   hp: number; stun: number; aim: number; pitch: number; kick: number; rel: number; flash: number }
-export interface Body { x: number; z: number; g: THREE.Group; own?: boolean }
+export interface Body { x: number; z: number; g: THREE.Group; own?: boolean; pose?: number; yaw?: number }
 export interface Station { x: number; z: number; type: TaskType; m: THREE.Mesh; active: boolean; done: boolean }
 export interface GameState {
   phase: Phase; slot: number; role: 0 | 1 | null; round: number; acted: boolean; killUsed: boolean;

@@ -105,6 +105,36 @@ function boom(dist: number) {
   tone("sine", 120, 26, 1.4, 1.6); tone("sawtooth", 260, 35, 0.5, 0.6);
 }
 
+/* ───────────── Âm thanh nước: lấy NGUYÊN từ game tham khảo (src/engine/sound.js: splashSnd · wadeSnd · tiếng đạn/lựu đạn xuống nước · lặn · chết đuối) ───────────── */
+function tone2(type: OscillatorType, f0: number, f1: number, dur: number, v: number, t0 = 0) {
+  const a = A(), n = a.currentTime + t0, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, n); o.frequency.exponentialRampToValueAtTime(f1, n + dur);
+  g.gain.setValueAtTime(v, n); g.gain.exponentialRampToValueAtTime(0.001, n + dur); o.connect(g); g.connect(a.destination); o.start(n); o.stop(n + dur + 0.02);
+}
+function noiseBurst(kind: BiquadFilterType, f0: number, f1: number, dur: number, v: number, q = 1, t0 = 0) {
+  const a = A(), n = a.currentTime + t0, s = a.createBufferSource(), fl = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = noise2(a); fl.type = kind; fl.Q.value = q; fl.frequency.setValueAtTime(f0, n); fl.frequency.exponentialRampToValueAtTime(f1, n + dur);
+  g.gain.setValueAtTime(v, n); g.gain.exponentialRampToValueAtTime(0.001, n + dur); s.connect(fl); fl.connect(g); g.connect(a.destination); s.start(n, Math.random() * 1.5); s.stop(n + dur + 0.02);
+}
+/** Chạm nước: "tũm" trầm, mềm (big = rơi/nhảy xuống · false = bước lên bờ, hạt nước nhỏ). k = hệ số to nhỏ (xa thì nhỏ). */
+function splashSnd(big: boolean, k0 = 1) {
+  const r = 0.94 + Math.random() * 0.12, k = (big ? 1 : 0.55) * k0;
+  tone2("sine", 300 * r, 85 * r, 0.2, 0.5 * k, 0);                              // "tũm": âm trầm rơi nhanh
+  tone2("sine", 170 * r, 380 * r, 0.13, 0.2 * k, 0.05);                         // bọt khí nhỏ nổi lên "bủm"
+  noiseBurst("lowpass", 650, 140, big ? 0.28 : 0.18, 0.3 * k, 0.4, 0);          // nước xao nhẹ, đã lọc mềm
+  if (big) tone2("sine", 240 * r, 520 * r, 0.09, 0.09 * k0, 0.16);              // giọt nước rơi lại rất khẽ
+}
+/** Một nhịp quạt nước / bước lội: "bì - bõm" (bọt nhỏ rồi bọt lớn trầm, âm đi lên như bong bóng nước). */
+function wadeSnd(k = 1) {
+  const r = 0.88 + Math.random() * 0.24;
+  tone2("sine", 210 * r, 480 * r, 0.07, 0.3 * k, 0);                            // "bì": bọt nhỏ
+  tone2("sine", 110 * r, 280 * r, 0.17, 0.7 * k, 0.09);                         // "bõm": bọt lớn, trầm
+  tone2("sine", 330 * r, 720 * r, 0.06, 0.12 * k, 0.21);                        // giọt nước li ti rơi lại
+  noiseBurst("lowpass", 800, 160, 0.24, 0.3 * k, 0.5, 0.02);                    // nước xào xạc, mềm, không chói
+}
+/** Hệ số to nhỏ theo khoảng cách tới người nghe (game tham khảo dùng loa 3D; ở đây chỉ giảm âm lượng). */
+const nearK = (d: number) => 2.5 / (1 + d / 8);
+
 export const sfx = {
   /** Tiếng bắn: pistol / rifle (AK) / sniper, đúng như game tham khảo. v = hệ số to nhỏ (bot ở xa nhỏ hơn). */
   shot: safe((id: string, v: number = 1) => { if (id === "sniper") sniperShot(v); else gunShot(id === "rifle", v); }),
@@ -116,6 +146,14 @@ export const sfx = {
   nadeThrow: safe(() => snd(300, 0.1, "sine", 0.04)),       // vung tay ném
   nadeLaunch: safe(() => snd(200, 0.12, "sine", 0.05)),     // lựu đạn rời tay
   hit: safe(() => thump(900, 400, 0.06, 0.18)),
+  /** Nước (từ game tham khảo): xuống/lên nước, quạt nước, lặn, bong bóng, đạn/lựu đạn rơi xuống nước, chết đuối. */
+  splash: safe((big: boolean = true, k: number = 1) => splashSnd(big, k)),
+  wade: safe((k: number = 1) => wadeSnd(k)),
+  dive: safe(() => snd(150, 0.25, "sine", 0.05)),                                        // đầu chìm xuống dưới mặt nước
+  bubble: safe(() => tone2("sine", 380 + Math.random() * 260, 980, 0.05, 0.045)),        // bong bóng khí nổi lên khi lặn
+  waterShot: safe((dist: number = 0) => { const k = nearK(dist); snd(650, 0.08, "sine", 0.12 * k); snd(260, 0.16, "triangle", 0.1 * k); }),   // đạn chạm mặt nước
+  waterBlast: safe((dist: number = 0) => { const k = nearK(dist); splashSnd(true, Math.min(1.6, k)); snd(220, 0.3, "sine", 0.14 * k); snd(120, 0.5, "triangle", 0.12 * k); }),   // lựu đạn nổ dưới nước
+  drown: safe(() => snd(110, 0.3, "sawtooth", 0.07)),                                      // hết hơi, bị mất máu
   explode: safe((dist: number = 0) => boom(dist)),
   /** Footstep: v = loudness 0..1 (bots far away are quieter). Soft thud + a little crunch. */
   step: safe((v: number = 1) => { hiss(520 + Math.random() * 220, 0.06, 0.2 * v, "lowpass"); thump(125 + Math.random() * 30, 62, 0.055, 0.2 * v); }),
@@ -166,4 +204,41 @@ export const cineSfx = {
     if (!amb) return; const t = A().currentTime; amb.lo.gain.setTargetAtTime(lo, t, 0.15); amb.lof.frequency.setTargetAtTime(loF, t, 0.15); amb.hi.gain.setTargetAtTime(hi, t, 0.15); amb.hif.frequency.setTargetAtTime(hiF, t, 0.15);
   }),
   ambStop: safe(() => { if (!amb) return; const m = amb; amb = null; const t = A().currentTime; m.lo.gain.setTargetAtTime(0, t, 0.15); m.hi.gain.setTargetAtTime(0, t, 0.15); setTimeout(() => { try { m.s1.stop(); m.s2.stop(); } catch { /* đã dừng */ } }, 900); }),
+};
+
+/** Gió trên núi: thân gió ù ù (noise lọc thấp) + tiếng rít (noise băng hẹp Q cao, tần số trôi theo cơn gió), cả hai nhấp nhô theo các cơn gió giật (LFO chậm).
+ *  set(level 0..1): 0 = im lặng, 1 = bão sát đỉnh. Tự tạo node ở lần gọi đầu có level > 0. */
+let wind: { g1: GainNode; lp: AudioBufferSourceNode | null; f1: BiquadFilterNode; d1: GainNode; g2: GainNode; f2: BiquadFilterNode; d2: GainNode; df: GainNode; srcs: AudioScheduledSourceNode[] } | null = null;
+export const windSfx = {
+  set: safe((level: number) => {
+    if (!wind) {
+      if (level < 0.01) return;
+      const a = A(), mk = (off: number) => { const s = a.createBufferSource(); s.buffer = noise(a); s.loop = true; s.start(0, off); return s; };
+      const n1 = mk(0.1), n2 = mk(0.55), f1 = a.createBiquadFilter(), f2 = a.createBiquadFilter(), g1 = a.createGain(), g2 = a.createGain();
+      f1.type = "lowpass"; f1.frequency.value = 300; f2.type = "bandpass"; f2.Q.value = 9; f2.frequency.value = 900; g1.gain.value = 0; g2.gain.value = 0;
+      n1.connect(f1); f1.connect(g1); g1.connect(a.destination); n2.connect(f2); f2.connect(g2); g2.connect(a.destination);
+      const lfo = (hz: number) => { const o = a.createOscillator(); o.frequency.value = hz; o.start(); return o; };
+      const l1 = lfo(0.23), l2 = lfo(0.37), l3 = lfo(0.15), d1 = a.createGain(), d2 = a.createGain(), df = a.createGain();
+      l1.connect(d1); d1.connect(g1.gain); l2.connect(d2); d2.connect(g2.gain); l3.connect(df); df.connect(f2.frequency);   // cơn gió giật: nhấp nhô âm lượng + tần số tiếng rít
+      wind = { g1, lp: null, f1, d1, g2, f2, d2, df, srcs: [n1, n2, l1, l2, l3] };
+    }
+    const w = wind, a = A(), t = a.currentTime, L = Math.max(0, Math.min(1, level)), body = 0.55 * Math.pow(L, 1.4) * VOL, whistle = 0.7 * Math.pow(L, 2.2) * VOL;
+    w.g1.gain.setTargetAtTime(body, t, 0.35); w.d1.gain.setTargetAtTime(body * 0.45, t, 0.35); w.f1.frequency.setTargetAtTime(260 + 520 * L, t, 0.35);
+    w.g2.gain.setTargetAtTime(whistle, t, 0.35); w.d2.gain.setTargetAtTime(whistle * 0.5, t, 0.35); w.f2.frequency.setTargetAtTime(700 + 900 * L, t, 0.35); w.df.gain.setTargetAtTime(160 + 420 * L, t, 0.35);
+  }),
+  stop: safe(() => { if (!wind) return; const w = wind; wind = null; const t = A().currentTime; w.g1.gain.setTargetAtTime(0, t, 0.2); w.g2.gain.setTargetAtTime(0, t, 0.2); setTimeout(() => { for (const s of w.srcs) { try { s.stop(); } catch { /* đã dừng */ } } }, 900); }),
+};
+
+/** Tiếng nền khi lặn: ù ù trầm của nước (noise lọc thấp). set(level 0..1) — 0 = tắt. */
+let uwAmb: { g: GainNode; s: AudioBufferSourceNode } | null = null;
+export const underSfx = {
+  set: safe((level: number) => {
+    if (!uwAmb) {
+      if (level < 0.01) return;
+      const a = A(), s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+      s.buffer = noise(a); s.loop = true; f.type = "lowpass"; f.frequency.value = 240; g.gain.value = 0; s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+      uwAmb = { g, s };
+    }
+    uwAmb.g.gain.setTargetAtTime(0.16 * Math.max(0, Math.min(1, level)) * VOL, A().currentTime, 0.12);
+  }),
 };

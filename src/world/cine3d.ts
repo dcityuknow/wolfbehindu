@@ -6,11 +6,11 @@ import { curlArm } from "./gunpose";
 import { COLORS, SQUAD, type GunId } from "../config";
 import { CINE, VO } from "./cineState";
 import { reserved, WALLS } from "./map";
-import { groundAt, walkable, H, slopeAt, CAMP_Y } from "./island";
+import { groundAt, walkable, H, slopeAt, CAMP_Y, CORE_R } from "./island";
 import { reachable } from "./nav";
 import { cineSfx } from "../audio";
 import { say, voicePreload, voiceStop } from "../voice";
-import { N, EXT, DEP_ORDER, T_DEP, PLANE_YAW, SEAT, planeAt, toWorld, RANK, LAND, stateOf, smooth, lerp, storm } from "./cinePath";
+import { N, EXT, DEP_ORDER, T_DEP, PLANE_YAW, SEAT, planeAt, toWorld, RANK, LAND, stateOf, smooth, lerp, storm, DIVE, DEP, ALERT_LEAD } from "./cinePath";
 import { CALLSIGNS } from "../story";
 
 /**
@@ -23,23 +23,25 @@ import { CALLSIGNS } from "../story";
  * Phân cảnh 0 (khoang máy bay) — LỊCH CÚ MÁY. Muốn đổi nhịp phim chỉ cần sửa mấy số này (giây tính từ đầu phân cảnh):
  *  master shot (cuối khoang nhìn lên) → mỗi người một cú cận cảnh theo thứ tự SHOT → lùi ra toàn cảnh, ai cũng quay sang nhìn nhau.
  *  id 1 Bravo = TỨC GIẬN · 3 Delta = LẠNH LÙNG nhếch mép · 4 Echo = SỢ HÃI · 5 Foxtrot = BUỒN · 0 Bạn = VÔ CẢM đáng ngờ · 6 Golf = cười gượng, kẻ bấm bộ phát · 2 Charlie = hoang tưởng, gằn giọng.
+ *  4 lính mới (11 nước = 11 lính): 7 Hotel = quân y, cười lo lắng · 8 India = kỹ sư thông tin, soi từng người · 9 Juliet = xạ thủ, lạnh như băng · 10 Kilo = tân binh, sợ hãi.
  */
-const CAB = 32;
+const CAB = 45;
 const SHOT: { id: number; a: number; e: number }[] = [
   { id: 1, a: 3.8, e: 6.8 }, { id: 3, a: 6.8, e: 9.4 }, { id: 4, a: 9.4, e: 12.0 }, { id: 5, a: 12.0, e: 14.6 },
-  { id: 0, a: 14.6, e: 17.9 }, { id: 6, a: 17.9, e: 23.9 }, { id: 2, a: 23.9, e: 29.7 },
+  { id: 7, a: 14.6, e: 17.8 }, { id: 8, a: 17.8, e: 21.8 },
+  { id: 0, a: 21.8, e: 25.1 }, { id: 9, a: 25.1, e: 27.9 }, { id: 10, a: 27.9, e: 30.9 }, { id: 6, a: 30.9, e: 36.9 }, { id: 2, a: 36.9, e: 42.7 },
 ];
-const MASTER2 = 29.7;                                              // từ giây này: lùi ra toàn cảnh lần hai
+const MASTER2 = 42.7;                                              // từ giây này: lùi ra toàn cảnh lần hai
 const shotAt = (t: number) => SHOT.find((s) => t >= s.a && t < s.e);
 const SA = (id: number) => SHOT.find((s) => s.id === id)!.a;       // giây bắt đầu cú cận cảnh của người id
 /** Mọi điểm cắt cảnh (cả cắt trong cùng một người) — mỗi lần cắt có tiếng "bụp" + nhoè chuyển động. */
-const SUBCUTS = [SA(6) + 1.7, SA(6) + 3.2, SA(6) + 5.0, SA(4) + 1.5, SA(5) + 0.9, SA(0) + 1.4, SA(0) + 2.6, SA(2) + 1.5, SA(2) + 4.2];
+const SUBCUTS = [SA(8) + 1.6, SA(6) + 1.7, SA(6) + 3.2, SA(6) + 5.0, SA(4) + 1.5, SA(5) + 0.9, SA(0) + 1.4, SA(0) + 2.6, SA(2) + 1.5, SA(2) + 4.2];
 const CUTS = [0, ...SHOT.map((s) => s.a), ...SUBCUTS, MASTER2].sort((x, y) => x - y);
 /** Đèn "key" bám theo máy quay ở từng cú cận cảnh: [màu, cường độ] — đỏ gắt cho giận dữ, lạnh xanh cho nghi kỵ, xanh bệnh cho sợ hãi, cam ấm cho nỗi buồn… */
-const KEY: Record<number, [number, number]> = { 1: [0xff3a22, 3.2], 3: [0x8fd8ee, 2.6], 4: [0xd0f0d8, 2.8], 5: [0xffbe84, 2.6], 0: [0x9ab4ff, 2.4], 6: [0x5af0b4, 3.0], 2: [0xff7a3a, 3.2] };
-const WFLASH = [2.6, 8.9, 13.4, 19.7, 26.1, 30.6];   // thời điểm sét xa loé qua cửa sổ
-export const BEAT_MIN = [CAB, 10, 16, 10 + EXT, 12];   // thời lượng hình ảnh mỗi phân cảnh (giây) — tổng 60 + EXT giây (phân cảnh 4 dài thêm để thấy rõ cú rơi)
-const GUN_IDS: GunId[] = ["rifle", "pistol", "rifle", "pistol", "rifle", "sniper", "pistol"];
+const KEY: Record<number, [number, number]> = { 7: [0x7be0a0, 2.6], 8: [0xa0b8ff, 2.4], 9: [0xd8e8ff, 2.2], 10: [0xffd8a0, 2.8], 1: [0xff3a22, 3.2], 3: [0x8fd8ee, 2.6], 4: [0xd0f0d8, 2.8], 5: [0xffbe84, 2.6], 0: [0x9ab4ff, 2.4], 6: [0x5af0b4, 3.0], 2: [0xff7a3a, 3.2] };
+const WFLASH = [2.6, 8.9, 13.4, 19.7, 26.1, 30.6, 34.8, 39.4];   // thời điểm sét xa loé qua cửa sổ
+export const BEAT_MIN = [CAB, 12, 16, 10 + EXT, 12];   // thời lượng hình ảnh mỗi phân cảnh (giây) — tổng 60 + EXT giây (phân cảnh 4 dài thêm để thấy rõ cú rơi)
+const GUN_IDS: GunId[] = ["rifle", "pistol", "rifle", "pistol", "rifle", "sniper", "pistol", "pistol", "rifle", "sniper", "rifle"];
 
 /* ───────────── ánh sáng / bầu trời theo từng cảnh ───────────── */
 interface Look { top: number; mid: number; hor: number; fog: number; fogD: number; hemi: number; hemiC: number; sun: number; sunC: number; cloud: number; stars: number; orb: number }
@@ -197,11 +199,15 @@ function faceOf(i: number, b: number, t: number, c: number, ct: number, mode: st
   const talk = VO.speaker === i ? 0.2 + 0.8 * Math.abs(Math.sin(c * 11 + i)) * (0.55 + 0.45 * Math.sin(c * 4.3 + 1)) : 0;
   const bl = (c + i * 1.13) % (2.6 + (i % 3) * 0.7) < 0.13 ? 1 : 0;
   const o: FaceOpt = { ...DEF_OPT, blink: bl, gaze: Math.sin(c * 0.8 + i * 2.1) * 0.6, mouth: talk };
+  if (i === 0 && mode === "crash") { o.blink = 1; o.squint = 1; o.brow = -0.5; o.lift = 0.3; o.gap = 3.4; o.mw = 2.3; o.mouth = 0; o.gaze = 0; return o; }   // chết: nhắm nghiền mắt, há hốc miệng
   if (b === 0) cabinFace(o, i, t, c);
   else if (b === 1) { o.brow = 0.35; o.squint = 0.1; if (i === 1) { o.brow = 0.6; o.lift = 0.1; } }
   else if (b === 2) { o.squint = 0.45; o.brow = -0.2; o.mouth = Math.max(talk, 0.35 + 0.5 * Math.abs(Math.sin(c * 7 + i * 1.7))); if (i === 2 && ct > 22) { o.squint = 0; o.brow = -0.7; o.lift = 0.5; o.mouth = 1; o.gaze = Math.sin(c * 9); } }
   else if (b === 3) { o.squint = 0.3; o.brow = -0.15; const u = t - EXT;   // u = giây tính từ lúc đồng hồ độ cao báo đỏ
-    if (i === 0) { const k = smooth(3.8, 6.5, u); o.blink = Math.max(bl, k); o.squint = 0; o.brow = lerp(-0.45, 0, k); o.mouth = u < 2.4 ? 0.55 : 0.18 * k; o.gaze = u < 2.4 ? Math.sin(c * 12) * 0.5 : 0; } }
+    if (i === 0) { const k = smooth(3.8, 6.5, u); o.blink = Math.max(bl, k); o.squint = 0; o.brow = lerp(-0.45, 0, k); o.mouth = u < 2.4 ? 0.55 : 0.18 * k; o.gaze = u < 2.4 ? Math.sin(c * 12) * 0.5 : 0;
+      const pn = DIVE.armed && !DIVE.ok ? smooth(-ALERT_LEAD, 0, u) : 0;   // hoảng loạn khi đồng hồ báo đỏ mà chưa bung dù
+      if (pn > 0) { o.wide = 0.8 * pn; o.pupil = 1 - 0.35 * pn; o.brow = -0.6 * pn; o.lift = 0.4 * pn; o.sweat = pn; o.gap = 1.2 * pn; o.mw = 2.2; }
+      if (DIVE.fail && mode === "fall") { o.wide = 1; o.pupil = 0.55; o.brow = -0.8; o.lift = 0.5; o.gap = 3.2 + Math.sin(c * 20) * 0.4; o.mw = 2.4; o.teeth = 1; o.sweat = 1; o.blink = 0; o.squint = 0; o.mouth = 0; } } }
   else if (i === 0) { o.blink = 1; o.mouth = 0.22; o.brow = 0; }
   else o.brow = 0;
   return o;
@@ -235,6 +241,14 @@ function cabinFace(o: FaceOpt, i: number, t: number, c: number) {
       const tw = r < 1.9 ? Math.floor(c * 5.5) : 0, who = r < 1.9 ? ((tw * 0.754877) % 1) * 2 - 1 : r < 3.0 ? -0.9 : r < 3.9 ? 0.9 : 0;
       o.brow = 0.35 + 0.6 * k; o.lift = -0.25 * k; o.squint = 0.25 * k; o.pupil = 1 - 0.2 * k; o.gaze = who; o.blink = 0;
       o.curve = -0.7 * k; o.gap = 0.6 * k; o.mw = 2.4; o.teeth = k > 0.6 ? 1 : 0; o.vein = 0.6 * k; o.jaw = 0.5 * k; break; }
+    case 7: // HOTEL (quân y) · CƯỜI LO LẮNG: nụ cười gượng run run, mày nhướn, mắt đảo nhanh, mồ hôi, cố pha trò cho đỡ căng
+      o.curve = 0.55 * k; o.gap = 0.25 * k; o.mw = 2.2; o.brow = -0.3 * k; o.lift = 0.3 * k; o.sweat = 0.7 * k; o.gaze = Math.sin(c * 2.4) * 0.8; o.blink = (c % 2.4) < 0.14 ? 1 : 0; break;
+    case 8: // INDIA (kỹ sư thông tin) · SOI XÉT: nheo mắt, nhìn quét chậm từng người như đang đọc nhật ký, nhếch một bên mày
+      o.squint = 0.38 * k; o.brow = 0.18 * k; o.asym = 0.6 * k; o.gaze = lerp(-0.8, 0.9, smooth(a, a + 3.6, t)); o.curve = -0.12 * k; o.mw = 2; o.jaw = 0.25 * k; o.pupil = 1 - 0.1 * k; o.blink = (c % 4.0) < 0.13 ? 1 : 0; break;
+    case 9: // JULIET (xạ thủ) · LẠNH NHƯ BĂNG: gần như không biểu cảm, mắt nheo như đang ngắm qua kính, chỉ liếc đúng hai lần
+      o.squint = 0.5 * k; o.pupil = 1 - 0.18 * k; o.brow = 0.1; o.gaze = r < 1.2 ? -0.9 : r < 2.2 ? 0.9 : 0; o.blink = (c % 5.2) < 0.12 ? 1 : 0; o.curve = 0.05; o.mw = 2; o.jaw = 0.2 * k; break;
+    case 10: // KILO (tân binh) · HOẢNG SỢ: mắt mở to, mày xếch, môi mếu run, mồ hôi và nước mắt chực trào
+      o.wide = 0.8 * k; o.pupil = 1 - 0.3 * k; o.brow = -0.75 * k; o.lift = 0.4 * k; o.curve = -0.55 * k * (1 + 0.1 * Math.sin(c * 9)); o.gap = 0.35 * k; o.mw = 1.8; o.sweat = 0.8 * k; o.gazeY = -0.4 * k; o.tear = smooth(a + 1.0, a + 1.8, t); o.blink = (c % 1.8) < 0.15 ? 1 : 0; break;
   }
 }
 
@@ -370,7 +384,7 @@ const rain = (() => { const g = new THREE.BufferGeometry(); g.setAttribute("posi
 const S = { beat: -1, t: 0, clock: 0, cut: 0 };
 let GL: number[] = [], env: any = null;
 let ovFade: HTMLElement | null, ovFlash: HTMLElement | null, ovBlur: HTMLElement | null, ovLidT: HTMLElement | null, ovLidB: HTMLElement | null, ovAlt: HTMLElement | null, ovAltV: HTMLElement | null, ovVig: HTMLElement | null, ovRays: HTMLElement | null;
-let ovStatic: HTMLElement | null, ovTag: HTMLElement | null, tagId = -2;
+let ovStatic: HTMLElement | null, ovTag: HTMLElement | null, tagId = -2, ovKey: HTMLElement | null = null, ovKeyBar: HTMLElement | null = null, ovDead: HTMLElement | null = null;
 let LZ = 0, fired = new Set<number>();   // LZ: vị trí dọc khoang của camera (để đặt đèn đỏ bên cạnh khuôn mặt)
 const V = new THREE.Vector3(), P0 = new THREE.Vector3(), T0 = new THREE.Vector3(), P1 = new THREE.Vector3(), T1 = new THREE.Vector3(), CEN = new THREE.Vector3();
 
@@ -380,8 +394,8 @@ function pickLandings() {
   for (let i = 0; i < N; i++) {
     let p: { x: number; z: number; a: number } | null = null;
     for (let tries = 0; tries < 600 && !p; tries++) {
-      const x = (Math.random() * 2 - 1) * 56, z = (Math.random() * 2 - 1) * 56, minD = Math.max(8, 20 - tries * 0.03), ix = Math.floor(x), iz = Math.floor(z);
-      if (!walkable(x, z) || !reachable(x, z) || H(ix, iz) < 3 || H(ix, iz) > 24 || slopeAt(ix, iz) > 1) continue;   // đồng cỏ/đồi thoải, nối được tới lửa trại
+      const x = (Math.random() * 2 - 1) * CORE_R, z = (Math.random() * 2 - 1) * CORE_R, minD = Math.max(8, 20 - tries * 0.03), ix = Math.floor(x), iz = Math.floor(z);
+      if (Math.hypot(x, z) > CORE_R || !walkable(x, z) || !reachable(x, z) || H(ix, iz) < 3 || H(ix, iz) > 30 || slopeAt(ix, iz) > 1) continue;   // đồng cỏ/đồi thoải, nối được tới lửa trại
       if (reserved.some(([rx, rz, rr]) => Math.hypot(rx - x, rz - z) < rr + 1.5)) continue;
       if (WALLS.some(([cx, cz, w, d]) => Math.abs(x - cx) < w / 2 + 1.4 && Math.abs(z - cz) < d / 2 + 1.4)) continue;
       if (pts.some((q) => Math.hypot(q.x - x, q.z - z) < minD)) continue;
@@ -399,6 +413,7 @@ export function cineBegin() {
   env = { hemiI: hemi.intensity, hemiC: hemi.color.getHex(), sunI: sun.intensity, sunC: sun.color.getHex(), fogC: fog.color.getHex(), fogD: fog.density, top: u.top.value.getHex(), mid: u.mid.value.getHex(), hor: u.hor.value.getHex(), bg: (scene.background as THREE.Color).getHex(), torchI: torch.intensity, orb: sunOrb.visible, fov: camera.fov, far: camera.far };
   ovFade = document.getElementById("cineFade"); ovFlash = document.getElementById("cineFlash"); ovBlur = document.getElementById("cineBlur"); ovLidT = document.getElementById("cineLidT"); ovLidB = document.getElementById("cineLidB");
   ovAlt = document.getElementById("cineAlt"); ovAltV = document.getElementById("cineAltV"); ovVig = document.getElementById("cineVig"); ovRays = document.getElementById("cineRays"); fired = new Set(); cineSfx.ambStart(); voicePreload(); ovStatic = document.getElementById("cineStatic"); ovTag = document.getElementById("cineTag"); tagId = -2;
+  ovKey = document.getElementById("cineKey"); ovKeyBar = document.getElementById("cineKeyBar"); ovDead = document.getElementById("cineDead"); Object.assign(DIVE, { armed: false, ok: false, fail: false, ft: 0, tc: -1, hit: false, press: 0 });
   S.beat = 0; S.t = 0; S.clock = 0; S.cut = 0; camera.far = 1500; camera.updateProjectionMatrix();
   scene.add(root); CINE.active = true;
 }
@@ -412,13 +427,36 @@ export function cineEnd() {
   hemi.intensity = env.hemiI; hemi.color.setHex(env.hemiC); sun.intensity = env.sunI; sun.color.setHex(env.sunC); fog.color.setHex(env.fogC); fog.density = env.fogD;
   u.top.value.setHex(env.top); u.mid.value.setHex(env.mid); u.hor.value.setHex(env.hor); (scene.background as THREE.Color).setHex(env.bg); torch.intensity = env.torchI;
   sunOrb.visible = env.orb; sky.position.set(0, 0, 0); camera.fov = env.fov; camera.far = env.far; camera.rotation.set(0, 0, 0); camera.updateProjectionMatrix();
-  for (const o of [ovFade, ovFlash, ovAlt, ovVig, ovRays]) if (o) o.style.opacity = "0";
+  for (const o of [ovFade, ovFlash, ovAlt, ovVig, ovRays, ovKey]) if (o) o.style.opacity = "0";
+  ovDead?.classList.remove("on"); Object.assign(DIVE, { armed: false, ok: false, fail: false, ft: 0, tc: -1, hit: false, press: 0 });
 }
+/** Người chơi bấm E (hoặc chạm vào nút E): bung dù. Chỉ có tác dụng khi cảnh báo đang bật. Bấm sớm thì nhảy tới ngay trước lúc dù bung (cắt cảnh nhanh che chỗ nối). */
+export function cineDeploy() {
+  if (S.beat !== 3 || !DIVE.armed || DIVE.ok || DIVE.fail) return false;
+  DIVE.ok = true; DIVE.press = S.clock;
+  const target = EXT + DEP - 0.3;
+  if (S.t < target) { S.t = target; S.cut = 1; }
+  const ev = EV[3]; for (let e = 0; e < ev.length; e++) if (ev[e].t < S.t) fired.add(e);   // bỏ các tiếng còi đã quá giờ
+  voiceStop(); cineSfx.whoosh();
+  return true;
+}
+/** Sau khi chết: chơi lại đoạn nhảy dù (quay lại ngay trước lúc cảnh báo bật). */
+export function cineRetry() {
+  if (S.beat !== 3 || !DIVE.fail) return false;
+  Object.assign(DIVE, { armed: false, ok: false, fail: false, ft: 0, tc: -1, hit: false, press: 0 });
+  S.t = EXT - ALERT_LEAD - 0.8; S.cut = 1; voiceStop(); fired = new Set();
+  const ev = EV[3]; for (let e = 0; e < ev.length; e++) if (ev[e].t < S.t) fired.add(e);
+  return true;
+}
+/** Đang trong đoạn bấm E (chưa bung dù) hoặc đang ở màn chết: cutscene không được tự sang cảnh sau / bỏ qua cảnh. */
+export const cineBlocked = () => S.beat === 3 && (!DIVE.ok || DIVE.fail);
+export const cineDead = () => DIVE.fail && DIVE.tc >= 0 && S.t - EXT - DEP - DIVE.tc > 2.6;
+export const cineRemain = () => BEAT_MIN[Math.max(0, S.beat)] - S.t;
 
 /* ───────────── tư thế từng người ───────────── */
 function armsLow(r: Rig, th = -0.95) { r.s.armL.rotation.set(th, 0, 0.3); r.s.armR.rotation.set(th, 0, -0.3); r.s.armL.userData.elbow.rotation.x = r.s.armR.userData.elbow.rotation.x = -0.25 + 0.4 * th; r.gun.pivot.rotation.x = th + Math.PI / 2; }
 function poseSoldier(i: number, ct: number, rise: number) {
-  const r = rigs[i], st = stateOf(i, ct, GL[i]), c = S.clock, g = r.s.g;
+  const r = rigs[i], st = stateOf(i, ct, GL[i], groundAt), c = S.clock, g = r.s.g;
   r.rig.rotation.set(0, 0, 0); g.rotation.set(0, 0, 0); g.position.set(0, 0, 0); r.s.legL.rotation.set(0, 0, 0); r.s.legR.rotation.set(0, 0, 0);
   r.chute.visible = false; r.chute.position.set(0, 0, 0); r.chute.scale.set(1, 1, 1); r.chute.rotation.set(0, 0, 0); r.gun.pivot.visible = false; r.gun.extra.visible = true;   // không cầm súng: súng đeo hông
   r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0; curl(r, 0.9, 0.5); r.s.armL.userData.elbow.rotation.x = r.s.armR.userData.elbow.rotation.x = -0.22;   // khớp gối thẳng, cùi chỏ hơi gập, bàn tay buông lỏng
@@ -433,11 +471,18 @@ function poseSoldier(i: number, ct: number, rise: number) {
       armsLow(r, -0.5 + Math.sin(c * 2 + i) * 0.02); break;   // tay đặt thả lỏng (không cầm súng)
     }
     case "fall": { // rơi tự do, sấp, dang tay
-      const w = Math.sin(c * 9 + i) * 0.1;
+      const w = Math.sin(c * 9 + i) * (i === 0 && DIVE.fail ? 0.45 : 0.1);   // không có dù: quờ quạng tay chân
       const tum = i === 2 ? smooth(22, 22.6, ct) : 0;   // người bị sóng xung kích của tia sét hất văng: xoay tít mất kiểm soát
       r.rig.position.set(st.wx, st.wy, st.wz); r.rig.rotation.set(Math.sin(c * 6 + i) * 0.12 + tum * (ct - 22) * 4.5, Math.PI / 2, tum * (ct - 22) * 3.2);
       g.rotation.x = Math.PI / 2; g.position.set(0, 0, -0.9);
       r.s.armL.rotation.set(-0.3, 0, -1.3 + w); r.s.armR.rotation.set(-0.3, 0, 1.3 - w); r.s.legL.rotation.set(0.3, 0, -0.35); r.s.legR.rotation.set(0.3, 0, 0.35); r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0.35; curl(r, 0.8, 0.7); break;
+    }
+    case "crash": { // KHÔNG bấm E: đập xuống đất, nằm sấp dang tay chân, nảy nhẹ một cái rồi nằm im
+      const bn = Math.exp(-9 * st.ou) * Math.sin(st.ou * 22) * 0.25;
+      r.rig.position.set(st.wx, st.wy + Math.max(0, bn), st.wz); r.rig.rotation.set(0, Math.PI / 2 + 0.5 * Math.sin(i * 2.7 + 1), 0);
+      g.rotation.x = Math.PI / 2; g.position.set(0, 0, -0.9);
+      r.s.armL.rotation.set(-0.3, 0, -1.55); r.s.armR.rotation.set(-0.5, 0, 1.2); r.s.legL.rotation.set(0.25, 0, -0.55); r.s.legR.rotation.set(0.1, 0, 0.3);
+      r.s.legL.userData.knee.rotation.x = 0.2; r.s.legR.userData.knee.rotation.x = 0.55; curl(r, 0.3, 0.2); break;
     }
     case "chute": { // treo dưới dù, gió bão làm lắc mạnh
       const A = 0.06 + 0.42 * storm(ct), ou = st.ou, b1 = smooth(0, 0.5, ou), b2 = smooth(0, 0.6, ou), tau = Math.max(0, ou - 0.4);
@@ -484,8 +529,8 @@ function poseSoldier(i: number, ct: number, rise: number) {
 function curl(r: Rig, c: number, th: number) { for (const arm of [r.s.armL, r.s.armR]) curlArm(arm, c, th); }
 /** Dáng ngồi / cử động thân của từng người trong khoang. Cúi–nghiêng–quay đều xoay quanh hông (không quanh chân) nên đầu dịch chuyển tự nhiên. */
 const HIP = new THREE.Vector3(0, 0.672, 0), HIPR = new THREE.Vector3();
-const AVERT = [-0.35, 0.3, 0.35, 0.3, -0.3, -0.3, 0.35];   // hướng né mắt lúc toàn cảnh (rad)
-const LOOK = [0.5, -0.6, -0.5, -0.3, 0.6, 0.6, -0.7];   // cuối cảnh: góc quay đầu của từng người sang nhìn nhau (rad)
+const AVERT = [-0.35, 0.3, 0.35, 0.3, -0.3, -0.3, 0.35, -0.3, 0.3, -0.35, 0.3];   // hướng né mắt lúc toàn cảnh (rad)
+const LOOK = [0.5, -0.6, -0.5, -0.3, 0.6, 0.6, -0.7, 0.5, -0.45, -0.55, 0.4];   // cuối cảnh: góc quay đầu của từng người sang nhìn nhau (rad)
 function cabinBody(i: number, r: Rig, t: number, c: number) {
   const g = r.s.g, a = SA(i), rel = t - a, k = exprK(i, t), fin = smooth(MASTER2 + 0.2, MASTER2 + 1.0, t);
   const idle = 1 - smooth(a - 0.7, a + 0.6, t);   // trước cú cận cảnh của mình: ngồi cứng đờ, cúi mặt/né ánh mắt, không dám nhìn thẳng ai
@@ -501,12 +546,18 @@ function cabinBody(i: number, r: Rig, t: number, c: number) {
     case 6: { // Golf: ngoái đầu liếc quanh rồi nhấc tay bấm bộ phát (sau khi tắt nụ cười gượng)
       const p = smooth(a + 3.2, a + 3.7, t) * (1 - smooth(a + 4.7, a + 5.2, t));
       r.s.armR.rotation.set(lerp(-0.95, -1.15, p), 0, lerp(-0.3, -0.55, p)); yaw += -0.55 * smooth(a + 1.9, a + 2.4, t) * (1 - smooth(a + 3.0, a + 3.4, t)); break; }
+    case 7: pitch += -0.04 * k; yaw += 0.2 * Math.sin(c * 1.3) * k; break;                                                              // Hotel: ngọ nguậy, quay đầu như đang tìm người để pha trò
+    case 8: pitch += 0.05 * k; roll = 0.03 * k * Math.sin(c * 0.7); break;                                                                // India: nghiêng đầu soi xét
+    case 9: break;                                                                                                                         // Juliet: ngồi bất động như tượng
+    case 10: { bob = 0.008 * Math.sin(c * 14) * k; pitch += 0.08 * k;                                                                      // Kilo: run rẩy, hai tay đan chặt trước ngực
+      r.s.armL.rotation.set(-1.0, 0, 0.3); r.s.armR.rotation.set(-1.0, 0, -0.3); r.s.armL.userData.elbow.rotation.x = r.s.armR.userData.elbow.rotation.x = -1.0; break; }
     case 2: { // Charlie: giật mình quay sang Golf khi nghe tiếng bíp, rồi quay đi quay lại gằn giọng theo từng câu
       yaw += 0.55 * smooth(a + 0.3, a + 0.7, t) * (1 - smooth(a + 1.4, a + 1.8, t)) + 0.6 * smooth(a + 1.9, a + 2.3, t) * (1 - smooth(a + 3.0, a + 3.3, t)) - 0.5 * smooth(a + 3.0, a + 3.3, t) * (1 - smooth(a + 3.9, a + 4.3, t));
       roll = 0.01 * Math.sin(c * 17) * k; break; }
   }
   if (i === 4) curl(r, 0.5 + 0.9 * grip, 0.4 + 0.6 * grip);                // Echo: ngón tay co quắp bấu mép ghế
   if (i === 5) curl(r, 0.9, 0.6);                                           // Foxtrot: ngón tay giữ hai mép ảnh
+  if (i === 10) curl(r, 1.2, 0.8);                                          // Kilo: hai bàn tay siết vào nhau
   if (i === 1) curl(r, 1.0 + 0.3 * Math.sin(c * 21) * k, 0.8);              // Bravo: nắm chặt máy tính bảng, run vì giận
   if (i === 6) { const p = smooth(SA(6) + 3.2, SA(6) + 3.7, t) * (1 - smooth(SA(6) + 4.7, SA(6) + 5.2, t)); curlArm(r.s.armR, 0.9 - 0.7 * p, 0.5); }   // Golf: duỗi ngón trỏ bấm nút
   knuckM.color.setHex(i === 4 ? lerpHex(0xf0c9a2, 0xf6f2ea, grip) : 0xf0c9a2);
@@ -524,21 +575,22 @@ const look = (p: THREE.Vector3, t: THREE.Vector3, shake = 0) => {
 const setFov = (f: number) => { if (Math.abs(camera.fov - f) > 0.05) { camera.fov = f; camera.updateProjectionMatrix(); } };
 const Wv = (ct: number, lx: number, ly: number, lz: number, v: THREE.Vector3) => { const w = toWorld(ct, lx, ly, lz); return v.set(w.x, w.y, w.z); };
 /** Chớp sét theo từng phân cảnh (giây trong phân cảnh). */
-const flashAt: Record<number, number[]> = { 1: [2.2, 4.9, 8.4], 2: [0.8, 1.05, 3.7, 5.0, 8.2, 8.5, 11.9, 12.1, 14.6], 3: [0.3, 2.6, 4.9, 7.4, EXT + 0.3] };
+const flashAt: Record<number, number[]> = { 1: [2.2, 4.9, 8.4, 10.6], 2: [0.8, 1.05, 3.7, 5.0, 8.2, 8.5, 11.9, 12.1, 14.6], 3: [0.3, 2.6, 4.9, 7.4, 9.9, 12.4, EXT + 0.3] };
 /** Tim đập dồn dần: nhịp thưa lúc toàn cảnh, nhanh hơn ở cuối. */
 const HEARTS: number[] = (() => { const o: number[] = []; for (let t = 1.5; t < CAB - 0.5; t += t < 12 ? 1.1 : t < 22 ? 0.9 : 0.7) o.push(t); return o; })();
 /** Âm thanh theo mốc thời gian trong từng phân cảnh. */
 const EV: { t: number; f: () => void }[][] = [
   [...HEARTS.map((t) => ({ t, f: () => cineSfx.heart() })), ...CUTS.filter((t) => t > 0).map((t) => ({ t, f: () => cineSfx.cut() })),
-    ...[0.9, 2.5, SA(4) + 0.2, SA(4) + 1.0, SA(4) + 1.8, SA(4) + 2.4, MASTER2 + 0.6].map((t) => ({ t, f: () => cineSfx.breath() })),                       // thở gấp
+    ...[0.9, 2.5, SA(4) + 0.2, SA(4) + 1.0, SA(4) + 1.8, SA(4) + 2.4, SA(10) + 0.2, SA(10) + 1.2, MASTER2 + 0.6].map((t) => ({ t, f: () => cineSfx.breath() })),                       // thở gấp
     { t: SA(6) + 4.2, f: () => cineSfx.beep() },
     // lời thoại: mỗi người nói đúng trong cú cận cảnh của mình (giờ khớp với VOICE trong story.ts)
     { t: 0.5, f: () => say("v1") }, { t: SA(1) + 0.15, f: () => say("v1b") }, { t: SA(3) + 0.1, f: () => say("v7") }, { t: SA(4) + 0.05, f: () => say("v8") },
     { t: SA(5) + 0.1, f: () => say("v9") }, { t: SA(0) + 0.3, f: () => say("v10") }, { t: SA(6) + 0.25, f: () => say("v11") },
+    { t: SA(7) + 0.15, f: () => say("v13") }, { t: SA(8) + 0.15, f: () => say("v14") }, { t: SA(9) + 0.2, f: () => say("v15") }, { t: SA(10) + 0.15, f: () => say("v16") },
     { t: SA(2) + 0.4, f: () => say("v2") }, { t: SA(2) + 1.9, f: () => say("v2b") }, { t: SA(2) + 3.0, f: () => say("v2c") }, { t: MASTER2 + 0.05, f: () => say("v12") }],      // bíp của bộ phát tín hiệu · lời thoại
-  [{ t: 0.8, f: () => say("v3") }],
+  [{ t: 0.8, f: () => say("v3") }, { t: 5.4, f: () => say("v17") }],
   [...[0.8, 3.7, 5.0, 8.2, 14.6].map((t) => ({ t: t + 0.15, f: () => cineSfx.thunder(false) })), { t: 12.0, f: () => cineSfx.thunder(true) }, { t: 2.0, f: () => say("v4a") }, { t: 5.2, f: () => say("v4b") }, { t: 8.0, f: () => say("v4c") }, { t: 4.6, f: () => cineSfx.static(0.5, 0.6) }, { t: 7.5, f: () => cineSfx.static(0.5, 0.6) }],
-  [...[0.2, 0.7, 1.2, 1.7, 2.2].map((t) => ({ t: t + EXT, f: () => cineSfx.alarm() })), { t: 2.4 + EXT, f: () => cineSfx.chute() }, { t: EXT, f: () => say("v5") },
+  [...[-2.1, -1.6, -1.1, -0.6, -0.1, 0.4, 0.9, 1.4, 1.9].map((t) => ({ t: t + EXT, f: () => cineSfx.alarm() })), { t: 2.4 + EXT, f: () => { if (!DIVE.fail) cineSfx.chute(); } }, { t: EXT - ALERT_LEAD, f: () => say("v5e") },
     ...DEP_ORDER.flatMap((i) => [{ t: T_DEP(i) - 0.45, f: () => cineSfx.whoosh() }, { t: T_DEP(i), f: () => cineSfx.pop() }])],   // mỗi đồng đội bung dù: camera lia tới (vút) + tiếng dù bung            // cảnh báo độ cao · dù bung "BOOM"
   [{ t: 2.35, f: () => cineSfx.crack() }, { t: 2.5, f: () => cineSfx.crack() }, { t: 2.9, f: () => cineSfx.thud() },
     ...[4.2, 5.3, 6.9, 8.4].map((t) => ({ t, f: () => cineSfx.drip() })), ...[5.0, 7.2, 9.0].map((t) => ({ t, f: () => cineSfx.cricket() })), { t: 10.0, f: () => cineSfx.beep(0.6) }, { t: 6.4, f: () => say("v6") }],   // rừng đêm · bíp ở 0:58
@@ -591,11 +643,26 @@ function cabinCam(t: number, ct: number) {
       else if (u < 3.2) faceCam(6, u - 1.7, 1.5, ct, { d: [1.4, 1.1, 0.95], f: [24, 20, 18], az: 0.25, ty: 0.04 });                       // mắt liếc quét
       else if (u < 5.0) { const k = (u - 3.2) / 1.8; setFov(30); Wv(ct, lerp(0.2, 0.0, k), 1.15, -4.1, P0); Wv(ct, -1.3, 0.98, -4.88, T0); look(P0, T0, 0.003); }   // tay bấm bộ phát tín hiệu
       else faceCam(6, u - 5.0, 1.0, ct, { d: [1.6, 1.2, 1.0], f: [28, 24, 22], az: -0.2 }); break;                                        // nhếch mép hài lòng
+    case 7: faceCam(7, u, dur, ct, { d: [2.4, 1.6, 1.2], f: [34, 27, 23], az: 0.25, roll: 0.03 }); break;                                   // Hotel: cười lo lắng
+    case 8: if (u < 1.6) faceCam(8, u, 1.6, ct, { d: [2.4, 1.5, 1.15], f: [34, 26, 22], az: -0.2 });                                           // India: soi xét…
+      else faceCam(8, u - 1.6, 2.4, ct, { d: [1.5, 1.15, 0.95], f: [24, 20, 18], az: 0.3, ty: 0.03 }); break;                                 // …mắt quét qua từng người
+    case 9: faceCam(9, u, dur, ct, { d: [2.6, 1.8, 1.4], f: [32, 26, 21], az: 0.1, ty: 0.02 }); break;                                       // Juliet: ánh mắt xạ thủ, rất chậm
+    case 10: faceCam(10, u, dur, ct, { d: [2.2, 1.4, 1.05], f: [34, 26, 22], az: -0.25, roll: -0.04 }); break;                               // Kilo: tân binh run sợ
     case 2:
       if (u < 1.5) faceCam(2, u, 1.5, ct, { d: [1.5, 1.15, 1.0], f: [24, 20, 18], ty: 0.04, az: 0.15 });                                   // Charlie: mắt đảo giật
       else if (u < 4.2) faceCam(2, u - 1.5, 2.7, ct, { d: [2.2, 1.4, 1.1], f: [34, 26, 22], az: -0.3, roll: 0.05 });                       // gằn giọng
       else faceCam(2, u - 4.2, 1.6, ct, { d: [1.5, 1.05, 0.85], f: [26, 21, 19], ty: 0.0 }); break;                                                  // trừng trừng nhìn thẳng
   }
+}
+
+/** Camera điện ảnh cho cảnh rơi không dù: cắt sang máy tĩnh thấp sát mặt đất cạnh điểm rơi, nhìn ngược lên người đang lao xuống, đập đất → rung mạnh + chớp sáng, rồi chậm rãi tiến lại gần thi thể trước khi tối sầm. */
+function failCam(t: number, win: { x: number; y: number; z: number }[]) {
+  const w = win[0], sc = t - EXT - DEP, tc = Math.max(DIVE.tc, 0.5), I = stateOf(0, 26 + EXT + DEP + tc + 0.6, GL[0], groundAt);
+  const k = Math.min(1, sc / tc), after = Math.max(0, sc - tc), push = smooth(0, 3.2, after);
+  const px = I.wx + lerp(8.5, 5.2, Math.max(k * 0.6, push)), pz = I.wz + lerp(6.5, 4.0, Math.max(k * 0.6, push));
+  P0.set(px, groundAt(px, pz) + lerp(1.0, 0.8, push), pz);
+  if (sc < tc) { T0.set(w.x, w.y + 0.2, w.z); setFov(lerp(46, 62, k * k)); look(P0, T0, 0.015 + 0.06 * k * k); }
+  else { T0.set(I.wx, I.wy + lerp(0.5, 0.35, push), I.wz); setFov(lerp(62, 44, push)); look(P0, T0, 0.8 * Math.exp(-after * 5) + 0.004); camera.rotateZ(0.05 * Math.exp(-after * 4)); }
 }
 
 function camera3d(b: number, t: number, ct: number, win: { x: number; y: number; z: number }[]) {
@@ -604,7 +671,7 @@ function camera3d(b: number, t: number, ct: number, win: { x: number; y: number;
   const c = S.clock;
   if (b === 0) { cabinCam(t, ct); return; }   // PHÂN CẢNH 1 · trong khoang: master shot + cận cảnh từng người
   if (b === 1) { // PHÂN CẢNH 2 · góc thấp từ sàn nhìn ngược lên bóng người ngược sáng ở cửa, rồi lao theo người nhảy cuối
-    const w6 = win[6], kF = smooth(5.8, 7.6, t); LZ = 1.0;
+    const w6 = win[6], kF = smooth(7.0, 8.8, t); LZ = 1.0;
     Wv(ct, 0.3, 0.28, 1.0, P1); Wv(ct, 0, 1.7, 8.0, T1); P0.set(w6.x + 4.5, w6.y + 1.6, w6.z + 2.2); T0.set(w6.x, w6.y + 0.9, w6.z);
     setFov(lerp(62, 58, kF)); look(P1.lerp(P0, kF), T1.lerp(T0, kF), 0.02); return;
   }
@@ -618,6 +685,7 @@ function camera3d(b: number, t: number, ct: number, win: { x: number; y: number;
     } else { setFov(64); const w2 = win[2]; P0.set(w2.x - 8, w2.y + 2, w2.z + 7); T0.set(w2.x, w2.y, w2.z); look(P0, T0, 0.3 + 0.5 * smooth(11.7, 12.1, t) * (1 - smooth(12.1, 13.5, t))); }
     return;
   }
+  if (b === 3 && DIVE.fail) { failCam(t, win); return; }
   if (b === 3) { // PHÂN CẢNH 4 · POV người chơi: nhìn xuống đồng hồ cảnh báo → giật ngược lên theo lực dù bung → mờ dần, đầu gục, tối sầm
     // t chạy 0 → EXT: rơi tự do, camera nhìn xuống đất từ trên cao (mặt đất to dần) · u = t - EXT: đồng hồ báo đỏ → dù bung (u ≈ 2.4) → ngất
     const w0 = win[0], u = t - EXT, pre = smooth(0, EXT, t), kUp = smooth(2.4, 2.75, u), droop = smooth(3.6, 7, u);
@@ -645,10 +713,16 @@ function camera3d(b: number, t: number, ct: number, win: { x: number; y: number;
 export function cineUpdate(dt: number) {
   if (!CINE.active) return;
   const b = Math.max(0, S.beat);
-  S.clock += dt; S.cut = Math.max(0, S.cut - dt * 2.2); S.t = Math.min(S.t + dt, BEAT_MIN[b] - 0.001);   // hết thời lượng phân cảnh thì giữ nguyên khung cuối
+  S.clock += dt; S.cut = Math.max(0, S.cut - dt * 2.2); S.t = Math.min(S.t + dt, b === 3 && DIVE.fail ? 999 : BEAT_MIN[b] - 0.001);   // hết thời lượng phân cảnh thì giữ nguyên khung cuối
   const t = S.t, ct = b === 0 ? -CAB + t : b === 1 ? t : b === 2 ? 10 + t : b === 3 ? 26 + t : 36 + EXT + t;
+  if (b === 3) {   // ĐOẠN BẤM E: cảnh báo bật ALERT_LEAD giây trước hạn chót; quá hạn mà chưa bấm → không bung dù, rơi chết
+    const du = t - EXT;
+    if (!DIVE.ok && !DIVE.fail) DIVE.armed = du >= -ALERT_LEAD;
+    if (DIVE.armed && !DIVE.ok && !DIVE.fail && du >= DEP) { DIVE.fail = true; DIVE.armed = false; DIVE.tc = -1; DIVE.hit = false; S.cut = 1; voiceStop(); cineSfx.whoosh(); }
+    if (DIVE.ok && du >= DEP) DIVE.armed = false;
+  } else DIVE.armed = false;
   const win: { x: number; y: number; z: number }[] = [];
-  for (let i = 0; i < N; i++) { poseSoldier(i, ct, 0); const w = stateOf(i, ct, GL[i]); win.push({ x: w.wx, y: w.wy, z: w.wz }); }
+  for (let i = 0; i < N; i++) { poseSoldier(i, ct, 0); const w = stateOf(i, ct, GL[i], groundAt); win.push({ x: w.wx, y: w.wy, z: w.wz }); }
   const pa = planeAt(Math.min(ct, 60));
   plane.visible = b <= 3; plane.position.set(pa.x, pa.y, pa.z); ramp.rotation.x = (b <= 0 ? 0 : b === 1 ? smooth(0.2, 1.6, t) : 1) * (Math.PI / 2);
   for (const p of props) p.rotation.z += dt * 40;
@@ -656,16 +730,21 @@ export function cineUpdate(dt: number) {
   if (green) lampMat.color.setHex(0x20ff40); else lampMat.color.setHex(mixHex(0x401010, 0xff2a2a, blink));
   tipR.color.setHex(Math.sin(S.clock * 6) > 0 ? 0xff2020 : 0x300808); tipG.color.setHex(Math.sin(S.clock * 6 + 2) > 0 ? 0x20ff40 : 0x083010);
   { const w = toWorld(ct, -0.5, 2.2, LZ + 1.1); cineLight.position.set(w.x, w.y, w.z); cineLight.color.setHex(green ? 0x35ff70 : 0xff2a1a);   // đèn đỏ báo động hắt nửa khuôn mặt · đèn xanh khi cửa mở
-    cineLight.intensity = b === 0 || (b === 1 && t < 7) ? (green ? 4.5 : 7 * (0.3 + 0.7 * blink)) : 0; }
+    cineLight.intensity = b === 0 || (b === 1 && t < 9) ? (green ? 4.5 : 7 * (0.3 + 0.7 * blink)) : 0; }
 
   // ánh sáng + bầu trời + bão
   let L = NIGHT, rainK = 0, fade = 0, lid = 0, blur = 0, flash = 0, vig = 0;
   if (b === 0) { L = INTERIOR; lid = 0.085 * smooth(0, 0.8, t); vig = shotAt(t) ? 0.5 : 0.28; }   // khoang: tối, dải đen điện ảnh, viền tối góc hình
-  else if (b === 1) L = mixLook(INTERIOR, NIGHT, smooth(6.2, 8, t));
+  else if (b === 1) L = mixLook(INTERIOR, NIGHT, smooth(8.2, 10.2, t));
   else if (b === 2) { L = mixLook(NIGHT, STORM, smooth(0, 3, t)); rainK = smooth(1, 4, t); }
-  else if (b === 3) { const u = t - EXT; L = mixLook(STORM, GREY, smooth(0, 3, u)); rainK = 1 - smooth(0, 2.5, u); blur = 14 * smooth(3.0, 7.0, u); vig = smooth(3.4, 7.2, u); fade = smooth(7.3, 8.5, u); }
+  else if (b === 3) { const u = t - EXT, ue = DIVE.fail ? Math.min(u, DEP - 0.01) : u; L = mixLook(STORM, GREY, smooth(0, 3, ue)); rainK = 1 - smooth(0, 2.5, ue); blur = 14 * smooth(3.0, 7.0, ue); vig = smooth(3.4, 7.2, ue); fade = smooth(7.3, 8.5, ue);
+    if (DIVE.fail && DIVE.tc >= 0) { const sc = u - DEP - DIVE.tc; rainK = 1; blur = 5 * smooth(0, 0.6, sc); vig = 0.35 + 0.4 * smooth(0, 1.2, sc); fade = smooth(1.7, 2.7, sc); } }
   else { L = mixLook(FOREST_LOW, FOREST_HIGH, smooth(5, 11.3, t)); fade = Math.max(1 - smooth(1.9, 2.4, t), smooth(11.3, 12, t)); }
   for (const te of flashAt[b] ?? []) if (t >= te) flash += Math.exp(-(t - te) * 12);
+  if (b === 3 && DIVE.fail && DIVE.tc >= 0) {   // đập đất: chớp trắng + tiếng răng rắc, bịch
+    const sc = t - EXT - DEP - DIVE.tc;
+    if (sc >= 0) { flash = Math.max(flash, Math.exp(-sc * 7)); if (!DIVE.hit) { DIVE.hit = true; cineSfx.crack(); cineSfx.thud(); window.setTimeout(() => cineSfx.thud(), 170); window.setTimeout(() => cineSfx.crack(), 320); } }
+  }
   flash = Math.min(1, flash);
   let wf = 0; if (b === 0) for (const te of WFLASH) if (t >= te) wf += Math.exp(-(t - te) * 7);   // sét xa ngoài cửa sổ: kính chớp sáng, khoang sáng loé
   wf = Math.min(1, wf); paneMat.color.setHex(mixHex(PANE_DARK, PANE_FLASH, wf));
@@ -705,7 +784,13 @@ export function cineUpdate(dt: number) {
   if (ovLidT && ovLidB) { ovLidT.style.height = ovLidB.style.height = lid * 50 + "%"; }
   if (ovBlur) { const bb = Math.max(blur, 7 * WHIP), f = bb > 0.05 ? `blur(${bb.toFixed(1)}px)` : "none"; ovBlur.style.backdropFilter = f; (ovBlur.style as any).webkitBackdropFilter = f; }
   if (ovVig) ovVig.style.opacity = String(vig);
-  if (ovAlt) { const on = b === 3 && t >= EXT - 0.1 && t < EXT + 2.45; ovAlt.style.opacity = on ? String(0.6 + 0.4 * Math.sin(S.clock * 14)) : "0"; if (on && ovAltV) ovAltV.textContent = String(Math.max(0, Math.round(win[0].y - GL[0]))); }
+  if (ovAlt) { const on = b === 3 && t >= EXT - ALERT_LEAD - 0.1 && t < EXT + 2.45 && !DIVE.fail && !DIVE.ok; ovAlt.style.opacity = on ? String(0.6 + 0.4 * Math.sin(S.clock * 14)) : "0"; if (on && ovAltV) ovAltV.textContent = String(Math.max(0, Math.round(win[0].y - GL[0]))); }
+  if (ovKey) {   // nút E nhấp nháy vàng + thanh đếm ngược; bấm xong hiện xác nhận "ĐÃ BUNG DÙ"
+    const show = b === 3 && DIVE.armed && !DIVE.ok, confirm = b === 3 && DIVE.ok && S.clock - DIVE.press < 1.1;
+    ovKey.style.opacity = show || confirm ? "1" : "0"; ovKey.classList.toggle("ok", DIVE.ok); ovKey.style.pointerEvents = show ? "auto" : "none";
+    if (ovKeyBar && show) ovKeyBar.style.width = (Math.max(0, Math.min(1, (EXT + DEP - t) / (ALERT_LEAD + DEP))) * 100).toFixed(1) + "%";
+  }
+  if (ovDead) ovDead.classList.toggle("on", b === 3 && DIVE.fail && DIVE.tc >= 0 && t - EXT - DEP - DIVE.tc > 2.6);
   if (ovStatic) ovStatic.style.opacity = String(VO.glitch ? 0.12 + 0.3 * Math.random() : 0);
   if (ovRays) ovRays.style.opacity = String(b === 4 ? 0.55 * smooth(2.6, 4, t) * (1 - smooth(5.4, 8, t)) : 0);
 
@@ -713,7 +798,7 @@ export function cineUpdate(dt: number) {
   if (b === 0) cineSfx.ambSet(0.3, 170, 0.1 + 0.06 * wf, 1500);   // động cơ gầm đều + gió rít ngoài vỏ máy bay
   else if (b === 1) cineSfx.ambSet(0.3, 260, 0.5 * smooth(0.2, 1.6, t), 1800);
   else if (b === 2) cineSfx.ambSet(0.45, 130, 0.4 + 0.3 * flash, 1400);
-  else if (b === 3) { const u = t - EXT; if (u < 2.4) cineSfx.ambSet(0.35, 130, 0.3 + 0.2 * smooth(0, EXT, t), 1500); else cineSfx.ambSet(0.14 * (1 - smooth(2.6, 7.2, u)), 80, 0, 1500); }   // gió rít mạnh dần khi rơi gần đất
+  else if (b === 3) { const u = t - EXT; if (DIVE.fail) { const sc = DIVE.tc >= 0 ? u - DEP - DIVE.tc : -1; cineSfx.ambSet(sc < 0 ? 0.55 : 0, 130, sc < 0 ? 0.7 : 0, 1500); } else if (u < 2.4) cineSfx.ambSet(0.35, 130, 0.3 + 0.2 * smooth(0, EXT, t), 1500); else cineSfx.ambSet(0.14 * (1 - smooth(2.6, 7.2, u)), 80, 0, 1500); }   // gió rít mạnh dần khi rơi gần đất
   else cineSfx.ambSet(0.04 * smooth(2.5, 4, t), 90, 0.02 * smooth(2.5, 4, t), 3200);
   const ev = EV[b] ?? []; for (let e = 0; e < ev.length; e++) if (!fired.has(e) && t >= ev[e].t) { fired.add(e); if (t - ev[e].t < 0.7) ev[e].f(); }
 }

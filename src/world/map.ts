@@ -9,6 +9,8 @@ import type { Station, TaskType } from "../types";
 /** Hộp va chạm [cx, cz, width, depth]. Đảo hoang không có tường: chỉ có vật cản (nhà, đá, bụi, cây, cọc…) + địa hình (island.ts). */
 export const WALLS: [number, number, number, number][] = [];
 export const wallMeshes: THREE.Mesh[] = [];
+/** Thân cây [x, z, bán kính, độ cao ngọn]: cản tầm nhìn (kiểm tra bằng toán 2D, không tốn mesh). Do terrain.ts điền khi rải cây. */
+export const TRUNKS: [number, number, number, number][] = [];
 export const VENTS: [number, number][] = VENT_XZ;   // 3 "hang bí mật" của Impostor
 /** Vùng đã có công trình — địa hình không rải cây vào đây. [x, z, bán kính] */
 export const reserved: [number, number, number][] = PADS.map((p) => [p.x, p.z, p.r]);
@@ -143,13 +145,13 @@ ruins(...RUINS_XZ);                                          // Đông-Bắc: t�
 ROCK_XZ.forEach(([x, z, s]) => rockPile(x, z, s));
 shipwreck(...WRECK_XZ);                                      // vịnh phía Nam: xác tàu
 volcano(...VOLCANO_XZ);                                      // Đông-Nam: núi lửa
-dock(); sailboat(-24, 90); sailboat(94, -16);
+dock(); sailboat(-40, 238); sailboat(250, 40); sailboat(-250, -60);
 crates(SUPPLY_CRATES_XZ[0], SUPPLY_CRATES_XZ[1]); barrel(SUPPLY_CRATES_XZ[0] + 1.4, SUPPLY_CRATES_XZ[1] + 1.4); barrel(SUPPLY_CRATES_XZ[0] + 3, SUPPLY_CRATES_XZ[1] - 0.6, 0x4a8fd2);
 crates(BEACH_XZ[0] - 4, BEACH_XZ[1] + 1); barrel(BEACH_XZ[0] - 2.4, BEACH_XZ[1] + 2.6); umbrella(BEACH_XZ[0] + 3, BEACH_XZ[1] - 2, 0xe0528a); umbrella(BEACH_XZ[0] + 4, BEACH_XZ[1] + 3, 0x4da6ff);
 /** Bụi rậm rải trên những mảng cỏ bằng phẳng (chắn tầm nhìn). */
-for (let x = -58; x <= 58; x += 5) for (let z = -52; z <= 58; z += 5) {
+for (let x = -105; x <= 105; x += 6) for (let z = -95; z <= 105; z += 6) {
   const px = x + (hash(x, z, 1) - 0.5) * 4, pz = z + (hash(x, z, 2) - 0.5) * 4, ix = Math.floor(px), iz = Math.floor(pz), h = H(ix, iz);
-  if (hash(x, z, 3) > 0.45 || h < 4 || h > 22 || slopeAt(ix, iz) > 0) continue;
+  if (hash(x, z, 3) > 0.4 || h < 4 || h > 28 || slopeAt(ix, iz) > 0) continue;
   let flat = true; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (H(ix + a, iz + b) !== h) flat = false;
   if (!flat || PADS.some((p) => Math.hypot(p.x - px, p.z - pz) < p.r + 2.5) || WALLS.some(([cx, cz, w, d]) => Math.abs(px - cx) < w / 2 + 2 && Math.abs(pz - cz) < d / 2 + 2)) continue;
   bush(px, pz, [0x3a9a48, 0x2f8a40, 0x4aa850][(Math.abs(x + z) | 0) % 3]);

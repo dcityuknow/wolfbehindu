@@ -35,5 +35,6 @@ export const MV = {
   roll: 0, rollCd: 0, dx: 0, dz: 0,                             // giây lăn còn lại · hồi · hướng lăn
   inWater: false, swimming: false, swimK: 0, stk: 0, speed: 0,  // đang ở vùng nước · đang bơi (di chuyển) · mức chuyển sang tư thế bơi 0..1 · pha nhịp tay · tốc độ ngang
   lx: 0, lz: 0,
+  depth: 0, under: false, air: 1,                                  // độ chìm của chân dưới mức nổi (m, giữ Shift để lặn) · đầu đang chìm dưới nước · hơi thở còn lại 0..1
 };
 export const HURT = { tilt: 0, target: 0, K: 0.008, MAX: 0.2, TAU: 0.7 };   // rad nghiêng thêm cho mỗi 1 máu mất · tối đa (~11°) · giây giảm còn ~37%

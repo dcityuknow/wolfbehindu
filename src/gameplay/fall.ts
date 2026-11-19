@@ -2,7 +2,7 @@ import { t } from "../i18n";
 import * as THREE from "three";
 import { W } from "../weaponState";
 import { G } from "../state";
-import { WATER_Y, swimmable, shoreDist, SWIM_R } from "../world/island";
+import { surfaceAt, swimmable, shoreDist, SWIM_R } from "../world/island";
 import { impact } from "../world/fx";
 import { flashRed } from "../ui/hud";
 import { sfx } from "../audio";
@@ -16,7 +16,7 @@ let lastHint = -99;
 /** Gọi khi người chơi vừa chạm đất/mặt nước với vận tốc rơi vy (âm). */
 export function onLanding(vy: number, x: number, z: number) {
   const h = (vy * vy) / (2 * FALL.gravity), water = swimmable(x, z);
-  if (water && h > 1.5) impact(P.set(x, WATER_Y, z), "water");
+  if (water && h > 1.5) { impact(P.set(x, surfaceAt(x, z), z), "water"); sfx.splash(true, Math.min(1.5, 0.8 + h / 12)); }   // rơi từ cao xuống nước: tóe nước + tiếng tũm to hơn
   if (G.ghost || G.phase !== "play") return;
   const free = water ? FALL.waterFree : FALL.free;
   if (h <= free) return;

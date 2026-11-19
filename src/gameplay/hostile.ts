@@ -1,13 +1,14 @@
 import { deathFlow } from "./gameover";
 import * as THREE from "three";
-import { entities, me, collide } from "../world/characters";
+import { entities, me, collide, BOT_GUNS } from "../world/characters";
+import { throwBotGrenade } from "./combat";
 import { walkTo } from "./walk";
 import { losBlocked } from "../world/island";
 import { camera } from "../world/scene";
 import { wallMeshes } from "../world/map";
 import { tracer } from "../world/fx";
 import { sfx } from "../audio";
-import { GUNS, COMBAT, BOT_SPEED, type GunDef } from "../config";
+import { GUNS, COMBAT, BOT_SPEED, type GunDef, type GunId } from "../config";
 import { W } from "../weaponState";
 import { G } from "../state";
 import { flashRed } from "../ui/hud";
@@ -15,7 +16,7 @@ import { flashRed } from "../ui/hud";
 import { $ } from "../ui/dom";
 import { UI, ENDING } from "../story";
 import { reportExecution, getRoom } from "../web3/chain";
-import type { GunRig } from "../world/guns";
+import { equipGun, type GunRig } from "../world/guns";
 import type { Entity } from "../types";
 
 /**
@@ -29,15 +30,22 @@ import type { Entity } from "../types";
  *  If an accusation is already out and an investigator arrives and sees you, the witnesses' word is enough and they turn hostile too.
  * Combat itself is client-side; only the final death/game-over is written on-chain (a teammate's real death still only comes from the spy via the contract).
  */
-interface M { mood: 0 | 1 | 2 | 3; ix: number; iz: number; t: number; since: number; q: number; cd: number; burst: number; rest: number; react: number; say: number }
-const ms: M[] = entities.map(() => ({ mood: 0, ix: 0, iz: 0, t: 0, since: 0, q: 0, cd: 0, burst: 0, rest: 0, react: 0, say: 0 }));
-let clock = 0, strikes = 0, lastStrike = -99, exposed = false;
+interface M { mood: 0 | 1 | 2 | 3 | 4; ix: number; iz: number; t: number; since: number; q: number; cd: number; burst: number; rest: number; react: number; say: number; nades: number; nc: number; sw: number; st: number; spot: number; hint: number; hp: number; base: number; hurt: boolean }
+const ms: M[] = entities.map(() => ({ mood: 0, ix: 0, iz: 0, t: 0, since: 0, q: 0, cd: 0, burst: 0, rest: 0, react: 0, say: 0, nades: 2, nc: 0, sw: 0, st: 0, spot: 0, hint: NaN, hp: 0, base: 0, hurt: false }));
+/** mood 4 = TÌM KIẾM: bị bắn / thấy đường đạn lướt qua → nhìn ngay về hướng đạn bay tới, rồi quét xung quanh từ XA (ngước lên đỉnh/chân trời) tới GẦN (hạ mắt xuống chân), thấy người bắn thì bắn trả. */
+let clock = 0, strikes = 0, lastStrike = -99, exposed = false, lastNade = -99;
 export const busy = (i: number) => ms[i].mood > 0;
 
 const ASK = ["Are you insane? I'm your teammate!", "Why would you shoot me? Explain!", "What's going on?! Put the gun down!", "Huh?! You just shot me!", "Don't tell me you're... Stay right there!", "I didn't do anything! Why?!"];
 const ALARM = ["IT'S THE SPY!", "I knew it! Shoot him!", "Take down the spy! Hurry!", "You've been exposed!", "Don't let him get away!"];
 const INQ = ["What happened here?!", "Who shot him?! Did anyone see?", "I heard gunshots! Is everyone okay?", "Somebody tell me what happened!"];
 const OUCH = ["Ow! Who shot me?!", "Argh! Who did that?!", "I got hit! Did anyone see who it was?!"];
+const NADE = ["Zama grenade! Take cover!", "Zama frag out!", "Zama, eat this!", "Zama fire in the hole!", "Zama grenade, get down!", "Zama incoming! Run!", "Zama, catch this one!", "Zama bomb's away! Move it!", "Zama grenade out! Scatter!", "Zama, say goodbye!", "Zama, boom time! Take cover!", "Zama frag in the air! Down!"];   // luôn mở đầu bằng "Zama", nhiều kiểu hô
+let lastNadeLine = -1;
+/** Chọn câu hô lựu đạn, không bao giờ lặp lại câu vừa hô. */
+function nadeLine() { let k: number; do { k = (Math.random() * NADE.length) | 0; } while (k === lastNadeLine && NADE.length > 1); lastNadeLine = k; return NADE[k]; }
+const SRCH = ["Contact! Where's that coming from?!", "Someone's shooting at us! Find him!", "Take cover! Where is he?!", "I'm taking fire! Spot the shooter!"];
+const SPOT = ["I see him! Up there!", "There he is! Return fire!", "Found you! Open fire!", "Got eyes on the shooter!"];
 const pick = (a: string[]) => a[(Math.random() * a.length) | 0];
 
 /* ───────────── bong bóng thoại + giọng nói ───────────── */
@@ -81,12 +89,69 @@ function investigate(w: Entity, tx: number, tz: number) {
   m.mood = 3; m.ix = tx; m.iz = tz; m.t = 0; m.q = 0; m.since = 0;
 }
 
+/* ───────────── Bot KHÔN: bị bắn / thấy đường đạn thì tìm người bắn ───────────── */
+const SEARCH = { dur: 12, lookHint: 1.4, turn: 3.4, fov: 0.78, vfov: 0.8, hintWindow: 1.5 };   // giây tìm · giây nhìn thẳng hướng đạn · rad/s xoay đầu · nửa góc nhìn ngang / dọc (rad) · hướng đạn còn "mới" trong (giây)
+let lastFire = -99, shotYaw = NaN, shotPitch = 0, shotT = -99;
+const angDiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+/** Bot `e` chuyển sang tìm kiếm. hurt = chính nó bị bắn trúng / đạn sượt qua (→ thấy người bắn là bắn trả ngay). */
+function alertBot(e: Entity, hurt: boolean) {
+  const m = ms[e.i]; if (e.dead || e.out || e.stun > 0 || e.i === G.slot || G.call) return;
+  if (m.mood === 2) return;                       // đang đánh nhau rồi
+  if (m.mood === 1) { if (hurt) m.hurt = true; return; }   // đang chĩa súng cảnh cáo: đã nhìn thẳng người chơi
+  const fresh = clock - shotT < SEARCH.hintWindow;
+  if (m.mood !== 4) { m.mood = 4; m.st = 0; m.spot = 0; m.base = e.rot; m.t = 0; if (hurt || Math.random() < 0.5) say(e.i, pick(SRCH), true, false); }
+  else m.st = Math.min(m.st, SEARCH.lookHint * 0.5);   // bị bắn thêm: quay phắt lại nhìn hướng đạn
+  if (fresh && Number.isFinite(shotYaw)) { m.hint = shotYaw; m.hp = shotPitch; }
+  if (hurt) m.hurt = true;
+}
+/** Người chơi nổ súng: ghi nhớ hướng đạn bay; bot bị trúng / bị đạn lướt gần thì tìm người bắn. O = đầu nòng/mắt, D = hướng (chuẩn hoá), len = quãng đạn đi. */
+export function onPlayerShot(O: THREE.Vector3, D: THREE.Vector3, len: number) {
+  if (G.phase !== "play" || G.ghost) return;
+  const h = Math.hypot(D.x, D.z);
+  lastFire = clock; shotT = clock; shotYaw = h > 0.05 ? Math.atan2(-D.x, -D.z) : NaN; shotPitch = Math.atan2(D.y, h);   // nhìn ngược chiều đạn: bắn từ trên cao xuống → ngước lên
+  for (const e of entities) {
+    if (e.i === G.slot || e.dead || e.out || e.stun > 0 || e.seat >= 0 || sees(e, me())) continue;   // ai đang thấy người chơi ngay gần thì đi theo luật nhân chứng (cảnh cáo / lộ), không phải tìm kiếm
+    const qx = e.x - O.x, qy = e.y + 1 - O.y, qz = e.z - O.z, t = Math.max(0, Math.min(len, qx * D.x + qy * D.y + qz * D.z));
+    const dist = Math.hypot(qx - D.x * t, qy - D.y * t, qz - D.z * t);
+    if (dist < 3.5) alertBot(e, true); else if (dist < 10) alertBot(e, false);   // đạn sượt qua mặt: bị tấn công · lướt gần: thấy đường đạn
+  }
+}
+/** Bot đang tìm: xoay nhìn hướng đạn → quét xa-đến-gần; có người chơi trong tầm mắt (xa mấy cũng được, miễn không bị che) thì dồn dần "độ phát hiện". */
+function searchBot(e: Entity, m: M, P: Entity, dt: number) {
+  m.st += dt;
+  if (m.st > SEARCH.dur) { m.mood = 0; m.hurt = false; m.spot = 0; m.hint = NaN; return; }
+  e.aim += ((m.hurt ? 0.8 : 0.4) - e.aim) * Math.min(1, dt * 6);
+  const hasHint = Number.isFinite(m.hint), u = Math.max(0, m.st - (hasHint ? SEARCH.lookHint : 0)) / (SEARCH.dur - (hasHint ? SEARCH.lookHint : 0));
+  let ty: number, tp: number;
+  if (hasHint && m.st < SEARCH.lookHint) { ty = m.hint; tp = m.hp; }                                                    // 1) nhìn thẳng hướng đạn tới (ngước lên nếu bị bắn từ trên cao)
+  else if (hasHint && u < 0.55) { ty = m.hint + Math.sin(u * Math.PI * 5) * 1.0; tp = m.hp + (0.1 - m.hp) * (u / 0.55); }   // 2) quét quanh hướng đạn, hạ mắt dần
+  else { const v = hasHint ? (u - 0.55) / 0.45 : u; ty = (hasHint ? m.hint : m.base) + v * Math.PI * 2 * 1.5 * (e.i % 2 ? 1 : -1); tp = -0.25 + 0.75 * v; }   // 3) quét cả vòng, xa (ngẩng) → gần (cúi)
+  const step = SEARCH.turn * dt; e.rot += Math.max(-step, Math.min(step, angDiff(ty, e.rot)));
+  e.pitch += (tp + Math.sin(m.st * 1.7) * 0.05 - e.pitch) * Math.min(1, dt * 4);
+  const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 1;
+  const fwd = (dx * Math.sin(e.rot) + dz * Math.cos(e.rot)) / d, elev = Math.atan2(P.y + 1.2 - (e.y + 1.34), d);
+  const inView = d < 5 || (fwd > Math.cos(SEARCH.fov) && Math.abs(elev + e.pitch) < SEARCH.vfov);   // pitch dương = cúi, nên ngước lên = -pitch
+  if (inView && clear(e, P)) {   // không bị đồi/nhà/cây che → thấy; càng xa càng lâu mới nhận ra, vừa nổ súng (chớp lửa nòng) thì lộ nhanh
+    m.spot += dt * (2.4 / (1 + d / 90)) * (clock - lastFire < 1.2 ? 2.6 : 1) * (m.hurt ? 1.4 : 1);
+    if (m.spot >= 1) spotted(e, m, P);
+  } else m.spot = Math.max(0, m.spot - dt * 0.7);
+}
+function spotted(e: Entity, m: M, P: Entity) {
+  m.spot = 0; say(e.i, pick(SPOT), true, true);
+  const hurt = m.hurt || exposed; m.hurt = false; m.hint = NaN;
+  if (hurt) rage(e, 0.2); else { m.mood = 0; warn(e, false); }   // bị bắn / đã lộ → bắn trả ngay · chỉ thấy đường đạn → chĩa súng hỏi
+  for (const o of entities) {   // báo đồng đội đang tìm: nhìn về phía người bắn
+    const mo = ms[o.i]; if (o === e || mo.mood !== 4 || Math.hypot(o.x - e.x, o.z - e.z) > 40) continue;
+    const dd = Math.hypot(P.x - o.x, P.z - o.z) || 1; mo.hint = Math.atan2(P.x - o.x, P.z - o.z); mo.hp = Math.atan2(-(P.y + 1.2 - (o.y + 1.34)), dd); mo.st = 0.2; mo.spot = Math.max(mo.spot, 0.5);
+  }
+}
+
 export function onFriendlyHit(e: Entity) {
   if (e.i === G.slot || e.dead || e.out || G.ghost || G.phase !== "play") return;
   const wit = witnesses(-1), isW = (x: Entity) => wit.includes(x);
   if (wit.length === 0) {   // nobody saw who did it: no accusation, only confusion + people running over to ask
-    if (ms[e.i].mood === 0) { say(e.i, pick(OUCH), true, true); investigate(e, e.x, e.z); }
-    for (const o of entities) if (o !== e && o.i !== G.slot && Math.hypot(o.x - e.x, o.z - e.z) < WIT.hear) investigate(o, e.x, e.z);
+    if (ms[e.i].mood <= 1 || ms[e.i].mood === 3) { say(e.i, pick(OUCH), true, true); alertBot(e, true); } else if (ms[e.i].mood === 4) alertBot(e, true);
+    for (const o of entities) if (o !== e && o.i !== G.slot && Math.hypot(o.x - e.x, o.z - e.z) < WIT.hear) alertBot(o, false);   // ai nghe tiếng súng cũng nhìn quanh tìm người bắn
     return;
   }
   wit.forEach((w) => (ms[w.i].since = 0));
@@ -110,7 +175,7 @@ function warn(e: Entity, victim: boolean) {
   m.mood = 1; m.t = 0; m.q = 0; say(e.i, victim ? UI.whyShot : pick(["Hey! Did you just shoot him?!", "What was that?! Drop your weapon!"]), true, true);
 }
 function rage(e: Entity, delay: number) {
-  const m = ms[e.i]; m.mood = 2; m.react = delay + Math.random() * 0.7; m.burst = 0; m.rest = 0.3; m.cd = 0;
+  const m = ms[e.i]; m.mood = 2; m.react = delay + Math.random() * 0.7; m.burst = 0; m.rest = 0.3; m.cd = 0; m.nc = Math.max(m.nc, 3 + Math.random() * 4);
 }
 function expose(first: Entity, wit: Entity[]) {
   exposed = true; wanted.style.display = "block";
@@ -122,8 +187,9 @@ function expose(first: Entity, wit: Entity[]) {
 
 /** Họp khẩn / sang lượt: mọi người hoà giải, quên hết. */
 export function hostileReset() {
+  lastFire = shotT = lastNade = -99; shotYaw = NaN;
   strikes = 0; lastStrike = -99; exposed = false; wanted.style.display = "none";
-  for (const m of ms) { m.mood = 0; m.say = 0; m.burst = 0; }
+  for (const m of ms) { m.mood = 0; m.say = 0; m.burst = 0; m.hurt = false; m.spot = 0; m.hint = NaN; m.nades = 2; m.nc = 0; m.sw = 0; }
   for (const b of bubs) b.style.display = "none";
   try { window.speechSynthesis?.cancel(); } catch { /* */ }
   for (const e of entities) if (e.i !== G.slot) { e.aim = 0; e.pitch = 0; }
@@ -166,13 +232,13 @@ async function recordDeath(): Promise<string> {
 function botShot(e: Entity, g: GunDef, d: number) {
   const P = me(), r = e.g.userData.gunRig as GunRig, model = r.models[r.cur]!;
   model.updateWorldMatrix(true, false); MZ.copy(model.userData.muzzle as THREE.Vector3).applyMatrix4(model.matrixWorld);
-  e.kick = 1; const pHit = Math.max(0.12, Math.min(0.55, 0.62 - d * 0.018)) / (g.pellets > 1 ? 2.5 : 1);
+  e.kick = 1; const pHit = g.id === "sniper" ? Math.max(0.3, 0.8 - d * 0.0025) : Math.max(d > 60 ? 0.05 : 0.12, Math.min(0.55, 0.62 - d * 0.018)) / (g.pellets > 1 ? 2.5 : 1);   // súng ngắm: ngắm kỹ nên trúng nhiều hơn, xa mấy cũng đáng sợ
   for (let k = 0; k < g.pellets; k++) {
     const hit = Math.random() < pHit; T.set(P.x, P.y + 1.2, P.z);
     if (!hit) T.add(B.set((Math.random() - 0.5) * (1 + d * 0.12), (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * (1 + d * 0.12)));
     tracer(MZ, T); if (hit) hurtPlayer(g.dmg * COMBAT.botDmg);
   }
-  sfx.shot(g.id, Math.max(0.12, 0.8 - d / 70));
+  sfx.shot(g.id, g.id === "sniper" ? Math.max(0.3, 1 - d / 220) : Math.max(0.12, 0.8 - d / 70));
 }
 
 export function updateHostile(dt: number) {
@@ -186,6 +252,7 @@ export function updateHostile(dt: number) {
     e.kick = Math.max(0, e.kick - dt * 7);
     if (m.mood === 0) { e.aim += (0 - e.aim) * Math.min(1, dt * 6); continue; }
     if (e.stun > 0) continue;
+    if (m.mood === 4) { searchBot(e, m, P, dt); continue; }
     if (m.mood === 3) {   // investigating: run to the spot, ask around, go back to normal (or join in if an accusation is out and they see the culprit)
       e.aim += (0 - e.aim) * Math.min(1, dt * 6); m.t += dt;
       if (exposed && sees(e, P)) { say(e.i, pick(ALARM), true, true); rage(e, 0.3); continue; }
@@ -207,12 +274,24 @@ export function updateHostile(dt: number) {
   }
   hostile.sort((a, b) => a.d - b.d);
   hostile.forEach(({ e, d }, k) => {   // chỉ 3 Bot gần nhất có thể nổ súng cùng lúc, số còn lại áp sát
-    const m = ms[e.i], g = gunOf(e), dx = P.x - e.x, dz = P.z - e.z, los = clear(e, P);
-    if (d > 10 || !los) { walkTo(e, P.x, P.z, dt, BOT_SPEED * 1.35, 0.8); }
-    else { const s = Math.sin(clock * 1.4 + e.i * 2) * 1.6 * dt; e.x += (-dz / d) * s; e.z += (dx / d) * s; }   // đứng bắn, lách ngang
+    const m = ms[e.i], r = e.g.userData.gunRig as GunRig, prim = BOT_GUNS[(e.i - 1) % BOT_GUNS.length], los = clear(e, P), dx = P.x - e.x, dz = P.z - e.z;
+    // chọn súng theo khoảng cách: xạ thủ cầm súng ngắm bắn từ xa (>50 m), lại gần thì đổi sang AK; còn lại dùng AK
+    const want: GunId = prim === "sniper" && d > 50 ? "sniper" : prim === "sniper" ? "rifle" : prim;
+    m.sw = Math.max(0, m.sw - dt);
+    if (r.cur !== want && m.sw <= 0) { equipGun(r, want); for (const key of Object.keys(r.slung) as GunId[]) r.slung[key]!.visible = key !== want; m.sw = 1; m.burst = 0; m.rest = Math.max(m.rest, 0.6); }
+    const g = gunOf(e), hold = r.cur === "sniper" ? 38 : 16;   // xạ thủ đứng yên ngắm; lính AK áp sát tới ~16 m rồi đứng bắn, lách ngang
+    if (d > hold || !los) { walkTo(e, P.x, P.z, dt, BOT_SPEED * 1.35, d > 40 ? 2.5 : 0.8); }
+    else { const s = Math.sin(clock * 1.4 + e.i * 2) * 1.6 * dt; e.x += (-dz / d) * s; e.z += (dx / d) * s; }   // đứng bắn, lệch ngang
+    // LỰU ĐẠN: ném về phía người chơi khi cách 11–36 m và không ở quá cao so với bot (lựu đạn không ném lên đỉnh núi được); cách nhau ≥3 s giữa các bot
+    m.nc -= dt;
+    if (m.nc <= 0 && m.nades > 0 && d >= 11 && d <= 36 && P.y - e.y < 5 && clock - lastNade > 3) {
+      m.nades--; m.nc = 9 + Math.random() * 6; lastNade = clock; e.kick = 1;
+      const sc = 1.2 + d * 0.07; throwBotGrenade(e, P.x + (Math.random() - 0.5) * 2 * sc, P.y, P.z + (Math.random() - 0.5) * 2 * sc);
+      say(e.i, nadeLine(), true, true);
+    }
     collide(e);
-    if (k >= 3 || !los || d > 45) return;
-    if (m.burst > 0) { m.cd -= dt; if (m.cd <= 0) { botShot(e, g, d); m.burst--; m.cd = 1 / (g.rate * (g.auto ? 0.55 : 0.6)); if (m.burst === 0) m.rest = 0.9 + Math.random() * 0.9; } }
-    else { m.rest -= dt; if (m.rest <= 0) { m.burst = g.pellets > 1 ? 1 : g.auto ? 5 : 3; m.cd = 0; } }
+    if (k >= 3 || !los || m.sw > 0.4 || d > Math.min(g.range, 230)) return;   // bắn trả được từ xa (tới tầm súng), đứng dưới chân núi vẫn bắn lên đỉnh
+    if (m.burst > 0) { m.cd -= dt; if (m.cd <= 0) { botShot(e, g, d); m.burst--; m.cd = 1 / (g.rate * (g.auto ? 0.55 : 0.6)); if (m.burst === 0) m.rest = (g.id === "sniper" ? 1.5 : 0.9) + Math.random() * 0.9; } }
+    else { m.rest -= dt; if (m.rest <= 0) { m.burst = g.id === "sniper" ? 1 : g.pellets > 1 ? 1 : g.auto ? 5 : 3; m.cd = 0; } }
   });
 }

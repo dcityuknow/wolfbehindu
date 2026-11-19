@@ -5,6 +5,7 @@ import { createSoloGame, fetchMyRole, fetchStatuses } from "../web3/chain";
 import { prepareOperator, activateOperator } from "../web3/operator";
 import { showHud, setRoleLabel, roleSplash } from "../ui/hud";
 import { spawnAll, markDead, entities } from "../world/characters";
+import { clearBlood } from "../world/fx";
 import { LAND } from "../world/cinePath";
 import { groundAt } from "../world/island";
 import { scheduleDummyAct, checkpoint } from "./round";
@@ -21,7 +22,7 @@ export async function startSolo() {
     G.role = await fetchMyRole();
     await cine.done;
     showHud(); setRoleLabel(G.role); await roleSplash(G.role);
-    spawnAll();
+    clearBlood(); spawnAll();
     entities.forEach((e, i) => { const l = LAND[i]; if (l) { e.x = l.x; e.z = l.z; e.y = groundAt(l.x, l.z); e.px = NaN; e.tx = e.x; e.tz = e.z; } });   // vào game đúng chỗ đã đáp xuống
     G.phase = "play"; scheduleDummyAct();
     setInterval(pollSelfDeath, 9000);

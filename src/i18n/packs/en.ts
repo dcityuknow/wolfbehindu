@@ -9,7 +9,7 @@ export const EN: Dict = {
   "conn.pvp": "👥 Multiplayer table (PvP) · optional cUSDT stake",
   "w.you": "You", "w.youTag": "(you)", "w.role": "Role", "w.crew": "COMMANDO", "w.spy": "SPY",
   "html.title": "Lost Island · The Spy Among Us",
-  "html.lockhint": "🖱 Click the screen to lock the mouse · Left click: shoot · Right click: aim (scope on the sniper) · R: reload · 1 pistol · 2 long gun · 3 sniper · 4 grenade (hold click = pull pin, release = throw) · G: quick grenade · Shift: roll · V: change view",
+  "html.lockhint": "🖱 Click the screen to lock the mouse · Left click: shoot · Right click: aim (scope on the sniper) · R: reload · 1 pistol · 2 long gun · 3 sniper · 4 grenade (hold click = pull pin, release = throw) · G: quick grenade · Shift: roll · V: change view · M: map zoom",
   "html.close": "Close",
   "view.third": "3rd person", "view.first": "1st person",
 
@@ -25,7 +25,7 @@ export const EN: Dict = {
   "sc.1.cap": "Everyone completes 3 tasks at the blinking orange stations: repair the radio, decrypt the secret message, light the signal fire, purify sea water, recover the supply crate. Finish them as a team and you are rescued!",
   "sc.1.head": "Survival", "sc.1.sm": "3 tasks / person",
   "sc.2.title": "A hidden spy",
-  "sc.2.cap": "One of the 7 is a spy planted in advance — it could be you! Roles are assigned randomly and encrypted with Zama FHE: only you can see your own role.",
+  "sc.2.cap": "One of the 11 is a spy planted in advance — it could be you! Roles are assigned randomly and encrypted with Zama FHE: only you can see your own role.",
   "sc.2.head": "🔐 Roles are encrypted", "sc.2.banner": "Only you see: COMMANDO 🎖",
   "sc.3.title": "Assassination & body reports",
   "sc.3.cap": "The spy secretly assassinates anyone who wanders off alone (Q key, at most once per round). Whoever finds a body must run to the campfire and sit down (E) to call the meeting; everyone then has 30 s to reach the fire — whoever does not show up is branded the spy.",
@@ -39,7 +39,7 @@ export const EN: Dict = {
 
   /* ── rules ── */
   /* ── text on the illustrated clips (ruleClips.ts) ── */
-  "clip.1.spy": "🕵 1 TRAITOR among 7",
+  "clip.1.spy": "🕵 1 TRAITOR among 11",
   "clip.2.task": "📻 Repair the radio", "clip.2.body": "A body!", "clip.2.meet": "EMERGENCY MEETING", "clip.2.vote": "Compare stories & vote",
   "clip.3.stab": "Assassinate", "clip.3.burrow": "Secret burrow", "clip.3.alibi": "Alibi",
   "clip.4.check": "🏁 Check tasks", "clip.4.win": "VICTORY!",
@@ -49,7 +49,7 @@ export const EN: Dict = {
   "clip.7.enc": "roles are encrypted", "clip.7.rev": "game over: public", "clip.7.spy": "SPY", "clip.7.crew": "COMMANDO",
 
   "rules.1.h": "🎯 Story & goal",
-  "rules.1.b": `<p>ALPHA Squad was blown off its drop zone by a storm and is stranded on a desert island with no contact. You play alongside <b>6 Bot squadmates</b>. Among the 7 of you is <b>1 spy</b> (random — it may be you).</p>
+  "rules.1.b": `<p>ALPHA Squad was blown off its drop zone by a storm and is stranded on a desert island with no contact. You play alongside <b>10 Bot squadmates</b>. Among the 11 of you is <b>1 spy</b> (random — it may be you).</p>
   <p><b style="color:#5f9">Commandos win</b> by ejecting the real spy <i>or</i> by finishing every survival task.<br>
   <b style="color:#f66">The spy wins</b> when living commandos ≤ living spies.</p>`,
   "rules.2.h": "🎖 If you are a Commando",
@@ -61,7 +61,7 @@ export const EN: Dict = {
   Press <kbd>E</kbd> at a secret burrow (rock hole with a green glow) to pop out of another one. Fake tasks to keep your cover, then shift the blame during meetings.</p>`,
   "rules.4.h": "🎮 Controls",
   "rules.4.b": `<p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move in the direction you look · <b>mouse</b> rotates the camera (click the screen to lock the mouse)<br><kbd>V</kbd> change view: 3rd person / 1st person · scroll to zoom<br>
-  <kbd>Space</kbd> jump · <kbd>Shift</kbd> roll (dodge forward, 1 s cooldown) · walk into the sea to swim (you can't shoot while swimming) · <kbd>E</kbd> interact (tasks / secret burrow / sit at the central campfire to call or join a meeting)<br>
+  <kbd>Space</kbd> jump · <kbd>Shift</kbd> roll (dodge forward, 1 s cooldown) · walk into the sea or any lake to swim (you can't shoot while swimming) · in water hold <kbd>Shift</kbd> to dive, <kbd>Space</kbd> to surface (hold your breath ~20 s) · <kbd>E</kbd> interact (tasks / secret burrow / sit at the central campfire to call or join a meeting)<br>
   <kbd>Q</kbd> assassinate (spy only)<br><b>Guns:</b> <kbd>Left click</kbd> shoot · <kbd>Right click</kbd> aim · <kbd>R</kbd> reload · <kbd>1</kbd> pistol · <kbd>2</kbd> long gun · <kbd>3</kbd> sniper (aim = scope) · <kbd>4</kbd> grenade (hold click to pull the pin, release to throw) · <kbd>G</kbd> quick grenade (scroll wheel switches guns in 1st person)</p>
   <p class="dim">Vision is limited: you only see players inside the lit area and not hidden behind rocks, buildings or bushes. Nobody can walk into the sea.</p>`,
   "rules.5.h": "💥 Friendly fire is REAL",
@@ -91,7 +91,7 @@ export const EN: Dict = {
   <li>✍️ One gas-free signature lets you <b>decrypt your role</b> (only you can see it).</li>
   <li>🔑 The game <b>never</b> asks for your seed phrase / private key.</li></ul>`,
   "conn.chk.h": "✅ Quick check", "conn.tip": "Tip: use a separate wallet for testing, never one that holds real funds.",
-  "conn.play": "🔗 Connect wallet & Deploy (you + 6 Bot squadmates)",
+  "conn.play": "🔗 Connect wallet & Deploy (you + 10 Bot squadmates)",
   "chk.none": `❌ No wallet found. Install <a href="https://metamask.io/download" target="_blank" rel="noopener">MetaMask</a> and reload the page.`,
   "chk.ok": "✅ Wallet detected in your browser.", "chk.sep": "✅ You are on the Sepolia network.",
   "chk.notsep": "⚠️ Not on Sepolia yet — the game will ask you to switch networks when you press Play.", "chk.later": "ℹ️ The network will be checked when you press Play.",
@@ -104,8 +104,8 @@ export const EN: Dict = {
   "kms.death.go": "KMS is publicly decrypting your status (the longest wait)…", "kms.death.ok": "KMS decrypted + signed it: you are dead.",
   "tx.submit.go": "Sending transaction: submitting the KMS signatures as proof…", "tx.submit.ok": "Transaction done: the contract verified the KMS signatures and ended the game.",
   "tx.exec.go": "Sending transaction: recording your death (executed) on the contract…", "tx.exec.ok": "Transaction done: the contract recorded your death and ended the game.",
-  "tx.reveal.go": "Sending transaction: unlocking the squad's roles…", "tx.reveal.ok": "Transaction done: all 7 roles are now public, ready to decrypt.",
-  "kms.roles.go": "KMS is decrypting the 7 roles (another short wait)…", "kms.roles.ok": "KMS decrypted the roles — getting the spy stamp ready.", "kms.retry": "KMS not ready yet — retrying automatically (attempt {0})…",
+  "tx.reveal.go": "Sending transaction: unlocking the squad's roles…", "tx.reveal.ok": "Transaction done: all 11 roles are now public, ready to decrypt.",
+  "kms.roles.go": "KMS is decrypting the 11 roles (another short wait)…", "kms.roles.ok": "KMS decrypted the roles — getting the spy stamp ready.", "kms.retry": "KMS not ready yet — retrying automatically (attempt {0})…",
   "end.cantProve": "Could not prove the death on-chain.", "end.unlocking": "Unlocking roles (FHE)…",
   "end.cantUnlock": "Could not unlock the roles ({0}). If the contract is old, run <b>npm start</b> to redeploy it.", "end.retry": "Retry",
 
@@ -114,6 +114,6 @@ export const EN: Dict = {
   "toast.deep": "🌊 Deep sea ahead — you can't swim any farther", "toast.swim": "🏊 Swimming — you can't shoot · stop moving to shoot", "toast.hands": "🙌 Hands busy — grenade put away",
   "toast.killed": "💀 You were killed", "toast.meetFail": "✗ Could not open the meeting on-chain — try again", "toast.sdk": "Initializing Zama SDK…", "toast.sign": "✍ Sign EIP-712 to decrypt (no gas)…",
   "gun.pistol": "Pistol", "gun.rifle": "Long Gun (AK-47)", "gun.sniper": "Sniper Rifle", "gun.grenade": "Grenade", "gun.nade": "Grenade · hold click = pull pin, release = throw",
-  "cine.skip": "Skip ⏭", "cine.alt": "⚠ CRITICAL ALTITUDE", "cine.altL": "ALT",
+  "cine.skip": "Skip ⏭", "cine.alt": "⚠ CRITICAL ALTITUDE", "cine.altL": "ALT", "cine.key": "PRESS E TO DEPLOY CHUTE!", "cine.keyOk": "CHUTE DEPLOYED!", "cine.dead": "YOU DIED", "cine.dead2": "You didn't pull your chute in time — you hit the ground.", "cine.retry": "Jump again (E)",
   "voice.net": "📡 SQUAD NET", "voice.static": "📡 SQUAD NET — SIGNAL LOST", "voice.ai": "⚙ SUIT AI", "voice.private": "🔒 PRIVATE CHANNEL",
 };

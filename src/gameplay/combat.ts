@@ -3,11 +3,11 @@ import * as THREE from "three";
 import { G } from "../state";
 import { GUNS, GRENADE, COMBAT, SWAP, type GunId } from "../config";
 import { W, M, MV, refillAmmo, resetNade } from "../weaponState";
-import { entities, me, suitMat } from "../world/characters";
+import { entities, me, suitMat, layEntity, reviveEntity } from "../world/characters";
 import { rig, muzzleWorld, magWorld, nadeWorld, firstNow, viewGuns } from "../world/camera";
 import { camera, scene, canvasEl } from "../world/scene";
 import { wallMeshes, WALLS } from "../world/map";
-import { walkable, groundAt, terrainRay, WATER_Y } from "../world/island";
+import { walkable, groundAt, terrainRay, rayWater, surfaceAt } from "../world/island";
 import { equipGun, setFlash, type GunRig } from "../world/guns";
 import { tracer, impact, explosion, dropMag, flyPin, hole, splash, waterBlast } from "../world/fx";
 import { buildGrenade } from "../world/guns";
@@ -15,7 +15,7 @@ import { sfx } from "../audio";
 import { toast } from "../ui/dom";
 import { hitMark } from "../ui/weaponHud";
 import { keys } from "../input";
-import { onFriendlyHit, hostileReset, hurtPlayer } from "./hostile";
+import { onFriendlyHit, hostileReset, hurtPlayer, onPlayerShot } from "./hostile";
 import type { Entity } from "../types";
 
 /**
@@ -62,10 +62,7 @@ function trace(range: number): Hit {
   const w = rc.intersectObjects(wallMeshes, false)[0];
   if (w) { h.t = w.distance; h.kind = "wall"; if (w.face) HN.copy(w.face.normal).transformDirection(w.object.matrixWorld); }
   { const tg = terrainRay(O.x, O.y, O.z, D.x, D.y, D.z, h.t); if (tg >= 0) { h.t = tg; h.kind = "ground"; const x = O.x + D.x * tg, z = O.z + D.z * tg; HN.set(groundAt(x - 0.5, z) - groundAt(x + 0.5, z), 1, groundAt(x, z - 0.5) - groundAt(x, z + 0.5)).normalize(); } }   // đồi/vách/mặt đất
-  if (D.y < -1e-4 && O.y > WATER_Y) {   // mặt nước: đạn trúng mặt phẳng nước trước khi chạm đáy
-    const tw = (WATER_Y - O.y) / D.y;
-    if (tw > 0 && tw < h.t && groundAt(O.x + D.x * tw, O.z + D.z * tw) < WATER_Y) { h.t = tw; h.kind = "water"; }
-  }
+  { const tw = rayWater(O.x, O.y, O.z, D.x, D.y, D.z, h.t); if (tw > 0) { h.t = tw; h.kind = "water"; } }   // mặt nước (biển hoặc hồ): đạn trúng mặt phẳng nước trước khi chạm đáy
   for (const e of entities) {
     if (e.i === G.slot || e.dead || e.out || e.stun > 0 || !e.g.visible) continue;   // chỉ trúng người đang nhìn thấy
     const t = cyl(e);
@@ -78,7 +75,7 @@ function trace(range: number): Hit {
 function damageEntity(e: Entity, dmg: number, head: boolean) {
   if (e.stun > 0 || e.dead || e.out) return;
   e.hp -= dmg; e.flash = 0.18; sfx.hit();
-  if (e.hp > 0) { hitMark(head ? 2 : 1); onFriendlyHit(e); return; }                  // trúng đạn: đồng đội hét lên, chất vấn, chĩa súng lại
+  if (e.hp > 0) { hitMark(head ? 2 : 1); e.g.userData.face?.(1); e.g.userData.painT = 0.8; onFriendlyHit(e); return; }   // trúng đạn: nhăn mặt nhắm mắt                  // trúng đạn: đồng đội hét lên, chất vấn, chĩa súng lại
   hitMark(3);
   if (G.role === 1 && !G.killUsed && !G.ghost && G.phase === "play") hooks.lethal(e);   // gián điệp: hạ gục thật (on-chain), 1 lần/lượt
   else { e.hp = 0; hooks.friendlyKill(e); }                                          // anyone else: the victim is dead for good (on-chain)
@@ -97,10 +94,11 @@ function fire() {
     aimRay(spread);
     const r = trace(g.range); P.copy(O).addScaledVector(D, r.t);
     tracer(MZ, P);
+    onPlayerShot(O, D, r.t);   // bot bị trúng / thấy đường đạn thì nhìn quanh tìm người bắn
     if (r.e) {
       const fall = r.t < g.range * 0.4 ? 1 : 1 - 0.45 * ((r.t - g.range * 0.4) / (g.range * 0.6));   // xa thì yếu đi
       impact(P, "blood"); damageEntity(r.e, g.dmg * fall * (r.head ? COMBAT.headMul : 1), r.head);
-    } else if (r.kind === "water") splash(P, g.id === "sniper" ? 1.5 : 1);
+    } else if (r.kind === "water") { splash(P, g.id === "sniper" ? 1.5 : 1); sfx.waterShot(Math.hypot(me().x - P.x, me().z - P.z)); }   // đạn chạm nước: tóe nước + tiếng riêng
     else if (r.kind === "ground") { impact(P, "dust"); hole(P, HN); }
     else if (r.kind === "wall") { impact(P, "spark"); hole(P, HN); }
   }
@@ -133,7 +131,7 @@ export const cycleWeapon = (d: number) => selectWeapon((W.cur + d + GUNS.length)
 /* ───────────── Lựu đạn ─────────────
  * Phím 4: tay phải móc túi hông trái lấy lựu đạn → GIỮ chuột trái: giật chốt (chốt bay ra), người ngả ra sau → THẢ chuột: vung tay ném (giữ lâu sau khi rút chốt = ném xa hơn).
  * Bấm nhanh (thả sớm) hoặc phím G: tự giật chốt rồi ném luôn, xong tự rút lại súng. */
-interface Gren { m: THREE.Object3D; v: THREE.Vector3; t: number; w?: boolean }
+interface Gren { m: THREE.Object3D; v: THREE.Vector3; t: number; w?: boolean; bot?: boolean }
 const grens: Gren[] = [];
 
 function equipNade(quick: boolean) {
@@ -207,19 +205,19 @@ function updateNade(dt: number, ok: boolean) {
   }
 }
 const _id = new THREE.Quaternion(), _eu = new THREE.Euler();
-function explode(p: THREE.Vector3, water = false) {
-  { const m0 = me(); sfx.explode(Math.hypot(m0.x - p.x, (m0.y + 1) - p.y, m0.z - p.z)); }
-  if (water) { p.y = WATER_Y; waterBlast(p, GRENADE.radius); } else explosion(p, GRENADE.radius);
+function explode(p: THREE.Vector3, water = false, bot = false) {
+  { const m0 = me(), d0 = Math.hypot(m0.x - p.x, (m0.y + 1) - p.y, m0.z - p.z); if (water) sfx.waterBlast(d0); else sfx.explode(d0); }   // nổ dưới nước = tiếng tũm + cột nước, không phải tiếng nổ khô
+  if (water) { p.y = surfaceAt(p.x, p.z); waterBlast(p, GRENADE.radius); } else explosion(p, GRENADE.radius);
   const m = me(); hooks.shake(Math.max(0, 0.7 * (1 - Math.hypot(m.x - p.x, m.z - p.z) / (GRENADE.radius * 3))));
   if (!G.ghost && G.phase === "play") {   // người chơi đứng gần cũng mất máu (kể cả lựu đạn do chính mình ném)
     const d = T.set(m.x, m.y + 0.9, m.z).distanceTo(p);
     if (d < GRENADE.radius) {
-      let dmg = GRENADE.dmg * Math.pow(1 - d / GRENADE.radius, 1.3);
+      let dmg = GRENADE.dmg * Math.pow(1 - d / GRENADE.radius, 1.3) * (bot ? 0.6 : 1);   // lựu đạn của bot yếu hơn 40%: trúng chính giữa không chết ngay
       U.copy(T).sub(p).normalize(); rc.set(p, U); rc.far = d; if (rc.intersectObjects(wallMeshes, false).length) dmg *= 0.25;
       hooks.shake(0.5); hurtPlayer(dmg);
     }
   }
-  for (const e of entities) {
+  if (!bot) for (const e of entities) {   // lựu đạn của bot không làm đồng đội bị thương
     if (e.i === G.slot || e.dead || e.out || e.stun > 0) continue;
     const d = T.set(e.x, e.y + 0.9, e.z).distanceTo(p); if (d > GRENADE.radius) continue;
     let dmg = GRENADE.dmg * Math.pow(1 - d / GRENADE.radius, 1.3);
@@ -229,13 +227,22 @@ function explode(p: THREE.Vector3, water = false) {
     damageEntity(e, dmg, false);
   }
 }
+/** Bot ném lựu đạn về phía (tx, ty, tz): tính đường bay parabol để rơi gần đích (bay ~0,7–2 s), nổ sau khi chạm đất ~0,9 s để người chơi kịp chạy. */
+export function throwBotGrenade(e: Entity, tx: number, ty: number, tz: number) {
+  const mesh = buildGrenade(); (mesh.userData.pin as THREE.Object3D).visible = false; mesh.scale.setScalar(1.3);
+  mesh.position.set(e.x + Math.sin(e.rot) * 0.4, e.y + 1.5, e.z + Math.cos(e.rot) * 0.4);
+  const dx = tx - mesh.position.x, dz = tz - mesh.position.z, D = Math.hypot(dx, dz) || 1, tt = Math.max(0.7, Math.min(2, D / 14));
+  const v = new THREE.Vector3((dx / D) * (D / tt), (ty - mesh.position.y + 0.5 * GRENADE.gravity * tt * tt) / tt, (dz / D) * (D / tt));
+  scene.add(mesh); grens.push({ m: mesh, v, t: tt + 0.9, bot: true });
+  sfx.nadeThrow();
+}
 function updateGrenades(dt: number) {
   for (let i = grens.length - 1; i >= 0; i--) {
     const g = grens[i], p = g.m.position; g.t -= dt;
     g.v.y -= GRENADE.gravity * dt; p.addScaledVector(g.v, dt); g.m.rotation.x += dt * 9; g.m.rotation.z += dt * 6;
     const gy = groundAt(p.x, p.z) + 0.12;
-    if (!g.w && p.y < WATER_Y && gy - 0.12 < WATER_Y) { g.w = true; splash(p, 1.4); g.v.multiplyScalar(0.12); }   // rơi xuống biển / ao: chìm dần, vẫn nổ khi hết ngòi
-    if (g.w) { g.v.y += GRENADE.gravity * dt * 0.85; g.v.multiplyScalar(Math.exp(-dt * 2.5)); if (p.y < gy) p.y = gy; if (g.t <= 0) { explode(p.clone(), true); scene.remove(g.m); grens.splice(i, 1); } continue; }
+    if (!g.w && p.y < surfaceAt(p.x, p.z) && gy - 0.12 < surfaceAt(p.x, p.z)) { g.w = true; splash(p, 1.4); sfx.splash(false, 0.9 / (1 + Math.hypot(me().x - p.x, me().z - p.z) / 25)); g.v.multiplyScalar(0.12); }   // rơi xuống biển / ao: chìm dần, vẫn nổ khi hết ngòi
+    if (g.w) { g.v.y += GRENADE.gravity * dt * 0.85; g.v.multiplyScalar(Math.exp(-dt * 2.5)); if (p.y < gy) p.y = gy; if (g.t <= 0) { explode(p.clone(), true, g.bot); scene.remove(g.m); grens.splice(i, 1); } continue; }
     if (p.y < gy) {
       if (gy - p.y > 0.6) { p.x -= g.v.x * dt; p.z -= g.v.z * dt; g.v.x *= -0.4; g.v.z *= -0.4; }            // đập vào sườn dốc: nảy ngược
       else { p.y = gy; g.v.y = Math.abs(g.v.y) < 1.2 ? 0 : -g.v.y * 0.4; g.v.x *= 0.72; g.v.z *= 0.72; }
@@ -244,7 +251,7 @@ function updateGrenades(dt: number) {
       const dx = p.x - cx, dz = p.z - cz, px = w / 2 + 0.12 - Math.abs(dx), pz = d / 2 + 0.12 - Math.abs(dz);
       if (px > 0 && pz > 0 && p.y < groundAt(cx, cz) + 2.8) { if (px < pz) { p.x += Math.sign(dx || 1) * px; g.v.x *= -0.5; } else { p.z += Math.sign(dz || 1) * pz; g.v.z *= -0.5; } }
     }
-    if (g.t <= 0) { explode(p.clone()); scene.remove(g.m); grens.splice(i, 1); }
+    if (g.t <= 0) { explode(p.clone(), false, g.bot); scene.remove(g.m); grens.splice(i, 1); }
   }
 }
 
@@ -292,8 +299,8 @@ function updateEntities(dt: number) {
     if (mat.color.getHex() !== want) mat.color.setHex(want);
     if (e.stun > 0) {
       e.stun -= dt;
-      if (e.stun <= 0) { e.stun = 0; e.hp = COMBAT.reviveHp; e.g.rotation.z = 0; }
-      else { e.g.rotation.set(0, e.rot, Math.PI / 2); e.g.position.set(e.x + 0.9 * Math.cos(e.rot), e.y + 0.46, e.z - 0.9 * Math.sin(e.rot)); }
+      if (e.stun <= 0) { e.stun = 0; e.hp = COMBAT.reviveHp; reviveEntity(e); }
+      else layEntity(e);
     }
   }
 }
@@ -303,7 +310,7 @@ export function clearCombat() {
   hostileReset();
   for (const g of grens) scene.remove(g.m);
   grens.length = 0;
-  for (const e of entities) if (e.stun > 0) { e.stun = 0; e.hp = COMBAT.reviveHp; e.g.rotation.z = 0; }
+  for (const e of entities) if (e.stun > 0) { e.stun = 0; e.hp = COMBAT.reviveHp; reviveEntity(e); }
 }
 /** Lượt mới: hồi máu, nạp đầy đạn + lựu đạn. */
 export function resetRound() {

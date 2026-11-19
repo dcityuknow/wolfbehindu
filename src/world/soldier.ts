@@ -104,10 +104,41 @@ function addHat(v: VB, def: any, U: Fn) {
   }
 }
 
+
+/**
+ * Biểu cảm mặt (đè lên mặt voxel 8x8, mặt nhìn +z): các mảnh phủ mỏng ngay trước mặt, mặc định ẩn.
+ * mode: 0 bình thường · 1 ĐAU (bị trúng đạn: nhắm tịt mắt, nhếch miệng) · 2 CHẾT: nhắm mắt + há hốc miệng · 3 CHẾT: mắt chữ X + há miệng lè lưỡi ·
+ *       4 CHẾT: trợn trừng mắt + há miệng to kinh hoàng · 5 NGẤT: nhắm mắt, miệng khép.
+ */
+function buildFaceFx(neck: THREE.Group, skin: number): (mode: number) => void {
+  const z0 = 4 * PX + 0.0012, mk = (c: number) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 });
+  const SK = mk(skin), DK = mk(0x1c1210), IN = mk(0x1b0505), TG = mk(0xb04458), WH = mk(0xf4f4f4), BR = mk(0x2a2018);
+  const part = (m: THREE.Material, w: number, h: number, x: number, y: number, dz = 0, rz = 0) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w * PX, h * PX, 0.5 * PX), m); b.position.set(x * PX, y * PX, z0 + dz * PX); b.rotation.z = rz; b.visible = false; neck.add(b); return b;
+  };
+  const ex = [-2, 2], EY = 3.5;
+  const lid = ex.map((x) => part(SK, 2.5, 1.6, x, EY, 0.1)), lash = ex.map((x) => part(DK, 2.3, 0.4, x, EY - 0.4, 0.3));                   // mí khép + đường mi
+  const xe = ex.flatMap((x) => [part(DK, 2.9, 0.5, x, EY, 0.35, Math.PI / 4), part(DK, 2.9, 0.5, x, EY, 0.36, -Math.PI / 4)]);              // mắt chữ X (cover bằng mí da)
+  const wide = ex.map((x) => part(WH, 2.6, 2.4, x, EY + 0.2, 0.15)), pup = ex.map((x) => part(DK, 0.9, 0.9, x, EY + 0.2, 0.3)), brow = ex.flatMap((x, k) => [part(BR, 2.8, 0.55, x, 5.7, 0.2, (k ? -1 : 1) * 0.18)]);   // trợn mắt + chân mày vểnh
+  const mSm = part(DK, 2.2, 0.8, 0, 1.4, 0.1), mO = part(IN, 2.4, 3.0, 0, 1.2, 0.2), mBig = part(IN, 3.4, 4.2, 0, 0.9, 0.2), tongue = part(TG, 1.6, 1.4, 0, -0.1, 0.45);
+  const all = [...lid, ...lash, ...xe, ...wide, ...pup, ...brow, mSm, mO, mBig, tongue];
+  let cur = -1;
+  return (mode: number) => {
+    if (mode === cur) return; cur = mode;
+    for (const p of all) p.visible = false;
+    const on = (a: THREE.Object3D[]) => a.forEach((p) => (p.visible = true));
+    if (mode === 1) { on(lid); on(lash); mSm.visible = true; }
+    else if (mode === 2) { on(lid); on(lash); mO.visible = true; }
+    else if (mode === 3) { on(lid); on(xe); mO.visible = true; tongue.visible = true; }
+    else if (mode === 4) { on(wide); on(pup); on(brow); mBig.visible = true; }
+    else if (mode === 5) { on(lid); on(lash); }
+  };
+}
+
 /** Dựng 1 người lính → { g, armL, armR, legL, legR }. Mặt nhìn +z, chân chạm y=0. `band` = màu băng tay nhận diện đồng đội. */
 export function buildSoldier(def: any, mat: THREE.Material, band: number) {
   const g = new THREE.Group(), U = camoFn(def.uni.pal, def.uni.kind, def.uni.seed), sk = [def.skin, shade(def.skin, 0.94)], SKN = (i: number, j: number, k: number) => (((i + j + k) & 1) ? sk[0] : sk[1]);
-  const mouth = shade(def.skin, 0.62), gl = def.glove, H = def.hair; let headRef!: THREE.Group;
+  const mouth = shade(def.skin, 0.62), gl = def.glove, H = def.hair; let headRef!: THREE.Group, faceFx!: (mode: number) => void;
   const grp = (x: number, y: number) => { const q = new THREE.Group(); q.position.set(x * PX, y * PX, 0); g.add(q); return q; };
   { // đầu vuông 8x8x8: tóc, mắt, miệng + mũ
     const hv = new VB();
@@ -124,7 +155,7 @@ export function buildSoldier(def: any, mat: THREE.Material, band: number) {
       return SKN(i, j, k);
     });
     addHat(hv, { ...def, head: "square" }, U);
-    const neck = new THREE.Group(); neck.position.set(0, 24 * PX, 0); const hm = hv.mesh(mat); hm.position.set(0, -24 * PX, 0); neck.add(hm); g.add(neck); headRef = neck;   // đầu gắn vào khớp CỔ để gật / ngẩng theo chuột
+    const neck = new THREE.Group(); neck.position.set(0, 24 * PX, 0); const hm = hv.mesh(mat); hm.position.set(0, -24 * PX, 0); neck.add(hm); g.add(neck); headRef = neck; faceFx = buildFaceFx(neck, sk[0]);   // đầu gắn vào khớp CỔ để gật / ngẩng theo chuột
   }
   { // thân: áo + áo giáp + túi đạn + thắt lưng + phù hiệu cổ áo + ba lô
     const bv = new VB(), vest = def.vest, pc = def.pouch;
@@ -189,5 +220,5 @@ export function buildSoldier(def: any, mat: THREE.Material, band: number) {
     q.userData.knee = knee; return q;
   };
   const legL = mkLeg(-1), legR = mkLeg(1);
-  return { g, armL, armR, legL, legR, hip, head: headRef };
+  return { g, armL, armR, legL, legR, hip, head: headRef, face: faceFx };
 }

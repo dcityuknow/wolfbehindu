@@ -1,4 +1,4 @@
-import { H, NG, STEP, CAMP, groundAt, walkable, slopeAt, PADS, STATION_XZ, VENT_XZ, HUT_XZ, HAMMOCK_XZ, RUINS_XZ, WRECK_XZ, VOLCANO_XZ, BEACH_XZ, DOCK, PONDS } from "./island";
+import { H, NG, STEP, CORE_R, CAMP, groundAt, walkable, slopeAt, PADS, STATION_XZ, VENT_XZ, HUT_XZ, HAMMOCK_XZ, RUINS_XZ, WRECK_XZ, VOLCANO_XZ, BEACH_XZ, DOCK, PONDS } from "./island";
 import { WALLS } from "./map";
 import { hash } from "./noise";
 
@@ -32,7 +32,9 @@ function build() {
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const gAt = (ix: number, iz: number) => groundAt(ix + 0.5, iz + 0.5);
 const open = (ix: number, iz: number) => inGrid(ix, iz) && !blocked![idx(ix, iz)];
-const edgeOK = (x: number, z: number, nx: number, nz: number) => open(nx, nz) && Math.abs(gAt(nx, nz) - gAt(x, z)) <= STEP;
+/** Bot đi được từ ô (x,z) sang ô (nx,nz) nếu leo lên ≤ JUMP_UP khối (bước 1 khối thì tự bước, bậc 2 khối thì NHẢY — đúng bằng người chơi) và rơi xuống ≤ DROP khối. */
+export const JUMP_UP = STEP + 1, DROP = 4;
+const edgeOK = (x: number, z: number, nx: number, nz: number) => { if (!open(nx, nz)) return false; const d = gAt(nx, nz) - gAt(x, z); return d <= JUMP_UP + 1e-6 && -d <= DROP; };
 
 /** Ô trống gần (x, z) nhất (tìm trong bán kính 6). */
 function nearestOpen(x: number, z: number): [number, number] | null {
@@ -61,14 +63,14 @@ export function findPath(x0: number, z0: number, x1: number, z1: number): [numbe
   const sk = idx(a[0], a[1]), gk = idx(b[0], b[1]);
   g[sk] = 0; stamp[sk] = run; from[sk] = -1; push(sk, hh(a[0], a[1]));
   let it = 0;
-  while (heap.length && it++ < 60000) {
+  while (heap.length && it++ < 150000) {   // núi cao ở xa cần tìm sâu hơn
     const k = pop(); if (closed[k] === run) continue; closed[k] = run;
     if (k === gk) break;
     const ix = ((k / W) | 0) - NG, iz = (k % W) - NG;
     for (const [dx, dz] of N8) {
       const nx = ix + dx, nz = iz + dz; if (!edgeOK(ix, iz, nx, nz)) continue;
       if (dx && dz && (!edgeOK(ix, iz, ix + dx, iz) || !edgeOK(ix, iz, ix, iz + dz))) continue;          // không cắt góc
-      const nk = idx(nx, nz), ng = g[k] + (dx && dz ? 1.414 : 1) + Math.abs(gAt(nx, nz) - gAt(ix, iz)) * 0.3;
+      const rise = gAt(nx, nz) - gAt(ix, iz), nk = idx(nx, nz), ng = g[k] + (dx && dz ? 1.414 : 1) + Math.abs(rise) * 0.3 + (rise > STEP + 1e-6 ? 1.5 : 0);   // bậc phải nhảy tốn thêm công
       if (stamp[nk] === run && ng >= g[nk]) continue;
       stamp[nk] = run; g[nk] = ng; from[nk] = k; push(nk, ng + hh(nx, nz));
     }
@@ -103,8 +105,8 @@ function smoothPath(p: [number, number][]) {
 export function randomNavPoint(): [number, number] {
   if (!reach) build();
   for (let tries = 0; tries < 400; tries++) {
-    const x = (Math.random() * 2 - 1) * 58, z = (Math.random() * 2 - 1) * 58, ix = Math.floor(x), iz = Math.floor(z);
-    if (reachable(x, z) && H(ix, iz) >= 3 && H(ix, iz) <= 24 && slopeAt(ix, iz) <= 1) return [x, z];
+    const x = (Math.random() * 2 - 1) * CORE_R, z = (Math.random() * 2 - 1) * CORE_R, ix = Math.floor(x), iz = Math.floor(z);
+    if (Math.hypot(x, z) <= CORE_R && reachable(x, z) && H(ix, iz) >= 3 && H(ix, iz) <= 30 && slopeAt(ix, iz) <= 1) return [x, z];
   }
   return [0, 6];
 }
@@ -121,8 +123,8 @@ export function waypoints() {
   raw.push(near(...HAMMOCK_XZ, 3), near(...RUINS_XZ, 4), near(...WRECK_XZ, 5), near(...VOLCANO_XZ, 5), [BEACH_XZ[0], BEACH_XZ[1] - 3], [DOCK.x, DOCK.z0 + 5], [DOCK.x, DOCK.z1 - 3]);
   for (const o of PONDS) raw.push([o.x + o.r + 2.2, o.z]);
   for (const p of PADS) if (!p.pond && Math.hypot(p.x, p.z) < 14) raw.push([p.x + p.r, p.z]);
-  for (let i = 0; i < 24; i++) { const x = (hash(i, 31) - 0.5) * 112, z = (hash(i, 37) - 0.5) * 112, ix = Math.floor(x), iz = Math.floor(z); if (H(ix, iz) >= 3 && slopeAt(ix, iz) <= 1) raw.push([x, z]); }
-  WP = raw.filter(([x, z]) => reachable(x, z) && open(Math.floor(x), Math.floor(z)));
+  for (let i = 0; i < 40; i++) { const x = (hash(i, 31) - 0.5) * 2 * CORE_R, z = (hash(i, 37) - 0.5) * 2 * CORE_R, ix = Math.floor(x), iz = Math.floor(z); if (H(ix, iz) >= 3 && slopeAt(ix, iz) <= 1) raw.push([x, z]); }
+  WP = raw.filter(([x, z]) => Math.hypot(x, z) <= CORE_R + 6 && reachable(x, z) && open(Math.floor(x), Math.floor(z)));
   if (!WP.length) WP = [[0, 8]];
   return WP;
 }

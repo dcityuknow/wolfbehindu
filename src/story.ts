@@ -8,10 +8,10 @@ import "./i18n/packs";   // đăng ký các bản dịch
 export const GAME = { logo: "🪂 Lost Island", title: "Lost Island · The Spy Among Us", op: "OPERATION BLACK SPEARHEAD", squad: "ALPHA Squad" };
 
 /** Callsigns — [0] is the player. Used for name tags, chat and the voting board. */
-export const CALLSIGNS = ["You", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf"];
+export const CALLSIGNS = ["You", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo"];
 
 export const ROLE = {
-  crew: { name: "COMMANDO", badge: "🎖 COMMANDO", color: "#5f9", title: "YOU ARE A COMMANDO", sub: "Complete 3 survival tasks and find the spy among your 6 squadmates. Trust no one." },
+  crew: { name: "COMMANDO", badge: "🎖 COMMANDO", color: "#5f9", title: "YOU ARE A COMMANDO", sub: "Complete 3 survival tasks and find the spy among your 10 squadmates. Trust no one." },
   spy: { name: "SPY", badge: "🕵 SPY", color: "#f55", title: "YOU ARE THE SPY", sub: "Keep your cover. Wait for someone to wander off alone, then assassinate them (Q). Use the secret burrows (E) to slip away and fake tasks so nobody suspects you." },
 };
 
@@ -70,6 +70,7 @@ export const UI = {
   chainDone: (tx: string) => `✅ Death recorded on-chain · tx ${tx}`,
   chainFail: "❌ Could not record the death on-chain.",
   retry: "Retry",
+  coldWarn: "❄ It is freezing up here — frost is covering your gear and the colours are fading. Move down the mountain or warm up at the campfire.",
 };
 
 /** End screens */
@@ -117,7 +118,7 @@ export const OPENERS = {
   emergency: ["I called this meeting to settle things: our squad is being manipulated from the inside.", "Something is wrong. Everyone gather around the fire and talk it through."],
 };
 
-/** Opening cutscene: 5 scenes (≈60s total, durations in world/cine3d.ts BEAT_MIN). No on-screen narration — the only text shown is the characters' subtitles (VOICE below). */
+/** Opening cutscene: 5 scenes (≈90s total, 11 soldiers = 11 nations, durations in world/cine3d.ts BEAT_MIN). No on-screen narration — the only text shown is the characters' subtitles (VOICE below). */
 export const CUTSCENE = [{ tag: "cabin" }, { tag: "jump" }, { tag: "storm" }, { tag: "altitude" }, { tag: "island" }];
 
 /**
@@ -142,6 +143,15 @@ export const VOICE: VoiceLine[] = [
     en: "Stay calm. Panic is what the spy wants.", vi: "Bình tĩnh. Hoảng loạn chính là thứ gián điệp muốn." },
   { id: "v11", beat: 0, t: 18.15, who: "GOLF", chan: "", spk: 6, pitch: 0.5, rate: 0.95,
     en: "Relax. It's just my beacon. Why is everybody staring at me?", vi: "Thư giãn đi. Chỉ là bộ phát tín hiệu của tôi thôi. Sao ai cũng nhìn tôi?" },
+  // ── 4 lính mới (11 nước = 11 lính): mỗi người một cú cận cảnh + một câu thoại. t chỉ là mốc tham khảo — thời điểm thật lấy theo SHOT trong world/cine3d.ts ──
+  { id: "v13", beat: 0, t: 14.75, who: "HOTEL · MEDIC", chan: "", spk: 7, pitch: 0.85, rate: 1.05,
+    en: "I'm the medic. I fix people. I don't hurt them.", vi: "Tôi là quân y. Tôi cứu người chứ không hại người." },
+  { id: "v14", beat: 0, t: 17.75, who: "INDIA · COMMS", chan: "", spk: 8, pitch: 0.7, rate: 1.05,
+    en: "Check the sat-link logs. Whoever leaked it left a trace.", vi: "Kiểm tra nhật ký liên lạc vệ tinh. Kẻ tuồn tin chắc chắn để lại dấu vết." },
+  { id: "v15", beat: 0, t: 24.3, who: "JULIET · SNIPER", chan: "", spk: 9, pitch: 0.65, rate: 0.95,
+    en: "I'm watching all of you. One wrong move.", vi: "Tôi đang theo dõi từng người. Chỉ cần sai một bước." },
+  { id: "v16", beat: 0, t: 27.05, who: "KILO · ROOKIE", chan: "", spk: 10, pitch: 1.0, rate: 1.1,
+    en: "First mission... I'm not ready to die out here.", vi: "Nhiệm vụ đầu tiên... tôi chưa muốn chết ở đây." },
   { id: "v2", beat: 0, t: 24.3, who: "CHARLIE", chan: "", spk: 2, pitch: 0.55, rate: 1.0,
     en: "What are you looking at?", vi: "Nhìn cái gì?" },
   { id: "v2b", beat: 0, t: 25.8, who: "CHARLIE", chan: "", spk: 2, pitch: 0.55, rate: 1.0,
@@ -153,6 +163,8 @@ export const VOICE: VoiceLine[] = [
   // ── Jump / storm / fall / island ──
   { id: "v3", beat: 1, t: 0.8, who: "BRAVO · TEAM LEADER", chan: "net", spk: 1, pitch: 0.9, rate: 1.2, vol: 1,
     en: "Save it! Improvise on the ground! MOVE! GO, GO, GO!", vi: "Dẹp ngay! Xuống đất tùy cơ ứng biến! DI CHUYỂN! NHẢY, NHẢY, NHẢY!" },
+  { id: "v17", beat: 1, t: 5.4, who: "INDIA · COMMS", chan: "net", spk: 8, pitch: 0.75, rate: 1.2, vol: 0.9,
+    en: "I'm right behind you! Go, go!", vi: "Tôi ở ngay sau cậu! Đi đi, đi đi!" },
   { id: "v4a", beat: 2, t: 2.0, who: "RADIO", chan: "static", spk: -1, pitch: 0.8, rate: 1.1, vol: 0.75,
     en: "Mayday... lost formation!...", vi: "Cấp cứu... mất đội hình!..." },
   { id: "v4b", beat: 2, t: 5.2, who: "RADIO", chan: "static", spk: -1, pitch: 0.8, rate: 1.1, vol: 0.6,
@@ -161,6 +173,8 @@ export const VOICE: VoiceLine[] = [
     en: "...abort, abort—", vi: "...hủy bỏ, hủy bỏ—" },
   { id: "v5", beat: 3, t: 0.0, who: "SUIT AI", chan: "ai", spk: -1, pitch: 0.3, rate: 1.0,
     en: "Warning. Critical altitude. Emergency auto-deploy engaged.", vi: "Cảnh báo. Độ cao nguy hiểm. Kích hoạt bung dù khẩn cấp." },
+  { id: "v5e", beat: 3, t: 0.0, who: "SUIT AI", chan: "ai", spk: -1, pitch: 0.3, rate: 1.1,
+    en: "Warning! Critical altitude! Pull your chute! Press E!", vi: "Cảnh báo! Độ cao nguy hiểm! Bung dù ngay! Bấm E!" },
   { id: "v6", beat: 4, t: 6.4, who: "PRIVATE CHANNEL", chan: "private", spk: -1, pitch: 0.6, rate: 0.82,
     en: "Game on. Good luck surviving... old friends.", vi: "Trò chơi bắt đầu. Chúc may mắn sống sót nhé... những người bạn cũ." },
 ];

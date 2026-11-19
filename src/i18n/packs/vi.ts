@@ -5,13 +5,13 @@ export const VI: Dict = {
   "conn.pvp": "👥 Bàn nhiều người (PvP) · cược cUSDT tuỳ chọn",
   "w.you": "Bạn", "w.youTag": "(bạn)", "w.role": "Vai trò", "w.crew": "BIỆT KÍCH", "w.spy": "GIÁN ĐIỆP",
   "html.title": "Đảo Lạc · Gián Điệp Giữa Chúng Ta",
-  "html.lockhint": "🖱 Nhấn vào màn hình để khoá chuột · Chuột trái: bắn · Chuột phải: ngắm (súng ngắm có ống kính) · R: nạp đạn · 1 súng ngắn · 2 súng dài · 3 súng ngắm · 4 lựu đạn (giữ chuột = giật chốt, thả = ném) · G: ném nhanh · Shift: lăn · V: đổi góc nhìn",
+  "html.lockhint": "🖱 Nhấn vào màn hình để khoá chuột · Chuột trái: bắn · Chuột phải: ngắm (súng ngắm có ống kính) · R: nạp đạn · 1 súng ngắn · 2 súng dài · 3 súng ngắm · 4 lựu đạn (giữ chuột = giật chốt, thả = ném) · G: ném nhanh · Shift: lăn · V: đổi góc nhìn · M: phóng to/thu nhỏ bản đồ",
   "html.close": "Đóng",
   "view.third": "Góc thứ ba", "view.first": "Góc thứ nhất",
 
   /* ── story.ts ── */
   "GAME.op": "CHIẾN DỊCH MŨI GIÁO ĐEN", "GAME.squad": "Đội ALPHA",
-  "ROLE.crew.title": "BẠN LÀ BIỆT KÍCH", "ROLE.crew.sub": "Hoàn thành 3 nhiệm vụ sinh tồn và tìm ra gián điệp trong 6 đồng đội. Đừng tin ai.",
+  "ROLE.crew.title": "BẠN LÀ BIỆT KÍCH", "ROLE.crew.sub": "Hoàn thành 3 nhiệm vụ sinh tồn và tìm ra gián điệp trong 10 đồng đội. Đừng tin ai.",
   "ROLE.spy.title": "BẠN LÀ GIÁN ĐIỆP", "ROLE.spy.sub": "Giữ vỏ bọc. Chờ ai đó đi lạc một mình rồi ám sát (Q). Dùng hang bí mật (E) để lẩn đi và giả vờ làm nhiệm vụ cho không ai nghi ngờ.",
   "TASKS.radio.name": "Sửa radio", "TASKS.radio.prompt": "[E] 📻 Sửa radio", "TASKS.radio.hint": "Nối các dây cùng màu để khôi phục ăng-ten.",
   "TASKS.decode.name": "Giải mã tin mật", "TASKS.decode.prompt": "[E] 🔐 Giải mã tin mật", "TASKS.decode.hint": "Ghi nhớ mã — nó biến mất sau 3 giây — rồi gõ lại.",
@@ -43,6 +43,7 @@ export const VI: Dict = {
   "UI.ejectedSpy": "{0} bị trục xuất — ĐÚNG LÀ GIÁN ĐIỆP 🎯", "UI.ejectedNo": "{0} bị trục xuất — KHÔNG phải gián điệp. Bạn đã đuổi nhầm một đồng đội vô tội 💔",
   "UI.again": "Chơi lại",
   "UI.mateDead": (n: string) => `☠ ${n} đã chết hẳn — bắn nhầm đồng đội được ghi lên chuỗi`,
+  "UI.coldWarn": "❄ Trên này lạnh cóng — băng đang phủ lên quần áo và màu sắc nhạt dần. Hãy xuống núi hoặc về sưởi ấm bên lửa trại.",
   "UI.opSetup": "🔑 Đang chuẩn bị ví phiên (ký thay cho các Bot)…", "UI.opFunding": "⛽ Đang nạp một ít test-ETH vào ví phiên…",
   "UI.opReady": "✓ Ví phiên sẵn sàng — hành động của Bot chạy không cần bật cửa sổ ví", "UI.opFallback": "⚠ Không dùng được ví phiên — dùng MetaMask cho hành động của Bot",
   "UI.spectating": "💀 Bạn đã chết — chỉ có thể xem. Đội đang bỏ phiếu mà không có bạn…", "UI.timesUp": "⏱ Hết giờ — phiếu của bạn tính là bỏ qua.",
@@ -95,7 +96,7 @@ export const VI: Dict = {
   "sc.1.cap": "Mỗi người làm 3 nhiệm vụ tại các trạm màu cam nhấp nháy: sửa radio, giải mã tin mật, nhóm lửa tín hiệu, lọc nước biển, thu hồi thùng tiếp tế. Cả đội hoàn thành là được giải cứu!",
   "sc.1.head": "Sinh tồn", "sc.1.sm": "3 nhiệm vụ / người",
   "sc.2.title": "Gián điệp ẩn mình",
-  "sc.2.cap": "Một trong 7 người là gián điệp cài sẵn — có thể là bạn! Vai trò được chia ngẫu nhiên và mã hoá bằng Zama FHE: chỉ mình bạn thấy vai trò của mình.",
+  "sc.2.cap": "Một trong 11 người là gián điệp cài sẵn — có thể là bạn! Vai trò được chia ngẫu nhiên và mã hoá bằng Zama FHE: chỉ mình bạn thấy vai trò của mình.",
   "sc.2.head": "🔐 Vai trò được mã hoá", "sc.2.banner": "Chỉ mình bạn thấy: BIỆT KÍCH 🎖",
   "sc.3.title": "Ám sát & báo cáo xác",
   "sc.3.cap": "Gián điệp bí mật ám sát bất kỳ ai đi lạc một mình (phím Q, tối đa một lần mỗi lượt). Ai thấy xác phải chạy tới đống lửa và ngồi xuống (E) để gọi họp; mọi người có 30 giây tới đống lửa — ai không đến bị coi là gián điệp.",
@@ -109,7 +110,7 @@ export const VI: Dict = {
 
   /* ── luật ── */
   /* ── chữ trên video minh hoạ (ruleClips.ts) ── */
-  "clip.1.spy": "🕵 1 KẺ PHẢN BỘI giữa 7 người",
+  "clip.1.spy": "🕵 1 KẺ PHẢN BỘI giữa 11 người",
   "clip.2.task": "📻 Sửa radio", "clip.2.body": "Có xác!", "clip.2.meet": "HỌP KHẨN", "clip.2.vote": "Đối chiếu & bỏ phiếu",
   "clip.3.stab": "Ám sát", "clip.3.burrow": "Hang bí mật", "clip.3.alibi": "Ngoại phạm",
   "clip.4.check": "🏁 Kiểm tra nhiệm vụ", "clip.4.win": "CHIẾN THẮNG!",
@@ -119,7 +120,7 @@ export const VI: Dict = {
   "clip.7.enc": "vai trò được mã hoá", "clip.7.rev": "hết ván: công khai", "clip.7.spy": "GIÁN ĐIỆP", "clip.7.crew": "BIỆT KÍCH",
 
   "rules.1.h": "🎯 Cốt truyện & mục tiêu",
-  "rules.1.b": `<p>Đội ALPHA bị bão thổi lạc khỏi điểm đáp và mắc kẹt trên đảo hoang, mất liên lạc. Bạn chơi cùng <b>6 đồng đội Bot</b>. Trong 7 người có <b>1 gián điệp</b> (ngẫu nhiên — có thể là bạn).</p>
+  "rules.1.b": `<p>Đội ALPHA bị bão thổi lạc khỏi điểm đáp và mắc kẹt trên đảo hoang, mất liên lạc. Bạn chơi cùng <b>10 đồng đội Bot</b>. Trong 11 người có <b>1 gián điệp</b> (ngẫu nhiên — có thể là bạn).</p>
   <p><b style="color:#5f9">Biệt kích thắng</b> khi loại đúng gián điệp <i>hoặc</i> hoàn thành mọi nhiệm vụ sinh tồn.<br>
   <b style="color:#f66">Gián điệp thắng</b> khi số biệt kích còn sống ≤ số gián điệp còn sống.</p>`,
   "rules.2.h": "🎖 Nếu bạn là Biệt kích",
@@ -131,7 +132,7 @@ export const VI: Dict = {
   Nhấn <kbd>E</kbd> ở hang bí mật (hố đá phát sáng xanh) để chui ra ở một hang khác. Giả vờ làm nhiệm vụ để giữ vỏ bọc, rồi đổ lỗi cho người khác trong lúc họp.</p>`,
   "rules.4.h": "🎮 Điều khiển",
   "rules.4.b": `<p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> di chuyển theo hướng đang nhìn · <b>chuột</b> xoay camera (nhấn vào màn hình để khoá chuột)<br><kbd>V</kbd> đổi góc nhìn: thứ ba / thứ nhất · lăn chuột để zoom<br>
-  <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lăn (né về phía trước, hồi 1 giây) · đi xuống biển để bơi (đang bơi không bắn được) · <kbd>E</kbd> tương tác (nhiệm vụ / hang bí mật / ngồi ở đống lửa giữa đảo để gọi hoặc vào họp)<br>
+  <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lăn (né về phía trước, hồi 1 giây) · đi xuống biển / hồ để bơi (đang bơi không bắn được) · trong nước giữ <kbd>Shift</kbd> để lặn, <kbd>Space</kbd> để trồi lên (nín thở được ~20 giây) · <kbd>E</kbd> tương tác (nhiệm vụ / hang bí mật / ngồi ở đống lửa giữa đảo để gọi hoặc vào họp)<br>
   <kbd>Q</kbd> ám sát (chỉ gián điệp)<br><b>Súng:</b> <kbd>Chuột trái</kbd> bắn · <kbd>Chuột phải</kbd> ngắm · <kbd>R</kbd> nạp đạn · <kbd>1</kbd> súng ngắn · <kbd>2</kbd> súng dài · <kbd>3</kbd> súng ngắm (ngắm = ống kính) · <kbd>4</kbd> lựu đạn (giữ chuột để giật chốt, thả để ném) · <kbd>G</kbd> ném nhanh (lăn chuột đổi súng ở góc nhìn thứ nhất)</p>
   <p class="dim">Tầm nhìn bị giới hạn: bạn chỉ thấy người trong vùng sáng và không bị đá, nhà, bụi cây che. Không ai đi xuống biển sâu được.</p>`,
   "rules.5.h": "💥 Bắn nhầm đồng đội là THẬT",
@@ -161,7 +162,7 @@ export const VI: Dict = {
   <li>✍️ Một chữ ký không tốn gas giúp bạn <b>giải mã vai trò</b> (chỉ mình bạn thấy).</li>
   <li>🔑 Game <b>không bao giờ</b> hỏi cụm từ khôi phục / khoá riêng của bạn.</li></ul>`,
   "conn.chk.h": "✅ Kiểm tra nhanh", "conn.tip": "Mẹo: dùng ví riêng để thử nghiệm, đừng bao giờ dùng ví đang giữ tiền thật.",
-  "conn.play": "🔗 Kết nối ví & Triển khai (bạn + 6 đồng đội Bot)",
+  "conn.play": "🔗 Kết nối ví & Triển khai (bạn + 10 đồng đội Bot)",
   "chk.none": `❌ Không tìm thấy ví. Hãy cài <a href="https://metamask.io/download" target="_blank" rel="noopener">MetaMask</a> rồi tải lại trang.`,
   "chk.ok": "✅ Đã phát hiện ví trong trình duyệt.", "chk.sep": "✅ Bạn đang ở mạng Sepolia.",
   "chk.notsep": "⚠️ Chưa ở mạng Sepolia — game sẽ yêu cầu chuyển mạng khi bạn bấm Chơi.", "chk.later": "ℹ️ Mạng sẽ được kiểm tra khi bạn bấm Chơi.",
@@ -174,8 +175,8 @@ export const VI: Dict = {
   "kms.death.go": "KMS đang giải mã công khai trạng thái của bạn (bước chờ lâu nhất)…", "kms.death.ok": "KMS đã giải mã + ký xác nhận: bạn đã chết.",
   "tx.submit.go": "Gửi giao dịch: nộp chữ ký KMS làm bằng chứng lên hợp đồng…", "tx.submit.ok": "Giao dịch xong: hợp đồng đã kiểm tra chữ ký KMS và kết thúc ván.",
   "tx.exec.go": "Gửi giao dịch: ghi cái chết (bị xử bắn) lên hợp đồng…", "tx.exec.ok": "Giao dịch xong: hợp đồng đã ghi nhận cái chết của bạn và kết thúc ván.",
-  "tx.reveal.go": "Gửi giao dịch: mở khoá vai trò của cả đội…", "tx.reveal.ok": "Giao dịch xong: vai trò của 7 người đã được công khai để giải mã.",
-  "kms.roles.go": "KMS đang giải mã vai trò của 7 người (lại chờ một lúc)…", "kms.roles.ok": "KMS đã giải mã vai trò — chuẩn bị đóng dấu gián điệp.", "kms.retry": "KMS chưa sẵn sàng — tự thử lại lần {0}…",
+  "tx.reveal.go": "Gửi giao dịch: mở khoá vai trò của cả đội…", "tx.reveal.ok": "Giao dịch xong: vai trò của 11 người đã được công khai để giải mã.",
+  "kms.roles.go": "KMS đang giải mã vai trò của 11 người (lại chờ một lúc)…", "kms.roles.ok": "KMS đã giải mã vai trò — chuẩn bị đóng dấu gián điệp.", "kms.retry": "KMS chưa sẵn sàng — tự thử lại lần {0}…",
   "end.cantProve": "Không chứng minh được cái chết trên chuỗi.", "end.unlocking": "Đang mở khoá vai trò (FHE)…",
   "end.cantUnlock": "Không mở khoá được vai trò ({0}). Nếu hợp đồng cũ, hãy chạy <b>npm start</b> để triển khai lại.", "end.retry": "Thử lại",
 
@@ -184,6 +185,6 @@ export const VI: Dict = {
   "toast.deep": "🌊 Biển sâu phía trước — không bơi xa hơn được", "toast.swim": "🏊 Đang bơi — không bắn được · đứng yên để bắn", "toast.hands": "🙌 Tay đang bận — đã cất lựu đạn",
   "toast.killed": "💀 Bạn đã bị giết", "toast.meetFail": "✗ Không mở được cuộc họp trên chuỗi — thử lại", "toast.sdk": "Đang khởi tạo Zama SDK…", "toast.sign": "✍ Ký EIP-712 để giải mã (không tốn gas)…",
   "gun.pistol": "Súng ngắn", "gun.rifle": "Súng dài (AK-47)", "gun.sniper": "Súng ngắm", "gun.grenade": "Lựu đạn", "gun.nade": "Lựu đạn · giữ chuột = giật chốt, thả = ném",
-  "cine.skip": "Bỏ qua ⏭", "cine.alt": "⚠ ĐỘ CAO NGUY HIỂM", "cine.altL": "ĐỘ CAO",
+  "cine.skip": "Bỏ qua ⏭", "cine.alt": "⚠ ĐỘ CAO NGUY HIỂM", "cine.altL": "ĐỘ CAO", "cine.key": "BẤM E ĐỂ BUNG DÙ!", "cine.keyOk": "ĐÃ BUNG DÙ!", "cine.dead": "BẠN ĐÃ TỬ NẠN", "cine.dead2": "Bạn không bung dù kịp lúc — rơi xuống đất.", "cine.retry": "Nhảy lại (E)",
   "voice.net": "📡 MẠNG ĐỘI", "voice.static": "📡 MẠNG ĐỘI — MẤT TÍN HIỆU", "voice.ai": "⚙ AI TRÊN ÁO GIÁP", "voice.private": "🔒 KÊNH RIÊNG",
 };

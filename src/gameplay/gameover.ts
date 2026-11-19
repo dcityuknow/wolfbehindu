@@ -41,7 +41,7 @@ export async function deathFlow(o: { title: string; desc: string; fall?: boolean
 }
 
 /** Bị giết (ám sát bởi gián điệp Bot): ván solo kết thúc NGAY — không ngồi làm hồn ma chờ Bot chơi tiếp.
- *  Cái chết được CHỨNG MINH on-chain (giải mã công khai status mã hoá + chữ ký KMS), rồi MỞ KHOÁ vai trò cả 7 slot để lộ gián điệp. */
+ *  Cái chết được CHỨNG MINH on-chain (giải mã công khai status mã hoá + chữ ký KMS), rồi MỞ KHOÁ vai trò cả 11 slot để lộ gián điệp. */
 export function endBecauseKilled() {
   if (G.phase === "end") return;
   G.phase = "end"; G.call = null; clearTimeout(G.scheduleTimer); document.exitPointerLock?.();
@@ -54,7 +54,7 @@ export function endBecauseKilled() {
   });
 }
 
-/** Danh sách vai trò 7 slot trong bảng kết quả cuối. */
+/** Danh sách vai trò 11 slot trong bảng kết quả cuối. */
 function renderRoles(roles: number[]) {
   const box = $("#reveal"); if (!box) return;
   const spies = roles.map((r, i) => (r === 1 ? i : -1)).filter((i) => i >= 0);
@@ -62,7 +62,7 @@ function renderRoles(roles: number[]) {
     roles.map((r, i) => `<div style="${r === 1 ? "color:#ff6b6b;font-weight:800" : "opacity:.8"}">${r === 1 ? ROLE.spy.badge : ROLE.crew.badge} — ${NAMES[i]}${i === G.slot ? " " + t("w.youTag") : ""}</div>`).join("");
 }
 
-/** Mở khoá + hiện vai trò của cả 7 slot vào #reveal (dùng cho mọi kết cục; chỉ chạy được khi phòng đã Finished). */
+/** Mở khoá + hiện vai trò của cả 11 slot vào #reveal (dùng cho mọi kết cục; chỉ chạy được khi phòng đã Finished). */
 export async function revealPanel() {
   const box = $("#reveal"); if (!box) return;
   box.innerHTML = `<div id="rvst">${t("end.unlocking")}</div>`;

@@ -24,7 +24,7 @@ function placeCam(t: THREE.Vector3, rot: number, lying: boolean) {
   cam.position.set(t.x + 0.01, t.y + 6, t.z + 0.01);   // bất đắc dĩ: nhìn từ trên xuống
 }
 
-/** Chụp cả 7 nhân vật NGAY LẬP TỨC (gọi đồng bộ ở đầu mỗi kết cục, trước khi cảnh thay đổi). Mỗi người: camera đứng trước mặt, nhìn từ ngực, nền là đảo + trời tại chỗ họ đứng. */
+/** Chụp cả 11 nhân vật NGAY LẬP TỨC (gọi đồng bộ ở đầu mỗi kết cục, trước khi cảnh thay đổi). Mỗi người: camera đứng trước mặt, nhìn từ ngực, nền là đảo + trời tại chỗ họ đứng. */
 export function captureCrew() {
   SNAPS = [];
   let rt: THREE.WebGLRenderTarget | null = null; const prev = renderer.getRenderTarget();

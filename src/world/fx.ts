@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { scene } from "./scene";
-import { groundAt, WATER_Y } from "./island";
+import { groundAt, surfaceAt } from "./island";
 
 /** Hiệu ứng chiến đấu: vệt đạn, tia lửa/bụi/máu, nổ lựu đạn. Mọi vật thể đều dùng lại (pool) — không sinh rác mỗi phát bắn. */
 const bGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -54,7 +54,7 @@ const wRing = new THREE.RingGeometry(0.85, 1, 28);
 const ringPool = Array.from({ length: 10 }, () => { const m = new THREE.Mesh(wRing, new THREE.MeshBasicMaterial({ color: 0xe6f6ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.rotation.x = -Math.PI / 2; m.visible = false; m.renderOrder = 2; scene.add(m); return { m, t: 0, r: 1 }; });
 let rpi = 0;
 export function splash(p: THREE.Vector3, big = 1) {
-  const q = new THREE.Vector3(p.x, WATER_Y + 0.05, p.z);
+  const q = new THREE.Vector3(p.x, surfaceAt(p.x, p.z) + 0.05, p.z);
   burst(q, "water", Math.round(18 * big), 3.6 * big, 0.09, 0.75, 3.8 * big);
   const o = ringPool[rpi++ % ringPool.length]; o.t = 0.6; o.r = 1.3 * big; o.m.position.copy(q); o.m.visible = true;
 }
@@ -62,35 +62,36 @@ export function splash(p: THREE.Vector3, big = 1) {
 
 /* ── nổ dưới nước: cột nước trắng phọt cao + bọt tung toé + 3 vòng sóng ── */
 const colGeo = new THREE.CylinderGeometry(0.7, 1, 1, 14, 1, true);
-interface Col { m: THREE.Mesh; t: number; h: number }
+interface Col { m: THREE.Mesh; t: number; h: number; y: number }
 const cols: Col[] = [];
 export function waterBlast(p: THREE.Vector3, radius: number) {
-  const q = new THREE.Vector3(p.x, WATER_Y + 0.05, p.z), k = radius / 6.5;
+  const sy = surfaceAt(p.x, p.z), q = new THREE.Vector3(p.x, sy + 0.05, p.z), k = radius / 6.5;
   burst(q, "water", 46, 9 * k, 0.14, 1.1, 9 * k); burst(q, "water", 26, 4 * k, 0.2, 1.4, 12 * k);
   splash(q, 3.2 * k);
   setTimeout(() => splash(q, 4.6 * k), 90); setTimeout(() => splash(q, 6 * k), 190);
   const m = new THREE.Mesh(colGeo, new THREE.MeshBasicMaterial({ color: 0xeaf8ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, fog: false }));
-  m.position.copy(q); scene.add(m); cols.push({ m, t: 0.9, h: 7 * k });
-  exLight.position.copy(q).setY(WATER_Y + 1.5); exLight.color.setHex(0x9fd8ff); lightKick = 40;
+  m.position.copy(q); scene.add(m); cols.push({ m, t: 0.9, h: 7 * k, y: sy });
+  exLight.position.copy(q).setY(sy + 1.5); exLight.color.setHex(0x9fd8ff); lightKick = 40;
 }
 let lightKick = 0;
 
 /* ── bơi: bọt nước bắn lên theo nhịp tay, sóng lan, bọt phía sau; nhảy xuống nước thì tóe lớn ── */
 let swT = 0, swR = 0, wasIn = false;
-export function swimFx(dt: number, x: number, z: number, rot: number, inWater: boolean, swimming: boolean, speed: number) {
-  if (inWater && !wasIn) splash(_hp.set(x, WATER_Y, z), 1.6);   // vừa xuống nước
+export function swimFx(dt: number, x: number, z: number, rot: number, inWater: boolean, swimming: boolean, speed: number, under = false) {
+  const WY = surfaceAt(x, z);
+  if (inWater && !wasIn) splash(_hp.set(x, WY, z), 1.6);   // vừa xuống nước
   wasIn = inWater;
-  if (!inWater) return;
+  if (!inWater || under) return;   // lặn hẳn: không còn bọt trên mặt (bọt khí do water.ts lo)
   swT -= dt; swR -= dt;
   const fx = Math.sin(rot), fz = Math.cos(rot), rx = Math.cos(rot), rz = -Math.sin(rot);
   if (swimming && swT <= 0) {   // mỗi nhịp quạt tay: bọt bắn lên từ hai bên vai + bọt kéo theo sau
     swT = 0.13; const side = Math.random() < 0.5 ? -1 : 1, k = Math.min(1, speed / 4);
-    _hq.set(x + fx * 0.5 + rx * 0.4 * side, WATER_Y + 0.05, z + fz * 0.5 + rz * 0.4 * side);
+    _hq.set(x + fx * 0.5 + rx * 0.4 * side, WY + 0.05, z + fz * 0.5 + rz * 0.4 * side);
     burst(_hq, "water", 5, 2.2 + 1.2 * k, 0.07, 0.6, 2.4 + 1.4 * k);
-    _hq.set(x - fx * 0.5, WATER_Y + 0.05, z - fz * 0.5); burst(_hq, "water", 3, 1.4, 0.06, 0.5, 1.2);
+    _hq.set(x - fx * 0.5, WY + 0.05, z - fz * 0.5); burst(_hq, "water", 3, 1.4, 0.06, 0.5, 1.2);
   }
-  if ((swimming || speed > 0.3) && swR <= 0) { swR = swimming ? 0.32 : 0.7; splash(_hq.set(x - fx * 0.3, WATER_Y, z - fz * 0.3), 0.35); }
-  else if (!swimming && swR <= 0) { swR = 1.4; splash(_hq.set(x, WATER_Y, z), 0.25); }   // đứng đạp nước: gợn nhẹ
+  if ((swimming || speed > 0.3) && swR <= 0) { swR = swimming ? 0.32 : 0.7; splash(_hq.set(x - fx * 0.3, WY, z - fz * 0.3), 0.35); }
+  else if (!swimming && swR <= 0) { swR = 1.4; splash(_hq.set(x, WY, z), 0.25); }   // đứng đạp nước: gợn nhẹ
 }
 const _hq = new THREE.Vector3();
 
@@ -129,6 +130,7 @@ export function explosion(p: THREE.Vector3, radius: number) {
 }
 
 export function updateFx(dt: number) {
+  updateBlood(dt);
   for (const o of tr) if (o.m.visible && (o.t -= dt) <= 0) o.m.visible = false;
   for (const o of parts) {
     if (!o.m.visible) continue;
@@ -139,7 +141,7 @@ export function updateFx(dt: number) {
   }
   for (let i = cols.length - 1; i >= 0; i--) {
     const c = cols[i]; c.t -= dt; if (c.t <= 0) { scene.remove(c.m); (c.m.material as THREE.Material).dispose(); cols.splice(i, 1); continue; }
-    const k = 1 - c.t / 0.9, up = Math.sin(Math.min(1, k * 1.6) * Math.PI / 2); c.m.scale.set(0.8 + k * 1.2, Math.max(0.01, c.h * up), 0.8 + k * 1.2); c.m.position.y = WATER_Y + 0.05 + c.m.scale.y / 2;
+    const k = 1 - c.t / 0.9, up = Math.sin(Math.min(1, k * 1.6) * Math.PI / 2); c.m.scale.set(0.8 + k * 1.2, Math.max(0.01, c.h * up), 0.8 + k * 1.2); c.m.position.y = c.y + 0.05 + c.m.scale.y / 2;
     (c.m.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - k * k);
   }
   for (const o of ringPool) {
@@ -164,4 +166,41 @@ export function updateFx(dt: number) {
   }
   if (lightKick > 0) { light = Math.max(light, lightKick); lightKick = Math.max(0, lightKick - dt * 120); if (lightKick === 0) exLight.color.setHex(0xffa24a); }
   exLight.intensity = light;
+}
+
+/* ── Vệt máu trên sàn: vũng + vệt lê + tia bắn tung toé. KHÔNG biến mất theo thời gian — chỉ xoá khi bắt đầu ván mới (clearBlood). ── */
+const bloodTexs = [0, 1, 2].map((v) => {
+  const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d")!; let s = 7 + v * 31;
+  const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  for (let k = 0; k < 16; k++) {   // vũng: nhiều vệt tròn chồng nhau + vài giọt văng ra mép
+    const a = rnd() * 6.283, d = k < 3 ? 0 : 14 + rnd() * 30, r = k < 3 ? 34 - k * 4 : 7 + rnd() * 16, cx = 64 + Math.cos(a) * d, cy = 64 + Math.sin(a) * d;
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, "rgba(120,6,6,1)"); g.addColorStop(0.7, "rgba(150,12,12,0.95)"); g.addColorStop(1, "rgba(150,12,12,0)");
+    x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fill();
+  }
+  for (let k = 0; k < 7; k++) { const a = rnd() * 6.283, d = 44 + rnd() * 18; x.fillStyle = "rgba(135,10,10,.95)"; x.beginPath(); x.arc(64 + Math.cos(a) * d, 64 + Math.sin(a) * d, 2 + rnd() * 3, 0, 6.283); x.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+});
+const bloodMats = bloodTexs.map((map) => new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+const bloodGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const bloods: { m: THREE.Mesh; s: number; sx: number; sz: number; t: number }[] = [];
+const rr = (a: number, b: number) => a + Math.random() * (b - a);
+function decal(x: number, y: number, z: number, sx: number, sz: number, yaw: number, grow = 0) {
+  const m = new THREE.Mesh(bloodGeo, bloodMats[(Math.random() * 3) | 0]); m.position.set(x, y + 0.025 + bloods.length * 0.0004, z); m.rotation.y = yaw; m.frustumCulled = true; m.renderOrder = 2;
+  m.scale.set(sx * (grow ? 0.15 : 1), 1, sz * (grow ? 0.15 : 1)); scene.add(m); bloods.push({ m, s: grow, sx, sz, t: 0 });
+}
+/** Xác đổ xuống ở (x, z): vũng máu lớn dưới thân (loang dần), vệt máu lê theo hướng ngã, và các vệt bắn rải quanh sàn. */
+export function bloodPool(x: number, z: number, heading: number, big = 1) {
+  const y = groundAt(x, z); if (y < 0) return;
+  decal(x, y, z, rr(1.7, 2.3) * big, rr(1.5, 2.1) * big, rr(0, 6.28), 1);
+  decal(x + Math.sin(heading) * 0.5, y, z + Math.cos(heading) * 0.5, rr(0.6, 0.9) * big, rr(1.6, 2.4) * big, heading + rr(-0.4, 0.4), 1);   // vệt máu lê
+  for (let k = 0; k < 11; k++) {
+    const a = rr(0, 6.28), d = rr(0.9, 2.9) * big, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, gy = groundAt(px, pz);
+    if (Math.abs(gy - y) > 0.01) continue;   // chỉ bắn lên cùng một mặt phẳng (không dán lơ lửng cạnh bậc)
+    const s = rr(0.25, 0.75); decal(px, y, pz, s, s * rr(0.7, 1.4), rr(0, 6.28));
+  }
+}
+export function clearBlood() { for (const b of bloods) scene.remove(b.m); bloods.length = 0; }
+/** Vũng máu loang ra trong ~2,5 giây rồi giữ nguyên mãi mãi. */
+export function updateBlood(dt: number) {
+  for (const b of bloods) { if (!b.s || b.t >= 1) continue; b.t = Math.min(1, b.t + dt / 2.5); const k = 0.15 + 0.85 * (1 - Math.pow(1 - b.t, 3)); b.m.scale.set(b.sx * k, 1, b.sz * k); }
 }

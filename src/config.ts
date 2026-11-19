@@ -2,27 +2,25 @@ import { locale } from "./i18n";
 /** Hằng số game — chỉnh cân bằng/giao diện tại đây. */
 export const NO_TARGET = 255;          // = NO_TARGET trong contract (skip vote / kill giả)
 export const TASKS_PER_PLAYER = 3;     // = TASKS_PER_PLAYER trong contract
-export const VIS = 16;                 // tầm nhìn tối đa (m) — đảo v27 rộng gấp 4 nên tăng từ 12
 export const KILL_RANGE = 2.2;
 export const PLAYER_SPEED = 7;
 export const BOT_SPEED = 3.8;
-export const BOTS = 6;                 // = SOLO_BOTS trong contract
+export const BOTS = 10;                // = SOLO_BOTS trong contract
 export const PLAYERS = BOTS + 1;       // bạn + bot
 /** Họp: ghế quanh đống lửa (mỗi người một ghế) · thời gian chạy tới lửa trại sau khi có người gọi họp · tầm với để ngồi vào ghế. */
 export const CALL_SECONDS = 30;
 export const CAMP_REACH = 4.5;
 export const seatPos = (k: number) => { const a = (k / PLAYERS) * Math.PI * 2 + 0.3; return { x: Math.cos(a) * 2.5, z: Math.sin(a) * 2.5 }; };
-export const COLORS = [0xff4d4d, 0x4da6ff, 0x4dff88, 0xffd24d, 0xff9f43, 0xc77dff, 0x2ee6d6];
-/** Đội hình 7 người (mã quân phục trong soldier.ts: vn us ru ng bd id in cn ph ua kr — đủ 11 nước = 11 ngôn ngữ). [0] = bạn = lính của quốc gia bạn đang truy cập
- *  (i18n/index.ts: theo IP hoặc ngôn ngữ đã chọn). 6 Bot còn lại: mỗi ván bốc ngẫu nhiên 6 trong 10 nước còn lại, nên cả 11 kiểu lính đều có lúc xuất hiện.
- *  (Hợp đồng chỉ có 7 slot — MAX_PLAYERS — nên một ván không thể có đủ 11 người.) */
+export const COLORS = [0xff4d4d, 0x4da6ff, 0x4dff88, 0xffd24d, 0xff9f43, 0xc77dff, 0x2ee6d6, 0xff7aa8, 0xb8e04d, 0xa0a8ff, 0xe8e8e8];
+/** Đội hình 11 người = 11 quốc gia = 11 ngôn ngữ (mã quân phục trong soldier.ts: vn us ru ng bd id in cn ph ua kr).
+ *  [0] = bạn = lính của quốc gia bạn đang truy cập (i18n/index.ts: theo IP hoặc ngôn ngữ đã chọn). 10 Bot còn lại = đúng 10 nước còn lại,
+ *  nên MỖI ván đều có đủ cả 11 kiểu lính, mỗi nước đúng một người. (Hợp đồng: MAX_SLOTS = 11, SOLO_BOTS = 10.) */
 const ALL_NATIONS = ["vn", "us", "ru", "ng", "bd", "id", "in", "cn", "ph", "ua", "kr"];
 const others = ALL_NATIONS.filter((c) => c !== locale.nation);
-for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
-export const SQUAD = [locale.nation, ...others.slice(0, 6)];
+export const SQUAD = [locale.nation, ...others];
 export { CALLSIGNS as NAMES, CHAT_LINES } from "./story";
 // Ánh sáng ngoài trời (three >= r155, đơn vị vật lý). Tối/sáng quá thì chỉnh ở đây.
-export const LIGHT = { ambient: 1.6, sun: 3.2, torch: 18, torchRange: 12, fogPlay: 0.0045, fogGhost: 0.0032 };
+export const LIGHT = { ambient: 1.6, sun: 3.2, torch: 18, torchRange: 12, fogPlay: 0.0030, fogGhost: 0.0022 };
 
 /* ───────────── Vũ khí ───────────── */
 /** Chỉ 3 súng (như game tham khảo): súng ngắn · súng dài · súng ngắm — cộng lựu đạn (phím 4 hoặc G). */
@@ -48,3 +46,19 @@ export const GRENADE = { count: 3, fuse: 2.3, radius: 6.5, dmg: 140, speed: 12, 
 export const SWAP = { stow: 0.2, reach: 0.1, draw: 0.3 };
 /** Chiến đấu: đồng đội trúng đạn → ngất tạm thời (không lệch trạng thái on-chain). Chỉ GIÁN ĐIỆP giết thật (1 lần/lượt, qua contract). */
 export const COMBAT = { botHp: 100, stunTime: 6, reviveHp: 60, headMul: 2, playerHp: 120, botDmg: 0.4, grace: 2.5 };   // botDmg: sát thương Bot bắn lại = dmg súng × hệ số · grace: giây tính là 1 "lần" bắn nhầm (xả liên thanh không bị tính nhiều lần)
+
+/* ───────────── Độ cao núi: gió rít + băng giá ───────────── */
+/** Đơn vị = độ cao mặt đất (m). Trại lửa ≈ 12 · tuyết bắt đầu ≈ 46 · đỉnh cao nhất ≈ 76.
+ *  Gió: bắt đầu nghe thấy từ windFrom, to dần tới tối đa ở windMax (sát đỉnh).
+ *  Băng: từ frostFrom trở lên, ĐỨNG LÂU thì quần áo phủ băng trắng và màn hình mất màu dần vì lạnh. Tốc độ (phần/giây): rateLow ở frostFrom → rateHigh ở đỉnh;
+ *  đi lại thì chậm lại (moveMul); xuống thấp hoặc ra gần lửa trại thì tan dần (warm / campWarm). */
+export const ALTITUDE = { windFrom: 26, windMax: 74, frostFrom: 40, peak: 76, rateLow: 0.008, rateHigh: 0.035, moveMul: 0.35, warm: 0.05, campWarm: 0.14, campR: 9 };
+
+/* ───────────── Bơi lặn (hồ + biển) ───────────── */
+/** air: giây nín thở tối đa khi ĐẦU chìm dưới nước · drownDmg/drownTick: máu mất mỗi nhịp khi hết hơi (không bao giờ xuống dưới 1 máu) ·
+ *  diveSpeed: m/s chìm xuống khi giữ Shift · riseSpeed: m/s tự nổi lên mặt nước · upSpeed: m/s khi giữ Space (trồi nhanh) · diveMove: hệ số tốc độ khi lặn (so với đi bộ). */
+export const WATER = { air: 20, drownDmg: 6, drownTick: 0.6, diveSpeed: 2.4, riseSpeed: 2.4, upSpeed: 4.8, swimMove: 0.55, diveMove: 0.45 };
+
+/* ───────────── Gió + tuyết thổi trên đỉnh núi ───────────── */
+/** Độ cao mặt đất (m). Từ from: bắt đầu có hạt tuyết bay · tới full: gió mạnh nhất, tuyết dày nhất. count: số hạt tối đa · box: bán kính vùng hạt quanh người (m). */
+export const BLIZZARD = { from: 34, full: 66, count: 1400, box: 36, windMin: 5, windMax: 22 };

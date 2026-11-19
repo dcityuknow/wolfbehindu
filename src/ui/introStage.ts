@@ -15,7 +15,7 @@ import { COLORS, SQUAD, NAMES, type GunId } from "../config";
 export const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 export const sm = (x: number) => { x = clamp01(x); return x * x * (3 - 2 * x); };
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-export const BOT_GUNS: GunId[] = ["rifle", "pistol", "rifle", "rifle", "pistol", "rifle", "rifle"];
+export const BOT_GUNS: GunId[] = ["rifle", "pistol", "rifle", "rifle", "pistol", "rifle", "rifle", "pistol", "rifle", "rifle", "pistol"];
 
 /* ───── nhân vật ───── */
 export interface Actor {
@@ -137,12 +137,12 @@ export function makeFire() {
   for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2, r = k === 5 ? 0 : 0.2; const f = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.7, 0.22), new THREE.MeshBasicMaterial({ color: k & 1 ? 0xffd23f : 0xff7a1a })); f.position.set(Math.cos(a) * r, 0.45, Math.sin(a) * r); g.add(f); flames.push(f); }
   const light = new THREE.PointLight(0xff9a3a, 6, 14, 2); light.position.y = 1.0; g.add(light);
   // ghế gỗ quanh lửa
-  for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2 + 0.3, lg = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.26, 0.45), brown); lg.position.set(Math.cos(a) * 2.75, 0.13, Math.sin(a) * 2.75); lg.rotation.y = -a + Math.PI / 2; lg.receiveShadow = true; g.add(lg); }
+  for (let k = 0; k < 11; k++) { const a = (k / 11) * Math.PI * 2 + 0.3, lg = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.26, 0.45), brown); lg.position.set(Math.cos(a) * 2.75, 0.13, Math.sin(a) * 2.75); lg.rotation.y = -a + Math.PI / 2; lg.receiveShadow = true; g.add(lg); }
   return { g, flames, light };
 }
 function makePedestals() {
   const g = new THREE.Group();
-  const a = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.16, 2.4), new THREE.MeshStandardMaterial({ color: 0x2c7a3e, roughness: 0.8 })); a.position.set(-2.9, 0.08, 0); a.receiveShadow = true;
+  const a = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.16, 3.4), new THREE.MeshStandardMaterial({ color: 0x2c7a3e, roughness: 0.8 })); a.position.set(-2.6, 0.08, -0.2); a.receiveShadow = true;
   const b = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.16, 2.4), new THREE.MeshStandardMaterial({ color: 0x9a2a2a, roughness: 0.8 })); b.position.set(3.1, 0.08, 0); b.receiveShadow = true;
   g.add(a, b); return g;
 }
@@ -157,35 +157,39 @@ export function initStage(cv: HTMLCanvasElement, isShown: () => boolean): Stage 
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(38, 2.1, 0.1, 700);
   const { clouds } = buildWorld(scene);
-  const actors = Array.from({ length: 7 }, (_, i) => makeActor(i)); for (const a of actors) { scene.add(a.root); a.root.visible = false; }
+  const actors = Array.from({ length: 11 }, (_, i) => makeActor(i)); for (const a of actors) { scene.add(a.root); a.root.visible = false; }
   const station = makeStation(), fire = makeFire(), pods = makePedestals(); scene.add(station.g, fire.g, pods);
   const alarm = new THREE.PointLight(0xff2020, 0, 14, 2); alarm.position.set(0.6, 3, 3); scene.add(alarm);
-  const votes = [1, 2, 3, 4].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: envelopeTex, transparent: true, depthTest: false })); s.scale.set(0.55, 0.55, 1); s.renderOrder = 6; s.visible = false; scene.add(s); return s; });
+  const votes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: envelopeTex, transparent: true, depthTest: false })); s.scale.set(0.55, 0.55, 1); s.renderOrder = 6; s.visible = false; scene.add(s); return s; });
 
   const resize = () => { const w = cv.clientWidth || 640, h = cv.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
   new ResizeObserver(resize).observe(cv); resize();
   const cam = (px: number, py: number, pz: number, lx: number, ly: number, lz: number) => { camera.position.set(px, py, pz); camera.lookAt(lx, ly, lz); };
   const A = actors;
+  /** Đội hình 11 lính: hàng trước 6 người, hàng sau 5 người lệch nửa bước (cảnh 0 và 2). */
+  const CX = (i: number) => -5 + ((i - 1) % 5) * 1.15 + (i > 5 ? 0.55 : 0), CZ = (i: number) => (i > 5 ? -1.0 : 0.5);   // vị trí 10 biệt kích ở cảnh kết cục
+  const GX = (i: number) => (i < 6 ? -4 + i * 1.6 : -3.2 + (i - 6) * 1.6), GZ = (i: number) => (i < 6 ? 0.5 : -1.0);
 
   /* Mỗi cảnh: show() đặt đạo cụ, tick(t, dt) diễn xuất theo thời gian t (giây kể từ lúc cảnh bắt đầu) */
   type Sc = { show: () => void; tick: (t: number, dt: number) => void };
   const SC: Sc[] = [
-    { // 0 · lạc đảo: 4 người lính đi bộ từ trái vào bờ biển rồi đứng nhìn quanh
-      show() { A[0].you.visible = true; for (let i = 0; i < 4; i++) place(A[i], -9, 0, 0.2, Math.PI / 2); },
+    { // 0 · lạc đảo: 11 người lính (11 quốc gia) lần lượt đi từ trái vào bờ biển rồi đứng thành hai hàng nhìn quanh
+      show() { A[0].you.visible = true; for (let i = 0; i < 11; i++) place(A[i], -14, 0, GZ(i), Math.PI / 2); },
       tick(t, dt) {
-        for (let i = 0; i < 4; i++) {
-          const a = A[i], p = clamp01((t - i * 0.25) / 1.8), e = 1 - Math.pow(1 - p, 3), ex = -3 + i * 2;
-          const x = lerp(-9 - i * 1.2, ex, e);
-          if (p < 1) { const sw = stride(a, dt, 3.2); carry(a, t); a.root.position.set(x, 0, 0.2); a.root.rotation.y = Math.PI / 2; a.s.g.position.y = Math.abs(sw) * 0.03; void sw; }
-          else { stand(a); carry(a, t); a.s.g.position.y = Math.sin(t * 2 + i) * 0.008; a.root.position.set(ex, 0, 0.2); const tn = sm((t - (i * 0.25 + 1.8)) / 0.5); a.root.rotation.y = lerp(Math.PI / 2, 0, tn) + Math.sin(t * 0.9 + i * 1.7) * 0.28 * tn; }   // nhìn quanh biển
+        for (let i = 0; i < 11; i++) {
+          const a = A[i], d = i * 0.18, p = clamp01((t - d) / 1.8), e = 1 - Math.pow(1 - p, 3), ex = GX(i), z = GZ(i);
+          const x = lerp(-13 - i * 0.5, ex, e);
+          if (p < 1) { const sw = stride(a, dt, 3.2); carry(a, t); a.root.position.set(x, 0, z); a.root.rotation.y = Math.PI / 2; a.s.g.position.y = Math.abs(sw) * 0.03; }
+          else { stand(a); carry(a, t); a.s.g.position.y = Math.sin(t * 2 + i) * 0.008; a.root.position.set(ex, 0, z); const tn = sm((t - (d + 1.8)) / 0.5); a.root.rotation.y = lerp(Math.PI / 2, 0, tn) + Math.sin(t * 0.9 + i * 1.7) * 0.28 * tn; }   // nhìn quanh biển
         }
         A[0].you.position.y = 2.95 + Math.sin(t * 5) * 0.06;
-        cam(lerp(-0.6, 0.4, t / 6.5), 1.45, lerp(6.8, 6.0, t / 6.5), 0, 1.05, 0);
+        cam(lerp(-0.6, 0.4, t / 6.5), 1.6, lerp(8.4, 7.6, t / 6.5), 0, 1.05, -0.2);
       },
     },
     { // 1 · nhiệm vụ: đi tới trạm, đưa tay bấm E
-      show() { station.g.visible = true; station.g.position.set(2.7, 0, 0); station.g.rotation.y = -0.9; place(A[1], -4.5, 0, 0.9, Math.PI / 2); },
+      show() { station.g.visible = true; station.g.position.set(2.7, 0, 0); station.g.rotation.y = -0.9; place(A[1], -4.5, 0, 0.9, Math.PI / 2); for (let k = 0; k < 9; k++) place(A[2 + k], -5 + k * 1.15, 0, -2.4 - (k % 2) * 0.8, 0); },   // 9 đồng đội đứng phía sau nhìn theo
       tick(t, dt) {
+        for (let k = 0; k < 9; k++) { const w = A[2 + k], wx = -5 + k * 1.15, wz = -2.4 - (k % 2) * 0.8; carry(w, t); stand(w); w.s.g.position.y = Math.sin(t * 2 + k) * 0.008; w.root.position.set(wx, 0, wz); w.root.rotation.y = Math.atan2(2.7 - wx, -wz) + Math.sin(t * 0.7 + k) * 0.12; }
         const a = A[1], F = new THREE.Vector3(Math.sin(-0.9), 0, Math.cos(-0.9)), tx = 2.7 + F.x * 1.35, tz = F.z * 1.35, p = clamp01(t / 2.1), e = 1 - Math.pow(1 - p, 2);
         if (p < 1) { const sw = stride(a, dt, 3); free(a, sw); a.root.position.set(lerp(-4.5, tx, e), 0, lerp(0.9, tz, e)); a.root.rotation.y = Math.atan2(tx + 4.5, tz - 0.9); }
         else {
@@ -195,18 +199,18 @@ export function initStage(cv: HTMLCanvasElement, isShown: () => boolean): Stage 
         }
         (station.scr.material as THREE.MeshBasicMaterial).color.setHex(Math.sin(t * 7) > 0 ? 0xffd37a : 0xffa31a);
         station.lbl.position.y = 2.35 + Math.sin(t * 4) * 0.05;
-        cam(lerp(0.4, 1.0, t / 6.5), 1.5, 6.3, 1.4, 1.1, 0);
+        cam(lerp(0.4, 1.0, t / 6.5), 1.6, 7.2, 0.8, 1.1, -0.4);
       },
     },
     { // 2 · gián điệp ẩn: ai cũng có dấu "?"
-      show() { for (let i = 0; i < 4; i++) { place(A[i], -3 + i * 2, 0, 0.2, 0); A[i].q.visible = true; } A[0].you.visible = true; },
+      show() { for (let i = 0; i < 11; i++) { place(A[i], GX(i), 0, GZ(i), 0); A[i].q.visible = true; } A[0].you.visible = true; },
       tick(t) {
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 11; i++) {
           const a = A[i]; carry(a, t); stand(a); a.s.g.position.y = Math.sin(t * 2 + i) * 0.008; a.root.rotation.y = Math.sin(t * 0.8 + i * 2.1) * 0.22;
           const k = sm((t - i * 0.15) / 0.5); a.q.scale.setScalar(0.9 * k); a.q.position.y = 2.6 + Math.sin(t * 3 + i) * 0.07;
         }
         A[0].you.position.y = 2.95 + Math.sin(t * 5) * 0.06;
-        cam(Math.sin(t * 0.35) * 0.8, 1.5, 6.4, 0, 1.15, 0);
+        cam(Math.sin(t * 0.35) * 0.8, 1.6, 7.8, 0, 1.15, -0.2);
       },
     },
     { // 3 · ám sát: gián điệp áo đỏ đi sau lưng, đâm; nạn nhân ngã, đèn báo động đỏ
@@ -230,11 +234,11 @@ export function initStage(cv: HTMLCanvasElement, isShown: () => boolean): Stage 
     { // 4 · họp quanh lửa trại: bỏ phiếu kín, người bị loại bay đi
       show() {
         fire.g.visible = true; fire.g.position.set(0, 0, 0);
-        for (let i = 0; i < 6; i++) { const ang = (i / 6) * Math.PI * 2 + 0.3; place(A[i], Math.cos(ang) * 2.55, 0, Math.sin(ang) * 2.55, Math.atan2(-Math.cos(ang), -Math.sin(ang))); sit(A[i], true); }
+        for (let i = 0; i < 11; i++) { const ang = (i / 11) * Math.PI * 2 + 0.3; place(A[i], Math.cos(ang) * 2.55, 0, Math.sin(ang) * 2.55, Math.atan2(-Math.cos(ang), -Math.sin(ang))); sit(A[i], true); }
       },
       tick(t) {
-        for (let i = 0; i < 6; i++) {
-          const a = A[i], ang = (i / 6) * Math.PI * 2 + 0.3, ox = Math.cos(ang) * 2.55, oz = Math.sin(ang) * 2.55, sh = a.s.armL;
+        for (let i = 0; i < 11; i++) {
+          const a = A[i], ang = (i / 11) * Math.PI * 2 + 0.3, ox = Math.cos(ang) * 2.55, oz = Math.sin(ang) * 2.55, sh = a.s.armL;
           if (i === 0 && t > 2.4) continue;   // người bị loại: xử lý riêng bên dưới
           free(a, 0); sh.rotation.set(-0.8, 0, 0.12); a.s.armR.rotation.set(-0.8, 0, -0.12); a.s.armL.userData.elbow.rotation.x = a.s.armR.userData.elbow.rotation.x = -0.6;
           a.root.position.set(ox, 0.12, oz); a.s.g.position.y = -0.34 + Math.sin(t * 2 + i) * 0.006;
@@ -246,31 +250,31 @@ export function initStage(cv: HTMLCanvasElement, isShown: () => boolean): Stage 
           x0.root.position.set(ox + 5 * fly * fly, 0.12 * (1 - fly) + 5.5 * fly * fly, oz - 1.2 * fly); x0.root.rotation.y = Math.atan2(-Math.cos(ang), -Math.sin(ang)) + fly * 14; x0.root.scale.setScalar(Math.max(0.001, 1 - fly));
         }
         votes.forEach((s, k) => {
-          const t0 = 0.5 + k * 0.45, u = clamp01((t - t0) / 1.0), who = A[k + 1];
+          const t0 = 0.3 + k * 0.2, u = clamp01((t - t0) / 1.0), who = A[k + 1];
           s.visible = u > 0 && u < 1; if (!s.visible) return;
           const sx = who.root.position.x, sz = who.root.position.z;
           s.position.set(lerp(sx, 0, sm(u)), lerp(2.0, 1.0, u) + Math.sin(u * Math.PI) * 1.0, lerp(sz, 0, sm(u))); (s.material as THREE.SpriteMaterial).opacity = 1 - sm((u - 0.7) / 0.3);
         });
         fire.flames.forEach((f, k) => { f.scale.y = 0.7 + 0.5 * Math.abs(Math.sin(t * 9 + k * 1.7)); f.position.y = 0.2 + 0.35 * f.scale.y; });
         fire.light.intensity = 5.5 + Math.sin(t * 17) * 1.2 + Math.sin(t * 7.3) * 0.8;
-        const ca = t * 0.12; cam(Math.sin(ca) * 3.2, 3.0, Math.cos(ca) * 3.0 + 6.3, 0, 0.9, 0);
+        const ca = t * 0.12; cam(Math.sin(ca) * 3.6, 3.4, Math.cos(ca) * 3.4 + 7.2, 0, 0.9, 0);
       },
     },
     { // 5 · kết cục: biệt đội ăn mừng, gián điệp đứng riêng
       show() {
         pods.visible = true;
-        for (let i = 1; i <= 3; i++) place(A[i], -4.3 + (i - 1) * 1.4, 0.16, 0, 0);
+        for (let i = 1; i <= 10; i++) place(A[i], CX(i), 0.16, CZ(i), 0);   // 10 biệt kích đứng hai hàng trên bục xanh
         place(A[0], 3.1, 0.16, 0, 0);
       },
       tick(t) {
-        for (let i = 1; i <= 3; i++) {
+        for (let i = 1; i <= 10; i++) {
           const a = A[i], w = Math.sin(t * 6 + i * 1.3); free(a, 0);
           a.s.armL.rotation.set(-2.7 + 0.3 * w, 0, 0.35); a.s.armR.rotation.set(-2.7 - 0.3 * w, 0, -0.35); a.s.armL.userData.elbow.rotation.x = a.s.armR.userData.elbow.rotation.x = -0.15; curlArm(a.s.armL, 1.2, 0.8); curlArm(a.s.armR, 1.2, 0.8);
-          const jp = Math.max(0, Math.sin(t * 5 + i * 1.1)); a.root.position.y = 0.16 + jp * 0.22; stand(a);
+          const jp = Math.max(0, Math.sin(t * 5 + i * 1.1)); a.root.position.set(CX(i), 0.16 + jp * 0.22, CZ(i)); stand(a);
           a.s.legL.rotation.x = -jp * 0.4; a.s.legR.rotation.x = jp * 0.4; kneeBend(a);
         }
         const sp = A[0]; carry(sp, t); stand(sp); sp.root.rotation.y = -0.35 + Math.sin(t * 0.8) * 0.12;   // gián điệp đứng nghiêng người, súng hạ thấp
-        cam(0, 1.9, 7.6, 0, 2.1, 0);
+        cam(0, 2.0, 8.8, 0, 2.0, -0.2);
       },
     },
   ];

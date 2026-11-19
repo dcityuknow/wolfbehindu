@@ -7,6 +7,8 @@ import { randomNavPoint } from "./nav";
 import { buildSoldier, defOf } from "./soldier";
 import { attachGun, type GunRig } from "./guns";
 import { poseFull, curlArm } from "./gunpose";
+import { layDown, standUp, pickPose } from "./corpse";
+import { bloodPool } from "./fx";
 import { COLORS, NAMES, SQUAD, PLAYERS, GUNS, COMBAT, type GunId } from "../config";
 import { W, MV, ROLL_T } from "../weaponState";
 import { G } from "../state";
@@ -15,7 +17,7 @@ import type { Entity, Body } from "../types";
 /** Người lính voxel (soldier.ts): quân phục rằn ri riêng cho từng người, băng tay màu nhận diện, nhãn tên phía trên đầu. */
 export function makeCrew(i: number) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
-  const { g, armL, armR, legL, legR, hip, head } = buildSoldier(defOf(SQUAD[i]), mat, COLORS[i]);
+  const { g, armL, armR, legL, legR, hip, head, face } = buildSoldier(defOf(SQUAD[i]), mat, COLORS[i]);
   const c = document.createElement("canvas"); c.width = 128; c.height = 32; const x = c.getContext("2d")!;
   x.font = "bold 22px system-ui"; x.textAlign = "center"; x.fillStyle = "rgba(0,0,0,.55)"; x.fillRect(4, 3, 120, 26); x.fillStyle = "#fff"; x.fillText(NAMES[i], 64, 24);
   const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); tag.scale.set(0.95, 0.24, 1); tag.position.y = 2.25; tag.renderOrder = 5; g.add(tag);
@@ -23,16 +25,17 @@ export function makeCrew(i: number) {
   const ac = document.createElement("canvas"); ac.width = ac.height = 128; const ax = ac.getContext("2d")!;
   ax.font = "900 120px system-ui"; ax.textAlign = "center"; ax.textBaseline = "middle"; ax.lineWidth = 14; ax.strokeStyle = "#fff"; ax.strokeText("!", 64, 70); ax.fillStyle = "#ff1e1e"; ax.fillText("!", 64, 70);
   const alert = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(ac), depthTest: false, transparent: true })); alert.scale.set(1.5, 1.5, 1); alert.position.y = 3.3; alert.renderOrder = 6; alert.visible = false; g.add(alert);
-  Object.assign(g.userData, { alert, m: mat, mats: [mat], legL, legR, hip, head, armL, armR, tag, ph: 0, lx: 0, lz: 0 });
+  Object.assign(g.userData, { alert, m: mat, mats: [mat], legL, legR, hip, head, armL, armR, tag, face, painT: 0, ph: 0, lx: 0, lz: 0 });
   scene.add(g);
   return g;
 }
 /** Súng đồng đội cầm (chỉ để trang trí — Bot đi tuần, không bắn). Người chơi [0] cầm súng đang chọn trong weaponState. */
-const BOT_GUNS: GunId[] = ["rifle", "pistol", "rifle", "rifle", "pistol", "rifle"];
+/** Súng chính của từng bot: AK (rifle) hoặc súng ngắm (sniper). Bot nào cầm sniper còn đeo AK để đổi súng khi địch lại gần; ai cũng có lựu đạn (hostile.ts). */
+export const BOT_GUNS: GunId[] = ["rifle", "sniper", "rifle", "rifle", "sniper", "rifle"];
 export const entities: Entity[] = Array.from({ length: PLAYERS }, (_, i) => {
   const g = makeCrew(i); g.visible = false;
   const gid = i === 0 ? GUNS[W.cur].id : BOT_GUNS[(i - 1) % BOT_GUNS.length]; g.userData.gunId = gid;
-  attachGun(g, gid, true, defOf(SQUAD[i]).pack ? -0.27 : -0.16);   // CẢ 7 người dùng giá súng đầy đủ + poseFull (tay phải ôm báng, tay trái đỡ ốp tay) — cùng tư thế như cảnh intro
+  attachGun(g, gid, true, defOf(SQUAD[i]).pack ? -0.27 : -0.16);   // CẢ 11 người dùng giá súng đầy đủ + poseFull (tay phải ôm báng, tay trái đỡ ốp tay) — cùng tư thế như cảnh intro
   return { i, g, x: 0, z: 0, rot: 0, vy: 0, y: 0, dead: false, out: false, wait: 0, tx: 0, tz: 0, seat: -1, px: NaN, pz: NaN, hp: COMBAT.botHp, stun: 0, aim: 0, pitch: 0, kick: 0, rel: 0, flash: 0 };
 });
 export const bodies: Body[] = [];
@@ -63,9 +66,10 @@ function constrain(e: Entity) {
     }
     e.px = e.x; e.pz = e.z; return;
   }
-  if (!canStep(e.px, e.pz, e.y, e.x, e.z, swim)) {
-    if (canStep(e.px, e.pz, e.y, e.x, e.pz, swim)) e.z = e.pz;              // trượt dọc vách / mép vùng bơi
-    else if (canStep(e.px, e.pz, e.y, e.px, e.z, swim)) e.x = e.px;
+  const ey = e.i !== G.slot && e.y > groundAt(e.px, e.pz) + 0.05 ? e.y + 0.6 : e.y;   // Bot đang nhảy leo được bậc 2 khối (người chơi dùng đúng độ cao thật)
+  if (!canStep(e.px, e.pz, ey, e.x, e.z, swim)) {
+    if (canStep(e.px, e.pz, ey, e.x, e.pz, swim)) e.z = e.pz;              // trượt dọc vách / mép vùng bơi
+    else if (canStep(e.px, e.pz, ey, e.px, e.z, swim)) e.x = e.px;
     else { e.x = e.px; e.z = e.pz; }
   }
   e.px = e.x; e.pz = e.z;
@@ -80,9 +84,19 @@ export function ownCorpse(): Body {
   let b = bodies.find((x) => x.own);
   if (!b) { const g = makeCrew(e.i); gray(g); b = { x: e.x, z: e.z, g, own: true }; bodies.push(b); }
   b.x = e.x; b.z = e.z;
-  b.g.rotation.set(0, e.rot, Math.PI / 2); b.g.position.set(e.x + 0.9 * Math.cos(e.rot), e.y + 0.46, e.z - 0.9 * Math.sin(e.rot));
+  if (b.pose === undefined) { b.pose = pickPose(); b.yaw = (Math.random() - 0.5) * 1.2; bloodPool(e.x, e.z, e.rot, 1.1); }
+  layDown(b.g, e.x, e.z, e.rot, b.pose, b.yaw!, !!defOf(SQUAD[e.i]).pack);
+  b.g.userData.face?.(2 + (b.pose % 3));   // mặt người chết: nhắm mắt há miệng / mắt chữ X lè lưỡi / trợn mắt kinh hoàng
   return b;
 }
+/** Ngã xuống (ngất / chết): chọn tư thế ngẫu nhiên, bỏ súng. Gọi mỗi khung hình khi còn ngất để giữ đúng chỗ. */
+export function layEntity(e: Entity) {
+  const u = e.g.userData; if (u.downPose === undefined) { u.downPose = pickPose(); u.downYaw = (Math.random() - 0.5) * 1.2; }
+  layDown(e.g, e.x, e.z, e.rot, u.downPose, u.downYaw, !!defOf(SQUAD[e.i]).pack);
+  u.face?.(e.dead ? 2 + (u.downPose % 3) : 5);   // chết: biểu cảm chết · ngất: nhắm mắt
+}
+/** Hết ngất: đứng dậy. */
+export function reviveEntity(e: Entity) { e.g.userData.downPose = undefined; e.g.userData.face?.(0); standUp(e.g, e.rot); }
 export function markDead(i: number, toast: (m: string) => void) {
   if (G.dead.has(i)) return;
   G.dead.add(i);
@@ -94,7 +108,7 @@ export function markDead(i: number, toast: (m: string) => void) {
     toast(t("toast.killed"));
     deathHooks.selfKilled();
   } else {
-    e.dead = true; e.g.rotation.z = Math.PI / 2; e.g.position.set(e.x + 0.9 * Math.cos(e.rot), e.y + 0.46, e.z - 0.9 * Math.sin(e.rot)); gray(e.g);   // nằm ngang, tâm xác ngay tại chỗ ngã
+    e.dead = true; layEntity(e); gray(e.g); bloodPool(e.x, e.z, e.rot, 1);   // ngã nhiều kiểu (dang tay chân, sấp, ngửa, nghiêng), súng rơi khỏi tay, máu loang trên sàn mãi mãi
     bodies.push({ x: e.x, z: e.z, g: e.g });
   }
 }
@@ -105,7 +119,9 @@ function setElbows(u: any, x: number, c: number) { for (const a of [u.armL, u.ar
 function bendKnees(u: any) { for (const l of [u.legL, u.legR]) { const a = l.rotation.x, k = l.userData.knee; if (k) k.rotation.x = Math.max(0, a) * 1.1 + (a < -0.9 ? -(a + 0.9) * 1.3 : 0) + 0.04; } }
 export function animateCrew(dt: number, t: number) {
   for (const e of entities) {
-    const u = e.g.userData; if (e.dead) continue;
+    const u = e.g.userData;
+    if (u.painT > 0 && !e.dead && e.stun <= 0) { u.painT -= dt; if (u.painT <= 0) u.face?.(0); }   // nét mặt đau sau khi trúng đạn rồi trở lại bình thường
+    if (e.dead || e.stun > 0) continue;
     const sp = dt > 0 ? Math.hypot(e.x - u.lx, e.z - u.lz) / dt : 0; u.lx = e.x; u.lz = e.z;
     const k = Math.min(1, sp / 3) * (e.i === G.slot && e.y - groundAt(e.x, e.z) > 0.3 ? 0.3 : 1); u.ph += Math.min(sp, 8) * dt * 2.3;
     const isMe = e.i === G.slot && G.phase === "play" && !G.ghost && e.seat < 0, back = isMe && e.legBack ? -1 : 1;   // đi lùi: chân đạp ngược chiều
