@@ -29,15 +29,15 @@ Built for *Zama Developer Program, Mainnet Season 5 — Confidential Gaming*. Sm
 If the state were public the game would be over before it started — a block explorer would show the spy.
 
 ## Fairness (randomness + verification)
-- **Randomness is on-chain:** the spy slot is `FHE.rem(FHE.randEuint8(128), n)` inside the coprocessor. Nobody can predict or bias it, including the host. (For n = 7 the draw is biased by ~0.8 %; documented, acceptable.)
+- **Randomness is on-chain:** the spy slot is `FHE.rem(FHE.randEuint8(128), n)` inside the coprocessor. Nobody can predict or bias it, including the host. (For n = 11 the draw is biased by ~0.4 %; documented, acceptable.)
 - **Public results are KMS-verified:** win checkpoints, vote results, death proofs and the final roles go `makePubliclyDecryptable` → relayer `publicDecrypt` → `FHE.checkSignatures`. The contract refuses any cleartext the KMS did not sign for *exactly the stored handles* (tests: forged checkpoint / forged roles are rejected).
 - **Anyone can audit a finished game:** `revealRoles` makes every role public once the room is `Finished` (never earlier). The UI shows who the spy was; in staked rooms `settleStake` verifies those roles on-chain before any money moves.
 
 ## Game modes
 | Mode | What it is | Where |
 |---|---|---|
-| **Solo** | 1 human + 6 bots in a 3D voxel island (campfire meetings, tasks, firefights, friendly-fire rules). One signature starts a game; a throw-away *session wallet* runs bot turns without popups. | `Play` button |
-| **PvP table (3–7 players)** | Real wallets, the chain is the shared world: tasks, an encrypted secret action, emergency meetings, shielded voting, KMS-verified endings. Invite by link `?room=ID`. | `👥 Multiplayer table` |
+| **Solo** | 1 human + 10 bots (11 soldiers = 11 nations) in a 3D voxel island (campfire meetings, tasks, firefights, friendly-fire rules). One signature starts a game; a throw-away *session wallet* runs bot turns without popups. | `Play` button |
+| **PvP table (3–11 players)** | Real wallets, the chain is the shared world: tasks, an encrypted secret action, emergency meetings, shielded voting, KMS-verified endings. Invite by link `?room=ID`. | `👥 Multiplayer table` |
 | **Staked PvP** | Each player stakes cUSDT (ERC-7984) with an **encrypted transfer**. Winners split the pot; refunds if cancelled/stalled. | create a *staked room* |
 
 ### Staked rooms in detail (ERC-7984)
@@ -96,3 +96,42 @@ WASD move · Space jump · **E** interact · **Q** assassinate (spy) · Left cli
 ## Security notes
 - Never commit `.env`. Use throw-away wallets only. The session wallet key lives in this browser's `localStorage`; keep a tiny balance in it.
 - Not audited. Testnet only.
+
+## Cập nhật: hồ bơi/lặn, âm thanh nước, gió tuyết trên đỉnh núi, tầm nhìn thật
+
+- **Hồ & ao trên cao nguyên nhảy xuống được, bơi và LẶN được** (`world/island.ts`: `pondAt`, `surfaceAt`, `swimYAt`, `waterBed`). Lòng hồ hình bát: hồ lớn sâu ~4 m, ao nhỏ ~3 m. Mỗi nơi có mực nước riêng; bắn súng / ném lựu đạn xuống hồ cũng tóe nước đúng độ cao mặt hồ.
+- **Lặn**: giữ `Shift` = chìm, `Space` = trồi nhanh, thả ra = tự nổi. Đầu chìm → màn hình phủ xanh nước + sương dày + bong bóng khí + tiếng ù dưới nước; nín thở `WATER.air` = 20 s (thanh 🫧 ở giữa dưới màn hình), hết hơi thì mất máu từng nhịp nhưng **không bao giờ xuống dưới 1 máu**. Code: `world/water.ts`, chỉnh số ở `WATER` trong `config.ts`.
+- **Âm thanh nước bê nguyên từ game tham khảo** (`engine/sound.js`): xuống nước "tũm" (`splashSnd`), mỗi nhịp bơi "bì-bõm" (`wadeSnd`), lặn xuống, bong bóng, đạn chạm nước, lựu đạn nổ dưới nước, chết đuối — nằm trong `sfx` của `audio.ts`.
+- **Đỉnh núi có gió + tuyết bay** (`world/blizzard.ts`): từ độ cao `BLIZZARD.from` (34 m) hạt tuyết trôi theo gió giật + vệt gió trắng; lên tới `BLIZZARD.full` (66 m) thì dày và mạnh nhất. Chỉnh ở `BLIZZARD` trong `config.ts`.
+- **Tầm nhìn thật** (`world/visibility.ts`): bỏ giới hạn 16 m và "nón nhìn"; thấy người khác ở MỌI khoảng cách, trừ khi bị che bởi địa hình (đồi/núi), công trình / đá / bụi rậm, hoặc thân cây. Sương mù khoảng cách giữ nguyên (`LIGHT.fogPlay`): người ở xa mờ dần trong sương nhưng vẫn thấy được.
+
+## Cập nhật: bot khôn hơn + biểu cảm khi chết
+
+- **Bot bị bắn / thấy đường đạn thì tìm người bắn** (`gameplay/hostile.ts`, `mood 4`): nhìn ngay về hướng đạn bay tới (bị bắn từ trên đỉnh núi xuống thì ngước lên), rồi quét xung quanh từ XA (ngẩng) đến GẦN (cúi). Người chơi trong tầm mắt và không bị che thì "độ phát hiện" tăng dần — càng xa càng lâu, vừa nổ súng (chớp lửa nòng) thì lộ rất nhanh. Bot nào bị trúng/bị đạn sượt qua mà thấy người bắn thì **bắn trả ngay**; bot chỉ thấy đường đạn thì chĩa súng hỏi. Bot bắn trả được tới tầm súng (tối đa 150 m), kể cả bắn lên đỉnh núi. Chỉnh ở `SEARCH` trong `hostile.ts`.
+- **Biểu cảm mặt** (`world/soldier.ts`, `buildFaceFx`): trúng đạn → nhăn mặt nhắm mắt; chết → ngẫu nhiên 1 trong 3: nhắm mắt há hốc miệng / mắt chữ X lè lưỡi / trợn trừng mắt há miệng to; ngất → nhắm mắt. Áp dụng cho cả xác của chính người chơi.
+
+## Cập nhật: bản đồ nhỏ (minimap) góc trái
+
+- `ui/minimap.ts`: bản đồ tròn ở góc trái (dưới các nút), nền là địa hình thật (biển / hồ / cát / cỏ / đá / tuyết, có đổ bóng sườn núi). Phím **M** (hoặc bấm vào bản đồ) đổi cỡ: gần 110 m (xoay theo hướng nhìn) → rộng 240 m → cả đảo (Bắc ở trên).
+- Hiện: mũi tên vàng = bạn · chấm màu = người đang nhìn thấy được (cùng luật tầm nhìn thật, bị che thì không có chấm) · ✕ đỏ = xác · chấm cam = trại · ◆ xanh = trạm nhiệm vụ · ▲ đỏ = núi lửa · mũi tên cam ở viền chỉ hướng về trại · chữ N = hướng Bắc · số mét độ cao dưới đáy.
+
+## Cập nhật: bot dùng AK, súng ngắm, lựu đạn
+
+- **Trang bị** (`BOT_GUNS` trong `world/characters.ts`): bot cầm AK hoặc súng ngắm. Bot cầm súng ngắm đeo thêm AK: người chơi ở xa (>50 m) thì dùng sniper, lại gần thì tự đổi sang AK (có thời gian rút súng ~1 s). Lính AK áp sát tới ~16 m rồi đứng bắn, lách ngang; xạ thủ đứng yên ngắm từ ≥38 m.
+- **Súng ngắm của bot**: bắn từng phát, ngắm lâu hơn (nghỉ 1,5–2,4 s giữa phát), trúng nhiều hơn khi ở xa, tiếng nổ vang xa; tầm bắn tới 220 m. Sát thương = dmg súng × `COMBAT.botDmg` (0,4).
+- **Lựu đạn của bot** (`throwBotGrenade` trong `gameplay/combat.ts`): mỗi bot có 2 quả/lượt. Khi đang thù địch và người chơi cách 11–36 m (và không ở cao hơn bot quá 5 m — lựu đạn không ném lên đỉnh núi được) thì ném theo đường parabol về chỗ bạn (có sai số), hô một trong 12 câu, câu nào cũng mở đầu bằng "Zama" (vd. "Zama grenade! Take cover!", "Zama frag out!"; không lặp lại câu vừa hô — danh sách `NADE` trong `hostile.ts`), nổ ~0,9 s sau khi chạm đất để kịp chạy. Sát thương bằng 60% lựu đạn của bạn và không làm đồng đội bị thương. Các bot cách nhau ≥3 s mới ném quả tiếp.
+
+## Cập nhật: bot biết NHẢY để leo núi
+
+- Nguyên nhân bot kẹt dưới chân núi: sườn núi có bậc cao 2 khối, người chơi nhảy lên được (nhảy ~1,1 m + bước 1 khối) còn bot chỉ bước được 1 khối nên đứng đẩy vào vách. (Mô phỏng: bản cũ kẹt ở độ cao ~58 m, không lên tới đỉnh 76 m.)
+- **Sửa**: `world/nav.ts` — A* cho phép bậc leo 2 khối (`JUMP_UP`, tốn thêm công) và rơi xuống ≤4 khối (`DROP`); `gameplay/walk.ts` — thấy bậc cao hơn 1 khối trong ~1,2 m phía trước thì nhảy (lực nhảy bằng người chơi); `main.ts` — bot có trọng lực khi nhảy/rơi; `world/characters.ts` — bot đang bay được leo bậc 2 khối. Bot đuổi theo người chơi ở xa (>40 m) chỉ tìm lại đường mỗi 2,5 s cho nhẹ máy.
+- Mô phỏng sau khi sửa: bot đi từ trại lên tới đỉnh núi cao nhất (76 m) trong khoảng 40 s, không kẹt.
+
+## Cập nhật: cảnh nhảy dù — phải bấm E để bung dù
+
+- **Luồng**: ở phân cảnh 4 (người chơi rơi tự do, nhìn xuống đất) đồng hồ "ĐỘ CAO NGUY HIỂM" bật đỏ, còi báo động kêu và **nút E vàng nhấp nháy phát sáng** hiện ra kèm thanh đếm ngược (**4,6 giây** để bấm; chạm vào nút E cũng được trên màn hình cảm ứng). Đồng thời nhân vật trong cảnh hoảng loạn (mắt trợn, mồ hôi).
+  - **Bấm E kịp** → bung dù (nhảy tới ngay trước lúc dù bung, cắt cảnh nhanh), phát chữ "ĐÃ BUNG DÙ!", cảnh chạy tiếp như cũ, vào game bình thường.
+  - **Không bấm** → hết hạn thì KHÔNG bung dù: máy quay điện ảnh cắt sang máy tĩnh thấp sát đất nhìn ngược lên người đang lao xuống (rơi nhanh dần ~2 s), đập đất → rung mạnh, chớp sáng, tiếng răng rắc + bịch, nhân vật nằm sấp dang tay, mắt nhắm nghiền há hốc miệng, rồi tối sầm và hiện màn **"BẠN ĐÃ TỬ NẠN"** với nút **Nhảy lại (E)**. Bấm E / Space / Enter / click để chơi lại đoạn nhảy dù (việc tạo phòng + chia vai chạy ngầm không bị ảnh hưởng, cảnh chỉ đi tiếp sau khi bạn bung dù thành công).
+- Trong lúc chưa bung dù, click / Space / Enter KHÔNG bỏ qua được phân cảnh này (tránh bấm lướt nhầm). Nút **Bỏ qua ⏭** và phím Esc vẫn bỏ qua cả cảnh mở đầu như cũ.
+- Code: `world/cinePath.ts` (`DIVE`, `ALERT_LEAD`, `DEP`, nhánh `"crash"` trong `stateOf`; `EXT` tăng 14 → 16 để có thêm 2 giây rơi) · `world/cine3d.ts` (hạn chót, `failCam`, `cineDeploy`, `cineRetry`) · `ui/cutscene.ts` (phím E, nút, màn chết) · `styles.css` (`#cineKey`, `#cineDead`) · bản dịch `cine.key / cine.keyOk / cine.dead / cine.dead2 / cine.retry` (vi, en).
+- **Lồng tiếng**: câu cảnh báo cũ (`v5.mp3`) nói "tự động bung dù" nên không dùng nữa; câu mới `v5e` ("Warning! Critical altitude! Pull your chute! Press E!") hiện đọc bằng giọng trình duyệt vì chưa có file mp3. Muốn giọng giống các câu khác: chạy `python tools/gen-voice.py ...` (đã thêm dòng `v5e`) rồi bỏ `v5e.mp3` vào `public/voice/`.
