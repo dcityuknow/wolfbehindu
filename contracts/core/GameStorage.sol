@@ -14,7 +14,7 @@ abstract contract GameStorage {
     // ───────────────────────────── CONSTANTS ─────────────────────────────
     uint8 public constant MAX_PLAYERS = MAX_SLOTS; // total slots (humans + bots)
     uint8 public constant MIN_PVP_PLAYERS = 3;
-    uint8 public constant SOLO_BOTS = 6;
+    uint8 public constant SOLO_BOTS = 10;
     /// @dev Bots processed per transaction (bot turns / bot votes). Batched so one tx stays under the FHE compute budget (HCU).
     uint8 public constant BOTS_PER_TX = 3;
     uint8 public constant TASKS_PER_PLAYER = 3;

@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { euint8 } from "@fhevm/solidity/lib/FHE.sol";
 
 /// @dev Number of slots in a room (humans + bots). File-level so the Room struct can size its encrypted vote counters.
-uint8 constant MAX_SLOTS = 7;
+uint8 constant MAX_SLOTS = 11;
 
 enum Phase {
     Lobby,

@@ -7,14 +7,14 @@ describe("Lost Island - game logic (FHE mock)", function () {
   before(function () { if (!fhevm.isMock) this.skip(); });
 
   describe("roles (encrypted, random, private)", () => {
-    it("deals exactly ONE spy among 7 slots in a solo game, and the human can read only their own role", async () => {
+    it("deals exactly ONE spy among 11 slots in a solo game, and the human can read only their own role", async () => {
       const { game, signers } = await deployAll(false);
       const [me, other] = signers;
       await game.connect(me).createSoloGame(ethers.ZeroAddress, GAS);
       const roomId = await game.roomCount();
-      const roles = await allRoles(game, roomId, 7);
+      const roles = await allRoles(game, roomId, 11);
       expect(roles.filter((r) => r === 1)).to.have.length(1);
-      expect(roles.filter((r) => r === 0)).to.have.length(6);
+      expect(roles.filter((r) => r === 0)).to.have.length(10);
       expect(await myRole(game, roomId, me)).to.eq(roles[0]);
       // another wallet is NOT allowed to decrypt the role handle
       const h = await game.getRoleHandle(roomId, me.address);
@@ -26,7 +26,7 @@ describe("Lost Island - game logic (FHE mock)", function () {
       const seen = new Set<number>();
       for (let i = 0; i < 8; i++) {
         await game.connect(signers[0]).createSoloGame(ethers.ZeroAddress, GAS);
-        seen.add((await allRoles(game, await game.roomCount(), 7)).indexOf(1));
+        seen.add((await allRoles(game, await game.roomCount(), 11)).indexOf(1));
       }
       expect(seen.size).to.be.greaterThan(1);
     });
@@ -261,9 +261,13 @@ describe("Lost Island - game logic (FHE mock)", function () {
       await game.connect(me).createSoloGame(op.address, GAS);
       const roomId = await game.roomCount();
       expect(await game.operatorOf(roomId)).to.eq(op.address);
-      expect(await game.pendingBotTurns(roomId)).to.eq(6);
+      expect(await game.pendingBotTurns(roomId)).to.eq(10);   // 10 bots, BOTS_PER_TX = 3 -> 10, 7, 4, 1, 0
       await game.connect(op).runBotTurns(roomId, GAS);
-      expect(await game.pendingBotTurns(roomId)).to.eq(3);
+      expect(await game.pendingBotTurns(roomId)).to.eq(7);
+      await game.connect(op).runBotTurns(roomId, GAS);
+      expect(await game.pendingBotTurns(roomId)).to.eq(4);
+      await game.connect(op).runBotTurns(roomId, GAS);
+      expect(await game.pendingBotTurns(roomId)).to.eq(1);
       await game.connect(op).runBotTurns(roomId, GAS);
       expect(await game.pendingBotTurns(roomId)).to.eq(0);
       await expect(game.connect(op).runBotTurns(roomId)).to.be.revertedWith("Bots already acted");

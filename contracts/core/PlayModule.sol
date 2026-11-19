@@ -20,7 +20,7 @@ abstract contract PlayModule is GameStorage {
      * status_i = select(hit_i, 0, status_i)
      * No revert depends on encrypted data.
      *
-     * Solo: the 6 bots run separately via `runBotTurns` (batches of BOTS_PER_TX bots per tx).
+     * Solo: the 10 bots run separately via `runBotTurns` (batches of BOTS_PER_TX bots per tx).
      */
     function executeSecretKill(
         uint256 roomId,

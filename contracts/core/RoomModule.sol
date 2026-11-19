@@ -15,7 +15,7 @@ abstract contract RoomModule is GameStorage {
     //                           ROOM MANAGEMENT
     // ═════════════════════════════════════════════════════════════════════
 
-    /// @notice Create a free room. isSolo = true -> 1 human + 6 bots (bots are added on start).
+    /// @notice Create a free room. isSolo = true -> 1 human + 10 bots (bots are added on start).
     function createRoom(bool isSolo) external returns (uint256 roomId) {
         roomId = ++roomCount;
         Room storage r = _rooms[roomId];
@@ -81,7 +81,7 @@ abstract contract RoomModule is GameStorage {
      *   FHE.allow(role_i, wallet_i)                         // ONLY wallet i can decrypt it
      *
      * Bots: the handle is `allowThis` only -> only the contract can use it (bots act inside FHE).
-     * `randEuint8(128)` then `rem n`: for n = 7 the draw is biased by ~0.8% (documented, acceptable).
+     * `randEuint8(128)` then `rem n`: for n = 11 the draw is biased by ~0.8% (documented, acceptable).
      */
     function startGame(uint256 roomId) external inPhase(roomId, Phase.Lobby) {
         Room storage r = _rooms[roomId];
@@ -94,7 +94,7 @@ abstract contract RoomModule is GameStorage {
     }
 
     /// @notice Solo in ONE transaction: create the room, register the session-wallet operator (address(0) = none),
-    ///         add the 6 bots, deal the encrypted roles and start the game. One signature instead of three.
+    ///         add the 10 bots, deal the encrypted roles and start the game. One signature instead of three.
     function createSoloGame(address op) external returns (uint256 roomId) {
         roomId = ++roomCount;
         Room storage r = _rooms[roomId];

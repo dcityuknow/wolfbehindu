@@ -33,6 +33,16 @@ LINES = [
  ("v10", "am_adam",   "en-us", 1.00, "",   "Stay calm. Panic is what the spy wants."),
  # GOLF — smug, deep (the one pressing the beacon)
  ("v11", "am_onyx",   "en-us", 0.95, "",   "Relax. It's just my beacon. Why is everybody staring at me?"),
+ # HOTEL — medic, warm but nervous
+ ("v13", "am_michael", "en-us", 1.05, "",   "I'm the medic. I fix people. I don't hurt them."),
+ # INDIA — comms engineer, calm analytical
+ ("v14", "bm_fable",  "en-gb", 1.05, "",   "Check the sat-link logs. Whoever leaked it left a trace."),
+ # JULIET — sniper, flat and cold
+ ("v15", "am_eric",   "en-us", 0.95, "",   "I'm watching all of you. One wrong move."),
+ # KILO — rookie, scared and young
+ ("v16", "am_liam",   "en-us", 1.10, "",   "First mission... I'm not ready to die out here."),
+ # beat 1 — India shouting in the jump line
+ ("v17", "bm_fable",  "en-gb", 1.20, NET,  "I'm right behind you! Go, go!"),
  # CHARLIE — gruff, aggressive
  ("v2",  "am_fenrir", "en-us", 1.05, "",   "What are you looking at?"),
  ("v2b", "am_fenrir", "en-us", 1.00, "",   "You?"),
@@ -46,6 +56,7 @@ LINES = [
  ("v4c", "am_echo",   "en-us", 1.25, STAT, "...abort, abort—"),
  # beat 3 — suit AI
  ("v5",  "bm_daniel", "en-gb", 0.95, AI,   "Warning. Critical altitude. Emergency auto-deploy engaged."),
+ ("v5e", "bm_daniel", "en-gb", 1.05, AI,   "Warning! Critical altitude! Pull your chute! Press E!"),   # cảnh bấm E để bung dù (thay v5 cũ nói "tự động bung dù")
  # beat 4 — private channel
  ("v6",  "am_onyx",   "en-us", 0.80, PRIV, "Game on. Good luck surviving... old friends."),
 ]
