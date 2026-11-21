@@ -23,8 +23,8 @@ export function flashRed(dmg = 0) {
   const fx = $("#fx"); fx.style.opacity = ".9"; clearTimeout(fxTimer); fxTimer = window.setTimeout(() => (fx.style.opacity = "0"), 120);
   if (dmg > 0) HURT.target = Math.min(HURT.MAX, HURT.target + dmg * HURT.K);
 }
-export function showEnd(crewWon: boolean, youWin: boolean) {
-  const e = crewWon ? ENDING.crew : ENDING.spy; show("#end"); $("#et").textContent = e.title; $("#ed").innerHTML = e.desc + "<br><br>" + (youWin ? ENDING.win : ENDING.lose);
+export function showEnd(crewWon: boolean, youWin: boolean, massacre = false) {
+  const e = massacre ? ENDING.massacre : crewWon ? ENDING.crew : ENDING.spy; show("#end"); $("#et").textContent = e.title; $("#ed").innerHTML = e.desc + "<br><br>" + (youWin ? ENDING.win : ENDING.lose);
 }
 /** Cập nhật prompt "[E] ..." và nút Kill mỗi frame. */
 export function updateHud(prompt: string, canKill: boolean) {

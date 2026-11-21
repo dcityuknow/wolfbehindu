@@ -3,10 +3,12 @@ export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 /** Thông báo kiểu "radio chat": nền đen, chữ trắng, góc dưới bên trái; mỗi dòng tự mờ dần rồi biến mất. */
 /** Cảnh giải mã cuối game gán vào đây để các dòng tiến trình (tx / KMS) cũng chạy trên khung radio. */
 export const toastHook: { fn: ((m: string) => void) | null } = { fn: null };
-export function toast(m: string) {
+export function toast(m: string, link?: { text: string; href: string }) {
   toastHook.fn?.(m);
   const box = $("#toast"), d = document.createElement("div");
-  d.className = "rl"; d.textContent = m; box.appendChild(d);
+  d.className = "rl"; d.textContent = m + (link ? " " : "");
+  if (link) { const a = document.createElement("a"); a.href = link.href; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = link.text; a.style.cssText = "color:#7cf;pointer-events:auto"; d.appendChild(a); }   // tx link on the radio line
+  box.appendChild(d);
   while (box.children.length > 6) box.firstElementChild!.remove();
   setTimeout(() => d.classList.add("out"), 9000); setTimeout(() => d.remove(), 9800);
   const log = document.getElementById("mlog"); if (log) log.textContent = m + "\n" + log.textContent;

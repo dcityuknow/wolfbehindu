@@ -3,7 +3,7 @@ import { scene, sky, sunOrb, camera } from "./scene";
 import { CINE } from "./cineState";
 import { VoxelBatch, Glow, hash, fbm, smooth } from "./voxel";
 import { H, WATER_Y, PADS, PONDS, ISLE, limit, dist6, slopeAt, isPond, groundAt, walkable, NG } from "./island";
-import { WALLS, TRUNKS } from "./map";
+import { WALLS, TRUNKS, CANOPIES } from "./map";
 
 /**
  * Đảo hoang dạng Minecraft (v27): cao nguyên cỏ lượn sóng, vách đá dựng đứng ra biển, rừng thông trên sườn núi, đỉnh núi phủ tuyết, vịnh cát + cầu tàu phía Nam.
@@ -96,14 +96,14 @@ function spruce(x: number, z: number, h: number, big: boolean) {   // thông
   const lay = big ? [[5, 2.2], [5, 3.2], [3, 4.2], [3, 5.2], [1, 6.2], [1, 7.0]] : [[3, 2.4], [3, 3.4], [1, 4.4], [1, 5.0]];
   for (const [w, o] of lay) { const y = h + o + (big ? 0 : -0.5) + (th - (big ? 6 : 4)) * 0.8; D.box(x, y, z, w, 1, w, leaf, 0.08); }
   if (h > 40) D.box(x, top + (big ? 1.4 : 0.9), z, 1.1, 0.35, 1.1, 0xf4f8ff, 0.02);
-  WALLS.push([x, z, 0.8, 0.8]); TRUNKS.push([x, z, 0.4, top]);
+  WALLS.push([x, z, 0.8, 0.8]); TRUNKS.push([x, z, 0.4, top]); CANOPIES.push([x, z, big ? 2.5 : 1.6, 0.6, h + (big ? 2 : 1.5), top + (big ? 1.2 : 0.7), 0]);
 }
 function oak(x: number, z: number, h: number, birch: boolean) {   // sồi / bạch dương
   const th = 3 + ((hash(x, z, 2) * 2) | 0), leaf = birch ? 0x7cb248 : [0x4d9a3a, 0x5aa843, 0x428c33][((hash(x, z, 6) * 3) | 0)];
   D.box(x, h + th / 2 - 0.3, z, 0.6, th + 0.6, 0.6, birch ? 0xe6e2d8 : 0x6b4a2a, 0.05);
   D.box(x, h + th + 0.3, z, 4, 1, 4, leaf, 0.08); D.box(x, h + th + 1.3, z, 3, 1, 3, leaf, 0.08); D.box(x, h + th + 2.3, z, 1.6, 1, 1.6, leaf, 0.08);
   D.box(x + 1.4, h + th + 0.3, z - 1.0, 1.4, 1, 1.4, leaf, 0.08);
-  WALLS.push([x, z, 0.8, 0.8]); TRUNKS.push([x, z, 0.4, h + th + 2.8]);
+  WALLS.push([x, z, 0.8, 0.8]); TRUNKS.push([x, z, 0.4, h + th + 2.8]); CANOPIES.push([x, z, 2.1, 0.9, h + th - 0.2, h + th + 2.8, 1]);
 }
 function palm(x: number, z: number, h: number) {   // dừa trên bãi cát
   const th = 5 + ((hash(x, z, 2) * 3) | 0), lx = (hash(x, z, 3) - 0.5) * 0.36, lz = (hash(x, z, 4) - 0.5) * 0.36;
@@ -115,7 +115,7 @@ function palm(x: number, z: number, h: number) {   // dừa trên bãi cát
     const dx = Math.round(Math.cos((a * Math.PI) / 4)), dz = Math.round(Math.sin((a * Math.PI) / 4));
     for (let s = 1; s <= 3; s++) D.box(px + dx * s * 0.85, ty + 0.5 - s * s * 0.12, pz + dz * s * 0.85, dx ? 1 : 0.55, 0.16, dz ? 1 : 0.55, leaf, 0.1);
   }
-  WALLS.push([x, z, 0.8, 0.8]); TRUNKS.push([x, z, 0.35, h + th]);
+  WALLS.push([x, z, 0.8, 0.8]); TRUNKS.push([x, z, 0.35, h + th]); CANOPIES.push([x, z, 2.9, 1.5, h + th - 0.4, h + th + 1.1, 2]);
 }
 let trees = 0;
 const BLD = WALLS.slice();                                                    // chỉ công trình (cây cách nhau ≥2m nên không cần so với cây khác)

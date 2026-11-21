@@ -90,6 +90,7 @@ export const ENDING = {
     spy: "A meeting was called and you stayed away from the campfire. The squad took your absence as a confession and removed you.",
     over: "GAME OVER — you missed the emergency meeting.",
   },
+  massacre: { title: "🎖 LAST ONE STANDING", desc: "You gunned down the whole squad — and the spy fell with them. Nobody is left to vote, nobody left to accuse you.<br>A rescue helicopter finds a single Commando on a silent, blood-soaked island." },
   win: "🎉 You win!", lose: "You lose.",
 };
 

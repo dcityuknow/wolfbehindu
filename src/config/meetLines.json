@@ -1,0 +1,170 @@
+{
+  "accuse": [
+    {
+      "en": "It was you! I saw you near the cabin!",
+      "vi": "Là cậu! Tôi thấy cậu lảng vảng gần cái chòi!"
+    },
+    {
+      "en": "Stop lying! You're the spy!",
+      "vi": "Đừng nói dối nữa! Cậu chính là gián điệp!"
+    },
+    {
+      "en": "You've been acting strange all day!",
+      "vi": "Cả ngày nay cậu cư xử rất lạ!"
+    },
+    {
+      "en": "Admit it! You did it!",
+      "vi": "Thừa nhận đi! Chính cậu làm!"
+    }
+  ],
+  "suspect": [
+    {
+      "en": "Hmm... something doesn't add up.",
+      "vi": "Hừm... có gì đó không khớp."
+    },
+    {
+      "en": "Where exactly were you when it happened?",
+      "vi": "Lúc chuyện xảy ra, chính xác cậu ở đâu?"
+    },
+    {
+      "en": "You're awfully quiet. Why is that?",
+      "vi": "Cậu im lặng bất thường. Tại sao vậy?"
+    }
+  ],
+  "defend": [
+    {
+      "en": "No! It wasn't me, I swear!",
+      "vi": "Không! Không phải tôi, tôi thề!"
+    },
+    {
+      "en": "I was fixing the radio the whole time!",
+      "vi": "Tôi sửa radio suốt từ nãy đến giờ!"
+    },
+    {
+      "en": "Why is everyone looking at me?",
+      "vi": "Sao ai cũng nhìn tôi vậy?"
+    },
+    {
+      "en": "That's a lie, and you know it!",
+      "vi": "Đó là nói dối và cậu biết rõ điều đó!"
+    }
+  ],
+  "deflect": [
+    {
+      "en": "Ask him. He's the one who disappeared.",
+      "vi": "Hỏi hắn đi. Hắn mới là người biến mất."
+    },
+    {
+      "en": "Funny how the loudest one is always guilty.",
+      "vi": "Buồn cười thật, kẻ la to nhất lúc nào cũng có tật."
+    },
+    {
+      "en": "Look at who's rushing the vote.",
+      "vi": "Nhìn xem ai đang hối thúc bỏ phiếu kìa."
+    }
+  ],
+  "shout": [
+    {
+      "en": "Shut up and let me talk!",
+      "vi": "Im đi và để tôi nói!"
+    },
+    {
+      "en": "Liar! Liar!",
+      "vi": "Đồ nói dối! Nói dối!"
+    },
+    {
+      "en": "Enough! That's nonsense!",
+      "vi": "Đủ rồi! Toàn vớ vẩn!"
+    },
+    {
+      "en": "You don't get to accuse me!",
+      "vi": "Cậu không có tư cách tố cáo tôi!"
+    }
+  ],
+  "agree": [
+    {
+      "en": "I agree. He's hiding something.",
+      "vi": "Tôi đồng ý. Hắn đang giấu điều gì đó."
+    },
+    {
+      "en": "Yeah, I saw that too!",
+      "vi": "Đúng, tôi cũng thấy vậy!"
+    },
+    {
+      "en": "Think about it. It adds up.",
+      "vi": "Nghĩ mà xem. Khớp hết còn gì."
+    }
+  ],
+  "panic": [
+    {
+      "en": "We're running out of time!",
+      "vi": "Sắp hết giờ rồi!"
+    },
+    {
+      "en": "I don't want to lose another one!",
+      "vi": "Tôi không muốn mất thêm ai nữa!"
+    }
+  ],
+  "mock": [
+    {
+      "en": "Ha! Nice try.",
+      "vi": "Ha! Cố lắm đấy."
+    },
+    {
+      "en": "Oh, that's rich. Really.",
+      "vi": "Ôi, nghe hay đấy. Thật luôn."
+    },
+    {
+      "en": "Sure. And I'm the Queen of England.",
+      "vi": "Ừ. Và tôi là Nữ hoàng Anh đấy."
+    }
+  ],
+  "laugh": [
+    {
+      "en": "Ha ha ha ha ha!",
+      "vi": "(cười) Ha ha ha ha ha!"
+    },
+    {
+      "en": "Hah hah hah hah!",
+      "vi": "(cười lớn) Hà hà hà hà!"
+    },
+    {
+      "en": "Heh heh heh. Hah hah!",
+      "vi": "(cười khẩy) Hê hê hê... Ha ha!"
+    }
+  ],
+  "scream": [
+    {
+      "en": "Aaaaaaaah!",
+      "vi": "AAAAAAAAH!"
+    },
+    {
+      "en": "Noooo! Aaaargh!",
+      "vi": "KHÔNGGG! AAAARGH!"
+    }
+  ],
+  "gasp": [
+    {
+      "en": "Huh?!",
+      "vi": "(hít vào) Hả?!"
+    },
+    {
+      "en": "What?!",
+      "vi": "(giật mình) Cái gì?!"
+    }
+  ],
+  "grunt": [
+    {
+      "en": "Hmph.",
+      "vi": "Hừ."
+    },
+    {
+      "en": "Ugh.",
+      "vi": "Ức..."
+    },
+    {
+      "en": "Oh, please.",
+      "vi": "Thôi đi."
+    }
+  ]
+}

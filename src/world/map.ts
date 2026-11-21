@@ -11,6 +11,8 @@ export const WALLS: [number, number, number, number][] = [];
 export const wallMeshes: THREE.Mesh[] = [];
 /** Thân cây [x, z, bán kính, độ cao ngọn]: cản tầm nhìn (kiểm tra bằng toán 2D, không tốn mesh). Do terrain.ts điền khi rải cây. */
 export const TRUNKS: [number, number, number, number][] = [];
+/** Tán cây [x, z, bán kính đáy tán, bán kính đỉnh tán, độ cao đáy, độ cao đỉnh, loại 0 thông · 1 sồi · 2 dừa] — cảnh rơi không dù dùng để biết có đâm vào cây không (cinePath.simFall). */
+export const CANOPIES: [number, number, number, number, number, number, number][] = [];
 export const VENTS: [number, number][] = VENT_XZ;   // 3 "hang bí mật" của Impostor
 /** Vùng đã có công trình — địa hình không rải cây vào đây. [x, z, bán kính] */
 export const reserved: [number, number, number][] = PADS.map((p) => [p.x, p.z, p.r]);

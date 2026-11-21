@@ -7,6 +7,7 @@ import { publicDecryptPending } from "../web3/fhe";
 import { NO_TARGET, TASKS_PER_PLAYER } from "../config";
 import * as E from "./pvpExtras";
 import { sfx } from "../audio";
+import { ensurePvpSession } from "../web3/operator";
 
 /**
  * PvP "encrypted table": 3-7 real players, the CHAIN is the shared world.
@@ -24,7 +25,7 @@ type View = Awaited<ReturnType<typeof P.roomView>>;
 const S = {
   inRoom: false, v: null as View | null, slot: -1, role: null as 0 | 1 | null, myStatus: null as number | null, statuses: [] as (number | null)[],
   roles: null as number[] | null, balance: null as bigint | null, winner: false, claimed: false, busy: false, timer: 0 as any, tick: 0,
-  prevPhase: -1, prevDead: null as boolean | null,
+  prevPhase: -1, prevDead: null as boolean | null, deathTries: 0,
 };
 const key = (k: string) => `li_${k}_${ctx.roomId}_${ctx.account}`;
 const getN = (k: string) => { try { return Number(localStorage.getItem(key(k)) ?? 0); } catch { return 0; } };
@@ -93,7 +94,8 @@ async function showBoard() {
 }
 
 async function enter(id: bigint) {
-  ctx.roomId = id; S.inRoom = true; S.role = null; S.myStatus = null; S.roles = null; S.statuses = []; S.prevPhase = -1; S.prevDead = null; E.resetExtras();
+  ctx.roomId = id; S.inRoom = true; S.role = null; S.myStatus = null; S.roles = null; S.statuses = []; S.prevPhase = -1; S.prevDead = null; S.deathTries = 0; E.resetExtras();
+  try { const rv = await P.roomView(id); if (rv.wallets.includes(ctx.account.toLowerCase()) && (rv.phase === PH.Lobby || rv.phase === PH.Playing || rv.phase === PH.Voting)) await ensurePvpSession(id); } catch { /* keep the player's wallet */ }
   await refresh(); clearInterval(S.timer); S.timer = setInterval(() => void refresh(), 6000);
 }
 
@@ -113,6 +115,8 @@ async function refresh() {
     await E.loadExtras(v, S.slot);
     if (S.prevPhase >= 0 && v.phase === PH.Voting && S.prevPhase !== PH.Voting) sfx.siren();   // a meeting was called
     const dead = S.myStatus === 0; if (S.prevDead === false && dead) sfx.kill(); if (S.myStatus !== null) S.prevDead = dead; S.prevPhase = v.phase;
+    // You were killed: prove it on-chain right away (KMS-verified), signed by the session wallet, announced on the radio. No popup.
+    if (dead && ctx.pvpKey && S.deathTries < 3 && (v.phase === PH.Playing || v.phase === PH.Voting) && v.pendingKind === PK.None) { S.deathTries++; void autoDeath(); }
   } catch (e: any) { toast("✗ " + String(e.shortMessage || e.message || e).slice(0, 90)); }
   render();
 }
@@ -269,11 +273,18 @@ async function run(act: string, btn: HTMLElement) {
   S.busy = false; await refresh();
 }
 
+async function autoDeath() {
+  S.busy = true;
+  try { toast("☠ You were killed — proving your death on-chain (auto-signed)…"); await chain.proveDeath(); }
+  catch (e: any) { toast("✗ " + String(e.shortMessage || e.reason || e.message || e).slice(0, 90)); }
+  S.busy = false; void refresh();
+}
+
 /** Someone started a decryption (checkpoint / tally / death proof): fetch the KMS signatures and submit them. */
 async function finishPending(v: View) {
   const d = await publicDecryptPending();
   const a = d.abiEncodedClearValues, p = d.decryptionProof;
-  if (v.pendingKind === PK.Checkpoint) await chain.tx("Submit proof", () => ctx.game.submitCheckpoint(ctx.roomId, a, p));
-  else if (v.pendingKind === PK.Tally) await chain.tx("Submit decryption proof", () => ctx.game.finalizeTally(ctx.roomId, a, p));
-  else if (v.pendingKind === PK.Death) await chain.tx("Submit death proof", () => ctx.game.submitDeathProof(ctx.roomId, a, p));
+  if (v.pendingKind === PK.Checkpoint) await chain.tx("Submit proof", () => chain.actGame().submitCheckpoint(ctx.roomId, a, p));
+  else if (v.pendingKind === PK.Tally) await chain.tx("Submit decryption proof", () => chain.actGame().finalizeTally(ctx.roomId, a, p));
+  else if (v.pendingKind === PK.Death) await chain.tx("Submit death proof", () => chain.actGame().submitDeathProof(ctx.roomId, a, p));
 }

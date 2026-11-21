@@ -5,12 +5,12 @@ import { attachGun, type GunRig } from "./guns";
 import { curlArm } from "./gunpose";
 import { COLORS, SQUAD, type GunId } from "../config";
 import { CINE, VO } from "./cineState";
-import { reserved, WALLS } from "./map";
+import { reserved, WALLS, CANOPIES } from "./map";
 import { groundAt, walkable, H, slopeAt, CAMP_Y, CORE_R } from "./island";
 import { reachable } from "./nav";
 import { cineSfx } from "../audio";
 import { say, voicePreload, voiceStop } from "../voice";
-import { N, EXT, DEP_ORDER, T_DEP, PLANE_YAW, SEAT, planeAt, toWorld, RANK, LAND, stateOf, smooth, lerp, storm, DIVE, DEP, ALERT_LEAD } from "./cinePath";
+import { N, EXT, DEP_ORDER, T_DEP, PLANE_YAW, SEAT, planeAt, toWorld, RANK, LAND, stateOf, smooth, lerp, storm, DIVE, DEP, ALERT_LEAD, diveReset } from "./cinePath";
 import { CALLSIGNS } from "../story";
 
 /**
@@ -380,6 +380,95 @@ for (let i = 0; i < RN; i++) { rp[i * 3] = (Math.random() - 0.5) * 50; rp[i * 3 
 const rainMat = new THREE.LineBasicMaterial({ color: 0xaec0d8, transparent: true, opacity: 0.5, fog: false, depthWrite: false });
 const rain = (() => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(rpos, 3)); const l = new THREE.LineSegments(g, rainMat); l.frustumCulled = false; root.add(l); return l; })();
 
+/* ───────────── Hiệu ứng rơi chết: lá · cành gãy · bụi đất · máu bắn + vũng máu lan (khối voxel) ───────────── */
+let TREM = 0, IMPF = 0;   // TREM: rung màn hình dư chấn (0..1, giảm dần) · IMPF: chớp trắng lúc đập đất
+const FXG = new THREE.Group(); root.add(FXG);
+interface Pt { m: THREE.Mesh; v: THREE.Vector3; kind: number; rest: boolean; ph: number; life: number }
+const GEO1 = new THREE.BoxGeometry(1, 1, 1), mstd = (c: number, r = 1) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
+const LEAFM = [[0x2d6a3a, 0x347a41, 0x285f34], [0x4d9a3a, 0x5aa843, 0x428c33], [0x2f9e4f, 0x3fb85a, 0x2a8f45]].map((a) => a.map((c) => mstd(c)));   // lá thông / sồi / dừa
+const WOODM = mstd(0x5b4128), BLOODM = mstd(0xa00a0a, 0.55), DIRTM = [mstd(0x6b5a3e), mstd(0x7a6a4c), mstd(0x54472f)];
+const PT: Pt[][] = [[], [], [], []], PN = [150, 30, 150, 70], PI = [0, 0, 0, 0];   // 0 lá · 1 cành · 2 giọt máu · 3 bụi đất
+PN.forEach((n, k) => { for (let i = 0; i < n; i++) { const m = new THREE.Mesh(GEO1, k === 1 ? WOODM : k === 2 ? BLOODM : k === 3 ? DIRTM[i % 3] : LEAFM[0][0]); m.visible = false; m.frustumCulled = false; FXG.add(m); PT[k].push({ m, v: new THREE.Vector3(), kind: k, rest: false, ph: Math.random() * 6.28, life: 0 }); } });
+const R_ = Math.random;
+function emit(k: number, x: number, y: number, z: number, vx: number, vy: number, vz: number, leafKind = 0) {
+  const p = PT[k][PI[k]++ % PN[k]], m = p.m; p.v.set(vx, vy, vz); p.rest = false; p.life = 2.5 + R_() * 1.5; m.visible = true; m.position.set(x, y, z); m.rotation.set(R_() * 6.28, R_() * 6.28, R_() * 6.28);
+  if (k === 0) { const s0 = 0.17 + R_() * 0.14; m.scale.set(s0, 0.05, s0); m.material = LEAFM[leafKind][(R_() * 3) | 0]; }
+  else if (k === 1) m.scale.set(0.08 + R_() * 0.05, 0.08 + R_() * 0.05, 0.45 + R_() * 0.5);
+  else if (k === 2) { const s1 = 0.06 + R_() * 0.07; m.scale.set(s1, s1, s1); }
+  else { const s2 = 0.1 + R_() * 0.12; m.scale.set(s2, s2, s2); }
+}
+const burstLeaves = (x: number, y: number, z: number, n: number, kind: number) => { for (let i = 0; i < n; i++) emit(0, x + (R_() - 0.5) * 3, y + (R_() - 0.5) * 2.4, z + (R_() - 0.5) * 3, (R_() - 0.5) * 5, 1 + R_() * 5, (R_() - 0.5) * 5, kind); };
+const burstBranches = (x: number, y: number, z: number, n: number) => { for (let i = 0; i < n; i++) emit(1, x + (R_() - 0.5) * 2, y + (R_() - 0.5) * 2, z + (R_() - 0.5) * 2, (R_() - 0.5) * 7, 1 + R_() * 4, (R_() - 0.5) * 7); };
+const burstBlood = (x: number, y: number, z: number, n: number, sp: number) => { for (let i = 0; i < n; i++) { const a = R_() * 6.283, s = sp * (0.25 + R_() * 0.9); emit(2, x, y, z, Math.cos(a) * s, 1.5 + R_() * sp * 0.9, Math.sin(a) * s); } };
+const burstDirt = (x: number, y: number, z: number, n: number, sp: number) => { for (let i = 0; i < n; i++) { const a = R_() * 6.283, s = sp * (0.2 + R_() * 0.9); emit(3, x, y + 0.1, z, Math.cos(a) * s, 1 + R_() * sp * 0.7, Math.sin(a) * s); } };
+/* vệt máu trên đất: ô vuông 0.5 m đặt đúng mặt khối đất (kiểu voxel), chồng lên nhau thì đậm dần */
+const DEC_N = 1100, dec = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.03, 0.5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }), DEC_N);
+dec.count = 0; dec.frustumCulled = false; FXG.add(dec);
+const decKeys = new Map<string, number>(), BLC = [0x8a0b0b, 0xa31212, 0x6e0808, 0x7d0d0d].map((c) => new THREE.Color(c)), _dm = new THREE.Matrix4();
+function addDecal(x: number, z: number) {
+  const gx = Math.floor(x * 2) / 2 + 0.25, gz = Math.floor(z * 2) / 2 + 0.25, key = gx + "," + gz, ex = decKeys.get(key);
+  if (ex !== undefined) { dec.setColorAt(ex, BLC[2]); if (dec.instanceColor) dec.instanceColor.needsUpdate = true; return; }
+  if (dec.count >= DEC_N) return;
+  const i = dec.count++; decKeys.set(key, i); _dm.makeTranslation(gx, groundAt(gx, gz) + 0.04 + (i % 7) * 0.0007, gz); dec.setMatrixAt(i, _dm); dec.setColorAt(i, BLC[(R_() * 3) | 0]);
+  dec.instanceMatrix.needsUpdate = true; if (dec.instanceColor) dec.instanceColor.needsUpdate = true;
+}
+interface Pool { x: number; z: number; t0: number; dur: number; cells: { dx: number; dz: number; r: number }[]; k: number }
+const pools: Pool[] = [];
+/** Vũng máu loe dần từ (x, z): bán kính tới R trong ~dur giây, mép lởm chởm. */
+function startPool(x: number, z: number, R: number, dur: number) {
+  const cells: Pool["cells"] = [];
+  for (let gx = -R; gx <= R; gx += 0.5) for (let gz = -R; gz <= R; gz += 0.5) { const r = Math.hypot(gx, gz), th = R * (0.62 + 0.5 * (Math.abs(Math.sin((x + gx) * 12.9898 + (z + gz) * 78.233) * 43758.5453) % 1)); if (r <= th) cells.push({ dx: gx, dz: gz, r: r / th }); }
+  cells.sort((a, b) => a.r - b.r); pools.push({ x, z, t0: S.clock, dur, cells, k: 0 });
+}
+function clearFx() {
+  for (const a of PT) for (const p of a) p.m.visible = false;
+  dec.count = 0; decKeys.clear(); pools.length = 0; TREM = 0; IMPF = 0; lastSmear = { x: 1e9, z: 1e9 };
+}
+function updateFx(dt: number, t: number) {
+  for (const a of PT) for (const p of a) {
+    const m = p.m; if (!m.visible || p.rest) continue;
+    if (p.kind === 0) {   // lá: rơi lả tả, chao qua chao lại
+      p.v.y = Math.max(p.v.y - 5 * dt, -3.2); m.position.x += (p.v.x + Math.sin(t * 4 + p.ph) * 1.1) * dt; m.position.z += (p.v.z + Math.cos(t * 3.4 + p.ph) * 1.1) * dt;
+      p.v.x *= 1 - 0.8 * dt; p.v.z *= 1 - 0.8 * dt; m.rotation.x += 3 * dt; m.rotation.z += 2.4 * dt;
+    } else { p.v.y -= 14 * dt; m.position.x += p.v.x * dt; m.position.z += p.v.z * dt; if (p.kind === 1) { m.rotation.x += 5 * dt; m.rotation.y += 3 * dt; } }
+    m.position.y += p.v.y * dt;
+    const g = groundAt(m.position.x, m.position.z) + (p.kind === 0 ? 0.03 : 0.05);
+    if (m.position.y <= g) {
+      m.position.y = g; p.rest = true;
+      if (p.kind === 2) { addDecal(m.position.x, m.position.z); m.visible = false; }   // giọt máu rơi xuống đất → thành vệt máu
+      else if (p.kind === 0) m.rotation.set(0, m.rotation.y, 0);
+      else if (p.kind === 1) m.rotation.set(0.1, m.rotation.y, 0.1);
+    }
+    if (p.kind === 3) { p.life -= dt; if (p.life <= 0) m.visible = false; }
+  }
+  for (const p of pools) { const u = 1 - Math.exp(-(S.clock - p.t0) / (p.dur * 0.45)); while (p.k < p.cells.length && p.cells[p.k].r <= u * 1.02) { const c = p.cells[p.k++]; addDecal(p.x + c.dx, p.z + c.dz); } }
+}
+let lastSmear = { x: 1e9, z: 1e9 };
+/** Hiệu ứng theo mốc thời gian của cú rơi không dù: đâm tán cây · mỗi lần đập/nảy · vệt máu khi lăn · vũng máu lúc nằm im. d = giây từ lúc hết hạn bung dù. */
+function failFx(dt: number, d: number, w: { x: number; y: number; z: number }) {
+  const T = DIVE, gy = (x: number, z: number) => groundAt(x, z);
+  if (T.treeHit && !T.th && d >= T.treeHit.d) {   // ĐÂM VÀO CÂY: cành gãy răng rắc, lá rụng như mưa, mảnh cành văng ra
+    T.th = true; const h = T.treeHit; burstLeaves(h.x, h.y, h.z, 100, h.k); burstBranches(h.x, h.y, h.z, 18);
+    cineSfx.snap(); cineSfx.rustle(); window.setTimeout(() => cineSfx.snap(), 80); window.setTimeout(() => cineSfx.snap(), 190); window.setTimeout(() => cineSfx.crunch(), 250); window.setTimeout(() => cineSfx.rustle(), 420);
+    TREM = Math.max(TREM, 0.6); burstBlood(h.x, h.y, h.z, 14, 4);
+  }
+  if (T.treeHit && T.th && d < T.tc) { for (let i = 0; i < 3; i++) emit(0, w.x + (R_() - 0.5) * 1.6, w.y + (R_() - 0.5) * 1.2, w.z + (R_() - 0.5) * 1.6, (R_() - 0.5) * 3, R_() * 2, (R_() - 0.5) * 3, T.treeHit.k); if (R_() < 0.25) emit(1, w.x, w.y, w.z, (R_() - 0.5) * 4, R_() * 2, (R_() - 0.5) * 4); }   // vừa rơi xuyên tán vừa vãi lá, cành
+  while (T.nb < T.bounces.length && d >= T.bounces[T.nb].d) {   // đập đất / nảy
+    const bo = T.bounces[T.nb], first = T.nb === 0, k = Math.min(1, bo.v / 40), g0 = gy(bo.x, bo.z); T.nb++;
+    if (first) {
+      cineSfx.slam(); window.setTimeout(() => cineSfx.crunch(), 70); window.setTimeout(() => cineSfx.crunch(), 190);
+      TREM = 1; IMPF = 1; burstDirt(bo.x, g0, bo.z, 60, 8); burstBlood(bo.x, g0 + 0.3, bo.z, 90, 10); startPool(bo.x, bo.z, 1.7, 1.2);
+    } else {
+      cineSfx.bounce(0.35 + 0.65 * k); TREM = Math.max(TREM, 0.25 + 0.5 * k); IMPF = Math.max(IMPF, 0.2 * k);
+      burstDirt(bo.x, g0, bo.z, 8 + 14 * k, 4 + 3 * k); burstBlood(bo.x, g0 + 0.3, bo.z, 14 + 20 * k, 5 + 3 * k);
+    }
+  }
+  if (T.tc >= 0 && d >= T.tc && T.cur.contact && T.cur.hs > 1.2) {   // đang lăn/trượt: để lại vệt máu dọc đường + máu rỉ
+    if (Math.hypot(w.x - lastSmear.x, w.z - lastSmear.z) > 0.35) { lastSmear = { x: w.x, z: w.z }; for (let i = 0; i < 3; i++) addDecal(w.x + (R_() - 0.5) * 0.8, w.z + (R_() - 0.5) * 0.8); if (R_() < 0.5) burstBlood(w.x, gy(w.x, w.z) + 0.4, w.z, 2, 2.5); }
+  }
+  if (T.tr >= 0 && d >= T.tr && !T.hit) { T.hit = true; startPool(w.x, w.z, 2.8, 4.5); }   // nằm im: máu loang thành vũng lớn dần
+}
+
 /* ───────────── trạng thái chạy ───────────── */
 const S = { beat: -1, t: 0, clock: 0, cut: 0 };
 let GL: number[] = [], env: any = null;
@@ -413,7 +502,7 @@ export function cineBegin() {
   env = { hemiI: hemi.intensity, hemiC: hemi.color.getHex(), sunI: sun.intensity, sunC: sun.color.getHex(), fogC: fog.color.getHex(), fogD: fog.density, top: u.top.value.getHex(), mid: u.mid.value.getHex(), hor: u.hor.value.getHex(), bg: (scene.background as THREE.Color).getHex(), torchI: torch.intensity, orb: sunOrb.visible, fov: camera.fov, far: camera.far };
   ovFade = document.getElementById("cineFade"); ovFlash = document.getElementById("cineFlash"); ovBlur = document.getElementById("cineBlur"); ovLidT = document.getElementById("cineLidT"); ovLidB = document.getElementById("cineLidB");
   ovAlt = document.getElementById("cineAlt"); ovAltV = document.getElementById("cineAltV"); ovVig = document.getElementById("cineVig"); ovRays = document.getElementById("cineRays"); fired = new Set(); cineSfx.ambStart(); voicePreload(); ovStatic = document.getElementById("cineStatic"); ovTag = document.getElementById("cineTag"); tagId = -2;
-  ovKey = document.getElementById("cineKey"); ovKeyBar = document.getElementById("cineKeyBar"); ovDead = document.getElementById("cineDead"); Object.assign(DIVE, { armed: false, ok: false, fail: false, ft: 0, tc: -1, hit: false, press: 0 });
+  ovKey = document.getElementById("cineKey"); ovKeyBar = document.getElementById("cineKeyBar"); ovDead = document.getElementById("cineDead"); diveReset(); DIVE.trees = CANOPIES; clearFx();
   S.beat = 0; S.t = 0; S.clock = 0; S.cut = 0; camera.far = 1500; camera.updateProjectionMatrix();
   scene.add(root); CINE.active = true;
 }
@@ -428,7 +517,7 @@ export function cineEnd() {
   u.top.value.setHex(env.top); u.mid.value.setHex(env.mid); u.hor.value.setHex(env.hor); (scene.background as THREE.Color).setHex(env.bg); torch.intensity = env.torchI;
   sunOrb.visible = env.orb; sky.position.set(0, 0, 0); camera.fov = env.fov; camera.far = env.far; camera.rotation.set(0, 0, 0); camera.updateProjectionMatrix();
   for (const o of [ovFade, ovFlash, ovAlt, ovVig, ovRays, ovKey]) if (o) o.style.opacity = "0";
-  ovDead?.classList.remove("on"); Object.assign(DIVE, { armed: false, ok: false, fail: false, ft: 0, tc: -1, hit: false, press: 0 });
+  ovDead?.classList.remove("on"); diveReset(); clearFx();
 }
 /** Người chơi bấm E (hoặc chạm vào nút E): bung dù. Chỉ có tác dụng khi cảnh báo đang bật. Bấm sớm thì nhảy tới ngay trước lúc dù bung (cắt cảnh nhanh che chỗ nối). */
 export function cineDeploy() {
@@ -443,21 +532,21 @@ export function cineDeploy() {
 /** Sau khi chết: chơi lại đoạn nhảy dù (quay lại ngay trước lúc cảnh báo bật). */
 export function cineRetry() {
   if (S.beat !== 3 || !DIVE.fail) return false;
-  Object.assign(DIVE, { armed: false, ok: false, fail: false, ft: 0, tc: -1, hit: false, press: 0 });
+  diveReset(); clearFx(); TREM = 0;
   S.t = EXT - ALERT_LEAD - 0.8; S.cut = 1; voiceStop(); fired = new Set();
   const ev = EV[3]; for (let e = 0; e < ev.length; e++) if (ev[e].t < S.t) fired.add(e);
   return true;
 }
 /** Đang trong đoạn bấm E (chưa bung dù) hoặc đang ở màn chết: cutscene không được tự sang cảnh sau / bỏ qua cảnh. */
 export const cineBlocked = () => S.beat === 3 && (!DIVE.ok || DIVE.fail);
-export const cineDead = () => DIVE.fail && DIVE.tc >= 0 && S.t - EXT - DEP - DIVE.tc > 2.6;
+export const cineDead = () => DIVE.fail && DIVE.tr >= 0 && S.t - EXT - DEP - DIVE.tr > 1.8;
 export const cineRemain = () => BEAT_MIN[Math.max(0, S.beat)] - S.t;
 
 /* ───────────── tư thế từng người ───────────── */
 function armsLow(r: Rig, th = -0.95) { r.s.armL.rotation.set(th, 0, 0.3); r.s.armR.rotation.set(th, 0, -0.3); r.s.armL.userData.elbow.rotation.x = r.s.armR.userData.elbow.rotation.x = -0.25 + 0.4 * th; r.gun.pivot.rotation.x = th + Math.PI / 2; }
 function poseSoldier(i: number, ct: number, rise: number) {
   const r = rigs[i], st = stateOf(i, ct, GL[i], groundAt), c = S.clock, g = r.s.g;
-  r.rig.rotation.set(0, 0, 0); g.rotation.set(0, 0, 0); g.position.set(0, 0, 0); r.s.legL.rotation.set(0, 0, 0); r.s.legR.rotation.set(0, 0, 0);
+  r.rig.rotation.order = "XYZ"; r.rig.rotation.set(0, 0, 0); g.rotation.set(0, 0, 0); g.position.set(0, 0, 0); r.s.legL.rotation.set(0, 0, 0); r.s.legR.rotation.set(0, 0, 0);
   r.chute.visible = false; r.chute.position.set(0, 0, 0); r.chute.scale.set(1, 1, 1); r.chute.rotation.set(0, 0, 0); r.gun.pivot.visible = false; r.gun.extra.visible = true;   // không cầm súng: súng đeo hông
   r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0; curl(r, 0.9, 0.5); r.s.armL.userData.elbow.rotation.x = r.s.armR.userData.elbow.rotation.x = -0.22;   // khớp gối thẳng, cùi chỏ hơi gập, bàn tay buông lỏng
   r.fx.g.visible = false; r.pack.lidG.rotation.x = 0; r.pack.lidG.position.y = 0.3; r.pack.body.scale.y = 1;
@@ -474,15 +563,18 @@ function poseSoldier(i: number, ct: number, rise: number) {
       const w = Math.sin(c * 9 + i) * (i === 0 && DIVE.fail ? 0.45 : 0.1);   // không có dù: quờ quạng tay chân
       const tum = i === 2 ? smooth(22, 22.6, ct) : 0;   // người bị sóng xung kích của tia sét hất văng: xoay tít mất kiểm soát
       r.rig.position.set(st.wx, st.wy, st.wz); r.rig.rotation.set(Math.sin(c * 6 + i) * 0.12 + tum * (ct - 22) * 4.5, Math.PI / 2, tum * (ct - 22) * 3.2);
+      if (i === 0 && DIVE.fail && st.hd !== undefined) { r.rig.rotation.order = "YXZ"; r.rig.rotation.set(st.spin ?? 0, st.hd, 0); }   // không dù: quay đầu theo hướng rơi, lộn nhào nếu đâm vào cây
       g.rotation.x = Math.PI / 2; g.position.set(0, 0, -0.9);
       r.s.armL.rotation.set(-0.3, 0, -1.3 + w); r.s.armR.rotation.set(-0.3, 0, 1.3 - w); r.s.legL.rotation.set(0.3, 0, -0.35); r.s.legR.rotation.set(0.3, 0, 0.35); r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0.35; curl(r, 0.8, 0.7); break;
     }
-    case "crash": { // KHÔNG bấm E: đập xuống đất, nằm sấp dang tay chân, nảy nhẹ một cái rồi nằm im
-      const bn = Math.exp(-9 * st.ou) * Math.sin(st.ou * 22) * 0.25;
-      r.rig.position.set(st.wx, st.wy + Math.max(0, bn), st.wz); r.rig.rotation.set(0, Math.PI / 2 + 0.5 * Math.sin(i * 2.7 + 1), 0);
+    case "crash": { // KHÔNG bấm E: đập đất cái RẦM, nảy lên, LĂN LỐC theo đà (lộn nhào đầu-chân), tay chân quăng quật, dừng lại nằm sấp/ngửa
+      const sp = st.spin ?? 0, hs = st.hs ?? 0, fl = Math.min(1, hs / 5);
+      r.rig.rotation.order = "YXZ"; r.rig.rotation.set(sp, st.hd ?? 0, 0);
+      r.rig.position.set(st.wx, st.wy + 0.3 + 0.62 * Math.abs(Math.sin(sp)), st.wz);   // người đang lộn thì tâm thân nhấc lên theo góc xoay
       g.rotation.x = Math.PI / 2; g.position.set(0, 0, -0.9);
-      r.s.armL.rotation.set(-0.3, 0, -1.55); r.s.armR.rotation.set(-0.5, 0, 1.2); r.s.legL.rotation.set(0.25, 0, -0.55); r.s.legR.rotation.set(0.1, 0, 0.3);
-      r.s.legL.userData.knee.rotation.x = 0.2; r.s.legR.userData.knee.rotation.x = 0.55; curl(r, 0.3, 0.2); break;
+      r.s.armL.rotation.set(-0.3 + 0.9 * Math.sin(sp * 2) * fl, 0, -1.45 + 0.3 * Math.sin(sp * 3) * fl); r.s.armR.rotation.set(-0.5 + 0.9 * Math.sin(sp * 2 + 1.3) * fl, 0, 1.3 - 0.3 * Math.sin(sp * 3) * fl);
+      r.s.legL.rotation.set(0.25 + 0.6 * Math.sin(sp * 2 + 2) * fl, 0, -0.55); r.s.legR.rotation.set(0.1 + 0.6 * Math.sin(sp * 2 + 3.4) * fl, 0, 0.3);
+      r.s.legL.userData.knee.rotation.x = 0.2 + 0.5 * fl * Math.abs(Math.sin(sp)); r.s.legR.userData.knee.rotation.x = 0.55; curl(r, 0.3, 0.2); break;
     }
     case "chute": { // treo dưới dù, gió bão làm lắc mạnh
       const A = 0.06 + 0.42 * storm(ct), ou = st.ou, b1 = smooth(0, 0.5, ou), b2 = smooth(0, 0.6, ou), tau = Math.max(0, ou - 0.4);
@@ -655,14 +747,14 @@ function cabinCam(t: number, ct: number) {
   }
 }
 
-/** Camera điện ảnh cho cảnh rơi không dù: cắt sang máy tĩnh thấp sát mặt đất cạnh điểm rơi, nhìn ngược lên người đang lao xuống, đập đất → rung mạnh + chớp sáng, rồi chậm rãi tiến lại gần thi thể trước khi tối sầm. */
+/** Camera điện ảnh cho cảnh rơi không dù: cắt sang máy tĩnh thấp sát đất, đặt giữa điểm đập và chỗ nằm im, nhìn ngược lên người đang lao xuống; đập đất → rung theo từng cú nảy (TREM), bám theo người lăn lốc, rồi chậm rãi tiến lại gần trước khi tối sầm. */
 function failCam(t: number, win: { x: number; y: number; z: number }[]) {
-  const w = win[0], sc = t - EXT - DEP, tc = Math.max(DIVE.tc, 0.5), I = stateOf(0, 26 + EXT + DEP + tc + 0.6, GL[0], groundAt);
-  const k = Math.min(1, sc / tc), after = Math.max(0, sc - tc), push = smooth(0, 3.2, after);
-  const px = I.wx + lerp(8.5, 5.2, Math.max(k * 0.6, push)), pz = I.wz + lerp(6.5, 4.0, Math.max(k * 0.6, push));
-  P0.set(px, groundAt(px, pz) + lerp(1.0, 0.8, push), pz);
-  if (sc < tc) { T0.set(w.x, w.y + 0.2, w.z); setFov(lerp(46, 62, k * k)); look(P0, T0, 0.015 + 0.06 * k * k); }
-  else { T0.set(I.wx, I.wy + lerp(0.5, 0.35, push), I.wz); setFov(lerp(62, 44, push)); look(P0, T0, 0.8 * Math.exp(-after * 5) + 0.004); camera.rotateZ(0.05 * Math.exp(-after * 4)); }
+  const w = win[0], sc = t - EXT - DEP, tc = Math.max(DIVE.tc, 0.5), I = stateOf(0, 26 + EXT + DEP + Math.max(DIVE.tr, 2) + 0.5, GL[0], groundAt), b0 = DIVE.bounces[0] ?? { x: I.wx, z: I.wz };
+  const k = Math.min(1, sc / tc), after = Math.max(0, sc - tc), push = smooth(0, 4.5, after), mx = (b0.x + I.wx) / 2, mz = (b0.z + I.wz) / 2, e = Math.max(k * 0.6, push);
+  const px = mx + lerp(8.5, 5.5, e), pz = mz + lerp(6.5, 4.2, e);
+  P0.set(px, groundAt(px, pz) + lerp(1.0, 0.9, push), pz);
+  if (sc < tc) { T0.set(w.x, w.y + 0.2, w.z); setFov(lerp(46, 62, k * k)); look(P0, T0, 0.015 + 0.06 * k * k + 0.5 * TREM); }
+  else { T0.set(w.x, w.y + 0.3, w.z); setFov(lerp(62, 48, push)); look(P0, T0, 0.9 * TREM + 0.004); camera.rotateZ(0.05 * TREM); }
 }
 
 function camera3d(b: number, t: number, ct: number, win: { x: number; y: number; z: number }[]) {
@@ -713,7 +805,8 @@ function camera3d(b: number, t: number, ct: number, win: { x: number; y: number;
 export function cineUpdate(dt: number) {
   if (!CINE.active) return;
   const b = Math.max(0, S.beat);
-  S.clock += dt; S.cut = Math.max(0, S.cut - dt * 2.2); S.t = Math.min(S.t + dt, b === 3 && DIVE.fail ? 999 : BEAT_MIN[b] - 0.001);   // hết thời lượng phân cảnh thì giữ nguyên khung cuối
+  S.clock += dt; S.cut = Math.max(0, S.cut - dt * 2.2); const dF = S.t - EXT - DEP, slow = b === 3 && DIVE.fail && DIVE.tc >= 0 && dF >= DIVE.tc && dF < DIVE.tc + 0.5 ? 0.3 : 1;   // quay chậm nửa giây ngay lúc đập đất
+  S.t = Math.min(S.t + dt * slow, b === 3 && DIVE.fail ? 999 : BEAT_MIN[b] - 0.001);   // hết thời lượng phân cảnh thì giữ nguyên khung cuối
   const t = S.t, ct = b === 0 ? -CAB + t : b === 1 ? t : b === 2 ? 10 + t : b === 3 ? 26 + t : 36 + EXT + t;
   if (b === 3) {   // ĐOẠN BẤM E: cảnh báo bật ALERT_LEAD giây trước hạn chót; quá hạn mà chưa bấm → không bung dù, rơi chết
     const du = t - EXT;
@@ -738,13 +831,10 @@ export function cineUpdate(dt: number) {
   else if (b === 1) L = mixLook(INTERIOR, NIGHT, smooth(8.2, 10.2, t));
   else if (b === 2) { L = mixLook(NIGHT, STORM, smooth(0, 3, t)); rainK = smooth(1, 4, t); }
   else if (b === 3) { const u = t - EXT, ue = DIVE.fail ? Math.min(u, DEP - 0.01) : u; L = mixLook(STORM, GREY, smooth(0, 3, ue)); rainK = 1 - smooth(0, 2.5, ue); blur = 14 * smooth(3.0, 7.0, ue); vig = smooth(3.4, 7.2, ue); fade = smooth(7.3, 8.5, ue);
-    if (DIVE.fail && DIVE.tc >= 0) { const sc = u - DEP - DIVE.tc; rainK = 1; blur = 5 * smooth(0, 0.6, sc); vig = 0.35 + 0.4 * smooth(0, 1.2, sc); fade = smooth(1.7, 2.7, sc); } }
+    if (DIVE.fail && DIVE.tc >= 0) { const sc = u - DEP - DIVE.tc, sr = u - DEP - DIVE.tr; rainK = 1; blur = 5 * smooth(0, 0.6, sc); vig = 0.35 + 0.4 * smooth(0, 1.2, sc); fade = smooth(0.4, 1.6, sr); } }
   else { L = mixLook(FOREST_LOW, FOREST_HIGH, smooth(5, 11.3, t)); fade = Math.max(1 - smooth(1.9, 2.4, t), smooth(11.3, 12, t)); }
   for (const te of flashAt[b] ?? []) if (t >= te) flash += Math.exp(-(t - te) * 12);
-  if (b === 3 && DIVE.fail && DIVE.tc >= 0) {   // đập đất: chớp trắng + tiếng răng rắc, bịch
-    const sc = t - EXT - DEP - DIVE.tc;
-    if (sc >= 0) { flash = Math.max(flash, Math.exp(-sc * 7)); if (!DIVE.hit) { DIVE.hit = true; cineSfx.crack(); cineSfx.thud(); window.setTimeout(() => cineSfx.thud(), 170); window.setTimeout(() => cineSfx.crack(), 320); } }
-  }
+  if (b === 3 && DIVE.fail) { flash = Math.max(flash, IMPF); IMPF *= Math.exp(-dt * 6); }   // đập đất: chớp trắng
   flash = Math.min(1, flash);
   let wf = 0; if (b === 0) for (const te of WFLASH) if (t >= te) wf += Math.exp(-(t - te) * 7);   // sét xa ngoài cửa sổ: kính chớp sáng, khoang sáng loé
   wf = Math.min(1, wf); paneMat.color.setHex(mixHex(PANE_DARK, PANE_FLASH, wf));
@@ -754,6 +844,9 @@ export function cineUpdate(dt: number) {
   cloudMat.color.setHex(L.cloud); starMat.opacity = L.stars; stars.visible = L.stars > 0.01; sunOrb.visible = L.orb > 0.5; clouds.position.x = -6 * ct * (b <= 3 ? 1 : 0);
   clouds.visible = b <= 3;
 
+  if (b === 3 && DIVE.fail && DIVE.tc >= 0) failFx(dt, t - EXT - DEP, win[0]);
+  if (DIVE.fail) updateFx(dt, S.clock);
+  TREM *= Math.exp(-dt * 3.2);
   camera3d(b, t, ct, win);
   if (b === 0) { // đèn "key" bám theo máy quay, màu theo cảm xúc từng người; ghost phản chiếu; thẻ tên
     const sd = shotAt(t), K = sd ? KEY[sd.id] : null;
@@ -790,7 +883,7 @@ export function cineUpdate(dt: number) {
     ovKey.style.opacity = show || confirm ? "1" : "0"; ovKey.classList.toggle("ok", DIVE.ok); ovKey.style.pointerEvents = show ? "auto" : "none";
     if (ovKeyBar && show) ovKeyBar.style.width = (Math.max(0, Math.min(1, (EXT + DEP - t) / (ALERT_LEAD + DEP))) * 100).toFixed(1) + "%";
   }
-  if (ovDead) ovDead.classList.toggle("on", b === 3 && DIVE.fail && DIVE.tc >= 0 && t - EXT - DEP - DIVE.tc > 2.6);
+  if (ovDead) ovDead.classList.toggle("on", b === 3 && DIVE.fail && DIVE.tr >= 0 && t - EXT - DEP - DIVE.tr > 1.8);
   if (ovStatic) ovStatic.style.opacity = String(VO.glitch ? 0.12 + 0.3 * Math.random() : 0);
   if (ovRays) ovRays.style.opacity = String(b === 4 ? 0.55 * smooth(2.6, 4, t) * (1 - smooth(5.4, 8, t)) : 0);
 

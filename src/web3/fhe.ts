@@ -5,10 +5,17 @@ import { emit } from "./events";
 import { showCrypt } from "../ui/cryptFx";
 
 /** Mã hoá 1 giá trị uint8 phía client (vote / mục tiêu kill). */
-export async function encrypt8(v: number) {
-  const b = ctx.inst.createEncryptedInput(ctx.address, ctx.account);
+export async function encrypt8(v: number, sender: string = ctx.account) {   // the proof is bound to the address that SENDS the tx (player wallet or its session wallet)
+  const b = ctx.inst.createEncryptedInput(ctx.address, sender);
   b.add8(v);
   return b.encrypt(); // { handles, inputProof }
+}
+
+/** Mã hoá NHIỀU giá trị uint8 trong CÙNG một input proof (phiếu của cả lô Bot: castBotVotes). */
+export async function encryptMany(vs: number[], sender: string = ctx.account) {
+  const b = ctx.inst.createEncryptedInput(ctx.address, sender);
+  vs.forEach((v) => b.add8(v));
+  return b.encrypt(); // { handles[], inputProof }
 }
 
 type Permit = { kp: any; start: number; days: number; sig: string; exp: number };

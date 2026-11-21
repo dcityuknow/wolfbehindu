@@ -4,7 +4,7 @@ import { stations, VENTS } from "../world/map";
 import { KILL_RANGE, NAMES, CAMP_REACH } from "../config";
 import { openMiniGame } from "./minigames";
 import { trySit } from "./meeting";
-import { checkpoint } from "./round";
+import { checkpoint, afterFriendlyKill } from "./round";
 import { completeTask, secretAct, reportFriendlyKill } from "../web3/chain";
 import { flashRed, setTasks, updateHud } from "../ui/hud";
 import { toast } from "../ui/dom";
@@ -41,7 +41,7 @@ export function friendlyKill(t: { i: number }) {
   const e = entities[t.i]; if (e.dead || e.out || G.phase !== "play") return;
   if (!onKillSeen(e)) onUnseenDeath(e);   // witnessed -> the squad opens fire at once; unseen -> they only investigate
   flashRed(); shake.v = 0.4; markDead(t.i, toast); toast(UI.mateDead(NAMES[t.i]));
-  reportFriendlyKill(t.i).then(() => checkpoint()).catch(() => {});
+  afterFriendlyKill(reportFriendlyKill(t.i));   // gom cả loạt bắn rồi kiểm tra thắng thua 1 lần (xem round.ts)
 }
 export function interact() {
   if (G.phase !== "play" || G.mini || me().seat >= 0) return;

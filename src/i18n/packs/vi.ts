@@ -52,7 +52,7 @@ export const VI: Dict = {
   "UI.chainRecording": "⛓ Đang ghi cái chết của bạn lên chuỗi…", "UI.chainDone": (tx: string) => `✅ Đã ghi cái chết lên chuỗi · tx ${tx}`,
   "UI.chainFail": "❌ Không ghi được cái chết lên chuỗi.", "UI.retry": "Thử lại",
   "ENDING.killed.title": "☠ BỊ ÁM SÁT", "ENDING.killed.desc": "Bạn bị hạ trong bóng tối — gián điệp đã ra tay trước khi bạn kịp vạch mặt hắn.<br>Nhiệm vụ của bạn đến đây là hết. Đang mở khoá các vai trò đã mã hoá để lộ kẻ phản bội…",
-  "ENDING.crew.title": "🎖 BIỆT KÍCH THẮNG", "ENDING.crew.desc": "Tín hiệu cầu cứu vút lên bầu trời đảo — hoặc gián điệp đã bị vạch mặt. Trực thăng cứu hộ đang trên đường tới.",
+  "ENDING.massacre.title": "🎖 NGƯỜI SỐNG SÓT CUỐI CÙNG", "ENDING.massacre.desc": "Bạn đã bắn hạ cả đội — gián điệp cũng gục cùng họ. Không còn ai để bỏ phiếu, không còn ai để tố cáo bạn.<br>Trực thăng cứu hộ chỉ tìm thấy một biệt kích duy nhất trên hòn đảo im lặng đẫm máu.", "ENDING.crew.title": "🎖 BIỆT KÍCH THẮNG", "ENDING.crew.desc": "Tín hiệu cầu cứu vút lên bầu trời đảo — hoặc gián điệp đã bị vạch mặt. Trực thăng cứu hộ đang trên đường tới.",
   "ENDING.spy.title": "🕵 GIÁN ĐIỆP THẮNG", "ENDING.spy.desc": "Đội bị bào mòn đến mức không còn sức chống trả. Nhiệm vụ thất bại — kẻ phản bội đã hoàn thành mệnh lệnh.",
   "ENDING.shot.title": "☠ BỊ CHÍNH ĐỒNG ĐỘI XỬ BẮN",
   "ENDING.shot.crew": "Bạn nổ súng vào đồng đội — và họ không nương tay.<br>Lòng tin của đội tan vỡ trên đảo, còn gián điệp thì chưa bao giờ bị tìm ra.",

@@ -5,6 +5,8 @@ function A(): AudioContext {
   if (ac!.state === "suspended") void ac!.resume();
   return ac!;
 }
+/** Dùng chung AudioContext của game (cuộc họp: giọng nói nhiều người cùng lúc). */
+export const audioCtx = () => A();
 function noise(a: AudioContext) {
   if (nb) return nb;
   nb = a.createBuffer(1, a.sampleRate, a.sampleRate);
@@ -191,6 +193,16 @@ export const cineSfx = {
   chute: safe(() => { hiss(900, 0.35, 1, "lowpass"); thump(95, 30, 0.5, 1); hiss(3200, 0.12, 0.7, "bandpass", 0.04); }),
   crack: safe(() => { hiss(2800, 0.05, 0.6, "bandpass"); hiss(1800, 0.07, 0.5, "bandpass", 0.08); hiss(3400, 0.04, 0.5, "bandpass", 0.17); }),
   thud: safe(() => { thump(120, 38, 0.3, 1); hiss(260, 0.35, 0.7); }),
+  /** RẦM: rơi từ trên cao xuống đất không dù — cực to, trầm, kéo dài (nhiều lớp: đập chát, trầm dội, đất xào xạc, rung dư âm). */
+  slam: safe(() => { hiss(3000, 0.12, 1.2, "bandpass"); thump(70, 22, 1.2, 2.0); thump(125, 35, 0.7, 1.7, 0.005); hiss(700, 1.1, 1.7, "lowpass"); thump(46, 20, 1.9, 1.5, 0.1); hiss(1800, 0.45, 0.8, "bandpass", 0.05); hiss(260, 1.6, 0.9, "lowpass", 0.2); }),
+  /** Nảy / lăn lốc trên đất (k: 0..1 theo lực đập). */
+  bounce: safe((k: number = 1) => { thump(100, 30, 0.55, 1.4 * k); hiss(600, 0.5, 1.1 * k, "lowpass"); hiss(2400, 0.06, 0.6 * k, "bandpass"); }),
+  /** Cành cây gãy "rắc". */
+  snap: safe(() => { hiss(2600, 0.05, 1.1, "highpass"); hiss(1500, 0.09, 1.0, "bandpass", 0.04); thump(260, 90, 0.12, 0.8); }),
+  /** Tán lá xào xạc / rơi lả tả. */
+  rustle: safe(() => { hiss(4200, 0.9, 0.7, "highpass"); hiss(2200, 1.2, 0.55, "bandpass", 0.05); }),
+  /** Tiếng xương gãy đục. */
+  crunch: safe(() => { hiss(900, 0.07, 1.0, "bandpass"); thump(190, 60, 0.12, 0.9); hiss(1300, 0.05, 0.8, "bandpass", 0.09); }),
   drip: safe(() => thump(1500, 650, 0.06, 0.12)),
   whoosh: safe(() => { hiss(900, 0.28, 0.5, "bandpass"); hiss(2600, 0.18, 0.25, "highpass", 0.03); }),   // camera lia nhanh
   pop: safe(() => { hiss(1500, 0.2, 0.55, "bandpass"); thump(110, 45, 0.28, 0.55); }),                    // dù của đồng đội bung

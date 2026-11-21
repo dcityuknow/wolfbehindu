@@ -3,9 +3,9 @@ import * as THREE from "three";
 import { entities, me, collide, BOT_GUNS } from "../world/characters";
 import { throwBotGrenade } from "./combat";
 import { walkTo } from "./walk";
-import { losBlocked } from "../world/island";
+import { losBlocked, walkable, groundAt } from "../world/island";
 import { camera } from "../world/scene";
-import { wallMeshes } from "../world/map";
+import { wallMeshes, WALLS } from "../world/map";
 import { tracer } from "../world/fx";
 import { sfx } from "../audio";
 import { GUNS, COMBAT, BOT_SPEED, type GunDef, type GunId } from "../config";
@@ -30,8 +30,8 @@ import type { Entity } from "../types";
  *  If an accusation is already out and an investigator arrives and sees you, the witnesses' word is enough and they turn hostile too.
  * Combat itself is client-side; only the final death/game-over is written on-chain (a teammate's real death still only comes from the spy via the contract).
  */
-interface M { mood: 0 | 1 | 2 | 3 | 4; ix: number; iz: number; t: number; since: number; q: number; cd: number; burst: number; rest: number; react: number; say: number; nades: number; nc: number; sw: number; st: number; spot: number; hint: number; hp: number; base: number; hurt: boolean }
-const ms: M[] = entities.map(() => ({ mood: 0, ix: 0, iz: 0, t: 0, since: 0, q: 0, cd: 0, burst: 0, rest: 0, react: 0, say: 0, nades: 2, nc: 0, sw: 0, st: 0, spot: 0, hint: NaN, hp: 0, base: 0, hurt: false }));
+interface M { mood: 0 | 1 | 2 | 3 | 4; ix: number; iz: number; t: number; since: number; q: number; cd: number; burst: number; rest: number; react: number; say: number; nades: number; nc: number; sw: number; mv: number; mvT: number; sd: number; cov: [number, number] | null; am: Record<string, number>; rl: number; rlOn: boolean; swt: number; st: number; spot: number; hint: number; hp: number; base: number; hurt: boolean }
+const ms: M[] = entities.map(() => ({ mood: 0, ix: 0, iz: 0, t: 0, since: 0, q: 0, cd: 0, burst: 0, rest: 0, react: 0, say: 0, nades: 3, nc: 0, sw: 0, mv: 0, mvT: 0, sd: 1, cov: null, am: { pistol: 12, rifle: 30, sniper: 5 }, rl: 0, rlOn: false, swt: 0, st: 0, spot: 0, hint: NaN, hp: 0, base: 0, hurt: false }));
 /** mood 4 = TÌM KIẾM: bị bắn / thấy đường đạn lướt qua → nhìn ngay về hướng đạn bay tới, rồi quét xung quanh từ XA (ngước lên đỉnh/chân trời) tới GẦN (hạ mắt xuống chân), thấy người bắn thì bắn trả. */
 let clock = 0, strikes = 0, lastStrike = -99, exposed = false, lastNade = -99;
 export const busy = (i: number) => ms[i].mood > 0;
@@ -128,6 +128,10 @@ function searchBot(e: Entity, m: M, P: Entity, dt: number) {
   else { const v = hasHint ? (u - 0.55) / 0.45 : u; ty = (hasHint ? m.hint : m.base) + v * Math.PI * 2 * 1.5 * (e.i % 2 ? 1 : -1); tp = -0.25 + 0.75 * v; }   // 3) quét cả vòng, xa (ngẩng) → gần (cúi)
   const step = SEARCH.turn * dt; e.rot += Math.max(-step, Math.min(step, angDiff(ty, e.rot)));
   e.pitch += (tp + Math.sin(m.st * 1.7) * 0.05 - e.pitch) * Math.min(1, dt * 4);
+  if (m.hurt && Number.isFinite(m.hint) && m.st > SEARCH.lookHint * 0.7) {   // đã bị bắn: không đứng yên mà tiến về phía người bắn, chạy zig-zag cho khó bị bắn trúng, vừa đi vừa quét mắt
+    const sn = Math.sin(m.st * 2.4) * 5, r0 = e.rot;
+    walkTo(e, e.x + Math.sin(m.hint) * 18 + Math.cos(m.hint) * sn, e.z + Math.cos(m.hint) * 18 - Math.sin(m.hint) * sn, dt, BOT_SPEED * 1.2, 1.5); e.rot = r0;
+  }
   const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 1;
   const fwd = (dx * Math.sin(e.rot) + dz * Math.cos(e.rot)) / d, elev = Math.atan2(P.y + 1.2 - (e.y + 1.34), d);
   const inView = d < 5 || (fwd > Math.cos(SEARCH.fov) && Math.abs(elev + e.pitch) < SEARCH.vfov);   // pitch dương = cúi, nên ngước lên = -pitch
@@ -189,7 +193,7 @@ function expose(first: Entity, wit: Entity[]) {
 export function hostileReset() {
   lastFire = shotT = lastNade = -99; shotYaw = NaN;
   strikes = 0; lastStrike = -99; exposed = false; wanted.style.display = "none";
-  for (const m of ms) { m.mood = 0; m.say = 0; m.burst = 0; m.hurt = false; m.spot = 0; m.hint = NaN; m.nades = 2; m.nc = 0; m.sw = 0; }
+  for (const m of ms) { m.mood = 0; m.say = 0; m.burst = 0; m.hurt = false; m.spot = 0; m.hint = NaN; m.nades = 3; m.nc = 0; m.sw = 0; m.mv = 0; m.mvT = 0; m.cov = null; m.am = { pistol: 12, rifle: 30, sniper: 5 }; m.rl = 0; m.rlOn = false; m.swt = 0; }
   for (const b of bubs) b.style.display = "none";
   try { window.speechSynthesis?.cancel(); } catch { /* */ }
   for (const e of entities) if (e.i !== G.slot) { e.aim = 0; e.pitch = 0; }
@@ -229,12 +233,31 @@ async function recordDeath(): Promise<string> {
     throw e;
   }
 }
-function botShot(e: Entity, g: GunDef, d: number) {
+const _cv = { x: 0, y: 0, z: 0 } as unknown as Entity;
+/** Chỗ nấp gần nhất (thân cây / đá / tường trong 16 m) mà đứng sau nó thì người chơi không nhìn thấy; null nếu không có. */
+function findCover(e: Entity, P: Entity): [number, number] | null {
+  let best: [number, number] | null = null, bd = 1e9;
+  for (const [x, z, hx, hz] of WALLS) {
+    const dd = Math.hypot(x - e.x, z - e.z); if (dd > 16 || dd < 0.8 || dd >= bd) continue;
+    const ax = x - P.x, az = z - P.z, al = Math.hypot(ax, az) || 1; if (al < 5) continue;
+    const off = Math.max(hx, hz) + 0.9, cx = x + (ax / al) * off, cz = z + (az / al) * off;   // điểm đứng ngay sau vật cản, nhìn từ người chơi
+    if (!walkable(cx, cz)) continue;
+    _cv.x = cx; _cv.z = cz; _cv.y = groundAt(cx, cz);
+    if (clear(_cv, P)) continue;   // ở đó vẫn bị nhìn thấy → không phải chỗ nấp
+    best = [cx, cz]; bd = dd;
+  }
+  return best;
+}
+/** Đổi súng: cất khẩu đang cầm, rút khẩu mới (hoạt ảnh do poseFull lo theo userData.gunId — mất ~0,6 s, không bắn được trong lúc đổi). */
+function swapGun(e: Entity, m: M, r: GunRig, want: GunId) {
+  e.g.userData.gunId = want; equipGun(r, want); m.sw = 0.65; m.burst = 0; m.rest = Math.max(m.rest, 0.25);
+}
+function botShot(e: Entity, g: GunDef, d: number, acc = 1) {
   const P = me(), r = e.g.userData.gunRig as GunRig, model = r.models[r.cur]!;
   model.updateWorldMatrix(true, false); MZ.copy(model.userData.muzzle as THREE.Vector3).applyMatrix4(model.matrixWorld);
   e.kick = 1; const pHit = g.id === "sniper" ? Math.max(0.3, 0.8 - d * 0.0025) : Math.max(d > 60 ? 0.05 : 0.12, Math.min(0.55, 0.62 - d * 0.018)) / (g.pellets > 1 ? 2.5 : 1);   // súng ngắm: ngắm kỹ nên trúng nhiều hơn, xa mấy cũng đáng sợ
   for (let k = 0; k < g.pellets; k++) {
-    const hit = Math.random() < pHit; T.set(P.x, P.y + 1.2, P.z);
+    const hit = Math.random() < pHit * acc; T.set(P.x, P.y + 1.2, P.z);   // vừa chạy vừa bắn thì kém chính xác hơn đứng ngắm
     if (!hit) T.add(B.set((Math.random() - 0.5) * (1 + d * 0.12), (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * (1 + d * 0.12)));
     tracer(MZ, T); if (hit) hurtPlayer(g.dmg * COMBAT.botDmg);
   }
@@ -273,25 +296,61 @@ export function updateHostile(dt: number) {
     hostile.push({ e, d });
   }
   hostile.sort((a, b) => a.d - b.d);
-  hostile.forEach(({ e, d }, k) => {   // chỉ 3 Bot gần nhất có thể nổ súng cùng lúc, số còn lại áp sát
-    const m = ms[e.i], r = e.g.userData.gunRig as GunRig, prim = BOT_GUNS[(e.i - 1) % BOT_GUNS.length], los = clear(e, P), dx = P.x - e.x, dz = P.z - e.z;
-    // chọn súng theo khoảng cách: xạ thủ cầm súng ngắm bắn từ xa (>50 m), lại gần thì đổi sang AK; còn lại dùng AK
-    const want: GunId = prim === "sniper" && d > 50 ? "sniper" : prim === "sniper" ? "rifle" : prim;
-    m.sw = Math.max(0, m.sw - dt);
-    if (r.cur !== want && m.sw <= 0) { equipGun(r, want); for (const key of Object.keys(r.slung) as GunId[]) r.slung[key]!.visible = key !== want; m.sw = 1; m.burst = 0; m.rest = Math.max(m.rest, 0.6); }
-    const g = gunOf(e), hold = r.cur === "sniper" ? 38 : 16;   // xạ thủ đứng yên ngắm; lính AK áp sát tới ~16 m rồi đứng bắn, lách ngang
-    if (d > hold || !los) { walkTo(e, P.x, P.z, dt, BOT_SPEED * 1.35, d > 40 ? 2.5 : 0.8); }
-    else { const s = Math.sin(clock * 1.4 + e.i * 2) * 1.6 * dt; e.x += (-dz / d) * s; e.z += (dx / d) * s; }   // đứng bắn, lệch ngang
-    // LỰU ĐẠN: ném về phía người chơi khi cách 11–36 m và không ở quá cao so với bot (lựu đạn không ném lên đỉnh núi được); cách nhau ≥3 s giữa các bot
+  hostile.forEach(({ e, d }, k) => {   // bot thù địch: vừa chạy vừa bắn, biết nấp, đổi súng AK / súng ngắn / súng ngắm, ném lựu đạn
+    const m = ms[e.i], r = e.g.userData.gunRig as GunRig, prim = BOT_GUNS[(e.i - 1) % BOT_GUNS.length], los = clear(e, P), dx = P.x - e.x, dz = P.z - e.z, ux = dx / (d || 1), uz = dz / (d || 1);
+    const under = clock - lastFire < 2.2 || m.hurt;   // người chơi vừa nổ súng quanh đây / bot này vừa bị bắn
+    const RUN = BOT_SPEED * 1.35, mag = (id: GunId) => GUNS.find((x) => x.id === id)!.mag;
+    m.sw = Math.max(0, m.sw - dt); m.swt -= dt; m.rl = Math.max(0, m.rl - dt);
+    /* 1) NẠP ĐẠN / ĐỔI SÚNG linh hoạt: hết đạn thì rút súng ngắn (60%) hoặc nạp lại; xa → súng ngắm, tầm trung → AK, sát mặt → súng ngắn */
+    if (m.rlOn) { if (m.rl <= 0) { m.rlOn = false; m.am[r.cur] = mag(r.cur); } }
+    else if (m.sw <= 0) {
+      if ((m.am[r.cur] ?? 1) <= 0) {
+        if (r.cur !== "pistol" && m.am.pistol > 0 && Math.random() < 0.6) { swapGun(e, m, r, "pistol"); say(e.i, pick(["Switching!", "Out of ammo — sidearm!", "Cover me — pistol!"]), false, false); }
+        else { m.rlOn = true; m.rl = (GUNS.find((x) => x.id === r.cur)?.reload ?? 2) * 0.8; if (Math.random() < 0.6) say(e.i, pick(["Reloading!", "Changing mag!", "Reloading — keep him busy!"]), false, false); }
+      } else if (m.swt <= 0) {
+        m.swt = 0.8 + Math.random() * 0.8;
+        const cur = r.cur;
+        const want: GunId = cur === "pistol" ? (d > 12 || m.am.pistol <= 0 ? "rifle" : "pistol")
+          : cur === "sniper" ? (d < 48 ? "rifle" : "sniper")
+          : prim === "sniper" && d > 58 ? "sniper" : d < 7 && m.am.pistol > 0 ? "pistol" : "rifle";
+        if (want !== cur) swapGun(e, m, r, want);
+      }
+    }
+    const g = gunOf(e), cur = r.cur;
+    /* 2) DI CHUYỂN KHI CHIẾN ĐẤU: tiến lên khi xa / mất dấu · lách ngang · lùi khi bị áp sát · chạy tới chỗ nấp khi bị bắn · thỉnh thoảng nhảy né */
+    const minD = cur === "sniper" ? 30 : cur === "pistol" ? 3 : 8, maxD = cur === "sniper" ? 140 : cur === "pistol" ? 14 : 24;
+    m.mvT -= dt;
+    if (m.mvT <= 0) {
+      if (!los || d > maxD) { m.mv = 0; m.mvT = 1 + Math.random() * 0.8; }
+      else if (d < minD) { m.mv = 2; m.mvT = 0.8 + Math.random() * 0.8; }
+      else {
+        const cov = under && Math.random() < 0.4 ? findCover(e, P) : null;
+        if (cov) { m.mv = 3; m.cov = cov; m.mvT = 2.2 + Math.random() * 1.6; if (Math.random() < 0.4) say(e.i, pick(["Taking cover!", "Get down!", "Cover! Cover!"]), false, false); }
+        else { m.mv = 1; m.sd = Math.random() < 0.5 ? -1 : 1; m.mvT = 0.7 + Math.random() * 1.5; }
+      }
+    }
+    const ex0 = e.x, ez0 = e.z;
+    if (m.mv === 0) { walkTo(e, P.x, P.z, dt, RUN, d > 40 ? 2.5 : 0.8); if (los && d < 45) e.rot = Math.atan2(dx, dz); }   // chạy áp sát, thân vẫn hướng về người chơi khi đã thấy
+    else if (m.mv === 3 && m.cov) {
+      if (walkTo(e, m.cov[0], m.cov[1], dt, RUN, 1.5) < 1) { if (los) m.mvT = 0; }   // tới nơi mà vẫn bị thấy thì đổi chiến thuật
+      else if (los && d < 45) e.rot = Math.atan2(dx, dz);
+    } else {
+      const sp = m.mv === 2 ? BOT_SPEED * 1.15 : BOT_SPEED * 0.9, radial = m.mv === 2 ? -1 : Math.max(-1, Math.min(1, (d - (minD + maxD) / 2) * 0.12));   // lách ngang, giữ khoảng cách trong tầm hiệu quả
+      const vx = -uz * m.sd * (m.mv === 2 ? 0.5 : 1) + ux * radial * 0.6, vz = ux * m.sd * (m.mv === 2 ? 0.5 : 1) + uz * radial * 0.6, vl = Math.hypot(vx, vz) || 1;
+      e.x += (vx / vl) * sp * dt; e.z += (vz / vl) * sp * dt;
+      const gy0 = groundAt(e.x, e.z); if (e.y <= gy0 + 0.05 && e.vy <= 0 && Math.random() < dt * 0.45) e.vy = 5.6;   // nhảy né
+    }
+    collide(e);
+    if (m.mv === 1 || m.mv === 2) { if (Math.hypot(e.x - ex0, e.z - ez0) < BOT_SPEED * dt * 0.25) { m.sd = -m.sd; m.mvT = Math.min(m.mvT, 0.3); } }   // vướng vật cản → đổi hướng lách
+    /* 3) LỰU ĐẠN: ném khi cách 8–42 m (cả khi người chơi nấp sau vật cản để dồn ra), không ném lên đỉnh núi quá cao; vừa chạy vừa ném; các bot cách nhau ≥2,5 s */
     m.nc -= dt;
-    if (m.nc <= 0 && m.nades > 0 && d >= 11 && d <= 36 && P.y - e.y < 5 && clock - lastNade > 3) {
-      m.nades--; m.nc = 9 + Math.random() * 6; lastNade = clock; e.kick = 1;
+    if (m.nc <= 0 && m.nades > 0 && d >= 8 && d <= 42 && P.y - e.y < 5 && clock - lastNade > 2.5) {
+      m.nades--; m.nc = 6 + Math.random() * 6; lastNade = clock; e.kick = 1;
       const sc = 1.2 + d * 0.07; throwBotGrenade(e, P.x + (Math.random() - 0.5) * 2 * sc, P.y, P.z + (Math.random() - 0.5) * 2 * sc);
       say(e.i, nadeLine(), true, true);
     }
-    collide(e);
-    if (k >= 3 || !los || m.sw > 0.4 || d > Math.min(g.range, 230)) return;   // bắn trả được từ xa (tới tầm súng), đứng dưới chân núi vẫn bắn lên đỉnh
-    if (m.burst > 0) { m.cd -= dt; if (m.cd <= 0) { botShot(e, g, d); m.burst--; m.cd = 1 / (g.rate * (g.auto ? 0.55 : 0.6)); if (m.burst === 0) m.rest = (g.id === "sniper" ? 1.5 : 0.9) + Math.random() * 0.9; } }
+    if (k >= 4 || !los || m.sw > 0 || m.rlOn || (m.am[cur] ?? 1) <= 0 || d > Math.min(g.range, 230)) return;   // bắn trả được từ xa (tới tầm súng), đứng dưới chân núi vẫn bắn lên đỉnh
+    if (m.burst > 0) { m.cd -= dt; if (m.cd <= 0) { botShot(e, g, d, m.mv === 0 ? 0.65 : m.mv === 1 ? 0.85 : 0.9); m.am[cur] = (m.am[cur] ?? 1) - 1; m.burst--; if (m.am[cur] <= 0) m.burst = 0; m.cd = 1 / (g.rate * (g.auto ? 0.55 : 0.6)); if (m.burst === 0) m.rest = ((g.id === "sniper" ? 1.5 : 0.8) + Math.random() * 0.9) * (m.hurt ? 0.7 : 1); } }
     else { m.rest -= dt; if (m.rest <= 0) { m.burst = g.id === "sniper" ? 1 : g.pellets > 1 ? 1 : g.auto ? 5 : 3; m.cd = 0; } }
   });
 }

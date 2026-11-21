@@ -1,0 +1,90 @@
+{
+  "silence": [
+    {
+      "en": "SHUT THE FUCKING UPPPP!",
+      "vi": "IM ĐI!!! IM CÁI MỒM LẠI!!!"
+    },
+    {
+      "en": "Shut the fuck up! All of you!",
+      "vi": "IM HẾT ĐI! TẤT CẢ!"
+    },
+    {
+      "en": "Shut. The. FUCK. UPPPP!",
+      "vi": "IM. NGAY. ĐI!!!"
+    }
+  ],
+  "opinion": [
+    {
+      "en": "Listen to me. I've watched every one of you since we landed, and one of you is not who you say you are.",
+      "vi": "Nghe tôi nói. Tôi quan sát từng người từ lúc đáp xuống, và có kẻ không phải là người như hắn nói."
+    },
+    {
+      "en": "Here is what I think. The spy is sitting right at this fire, pretending to be scared like the rest of us.",
+      "vi": "Tôi nghĩ thế này. Gián điệp đang ngồi ngay quanh đống lửa này, giả vờ sợ hãi như tất cả chúng ta."
+    },
+    {
+      "en": "I'm tired of the noise. Somebody here lied to my face today, and I remember who.",
+      "vi": "Tôi chán tiếng ồn rồi. Hôm nay có kẻ nói dối vào mặt tôi, và tôi nhớ là ai."
+    },
+    {
+      "en": "Think about it. The spy only needs us to keep screaming. So I'm going to tell you exactly who I trust.",
+      "vi": "Nghĩ đi. Gián điệp chỉ cần chúng ta cứ gào lên thôi. Nên tôi sẽ nói rõ tôi tin ai."
+    },
+    {
+      "en": "I don't care who likes it. I'm saying what I saw, and I'm saying it to your faces.",
+      "vi": "Tôi không quan tâm ai thích hay không. Tôi nói những gì tôi thấy, và nói thẳng vào mặt các người."
+    }
+  ],
+  "pointSus": [
+    {
+      "en": "{n}! Look me in the eye. I don't trust you.",
+      "vi": "{n}! Nhìn vào mắt tôi đi. Tôi không tin cậu."
+    }
+  ],
+  "pointClear": [
+    {
+      "en": "{n}, I don't suspect you. I think you're clean.",
+      "vi": "{n}, tôi không nghi cậu. Tôi nghĩ cậu sạch."
+    }
+  ],
+  "backSus": [
+    {
+      "en": "Yeah, I don't trust them either.",
+      "vi": "Ừ, tôi cũng không tin hắn."
+    },
+    {
+      "en": "Same here. I've been watching them too.",
+      "vi": "Tôi cũng vậy. Tôi cũng để mắt tới hắn nãy giờ."
+    }
+  ],
+  "backClear": [
+    {
+      "en": "Yeah, they're clean. Leave them alone.",
+      "vi": "Ừ, hắn sạch. Đừng động tới hắn."
+    },
+    {
+      "en": "I agree. They're not the one.",
+      "vi": "Tôi đồng ý. Không phải hắn đâu."
+    }
+  ],
+  "againstSus": [
+    {
+      "en": "No, you're wrong. They're not the spy.",
+      "vi": "Không, cậu sai rồi. Hắn không phải gián điệp."
+    },
+    {
+      "en": "That's ridiculous. Why them?",
+      "vi": "Vớ vẩn. Sao lại là hắn?"
+    }
+  ],
+  "againstClear": [
+    {
+      "en": "Are you kidding? They're the spy, and you know it!",
+      "vi": "Đùa à? Hắn là gián điệp, và cậu biết rõ!"
+    },
+    {
+      "en": "No way. They're lying, I'm sure of it!",
+      "vi": "Không đời nào. Hắn đang nói dối, tôi chắc chắn!"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import { H, NG, ISLE, isPond, CAMP, STATION_XZ, VOLCANO_XZ } from "../world/isla
 import { kindAt } from "../world/terrain";
 
 /**
- * Bản đồ nhỏ ở góc trái (dưới các nút). Nền là địa hình thật vẽ từ bản đồ độ cao (biển / hồ / cát / cỏ / đá / tuyết, có đổ bóng sườn núi).
+ * Bản đồ nhỏ ở góc trên bên trái (một mình ở góc; vai trò / nhiệm vụ / lượt và các nút nằm bên phải). Nền là địa hình thật vẽ từ bản đồ độ cao (biển / hồ / cát / cỏ / đá / tuyết, có đổ bóng sườn núi).
  *  - Phím M (hoặc bấm vào bản đồ): đổi cỡ  gần (110 m, xoay theo hướng nhìn) → rộng (240 m) → cả đảo (Bắc ở trên).
  *  - Chỉ hiện người đang NHÌN THẤY được (cùng luật tầm nhìn thật: bị che khuất thì không có chấm), xác người chết là dấu ✕.
  *  - 🔥 trại · ◆ trạm nhiệm vụ · ▲ núi lửa · mũi tên cam ở viền chỉ hướng về trại khi trại nằm ngoài khung.
@@ -16,7 +16,7 @@ let mode = 0;
 
 const cv = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
 cv.width = cv.height = Math.round(SIZE * dpr);
-cv.style.cssText = `position:absolute;left:12px;top:160px;width:${SIZE}px;height:${SIZE}px;border-radius:50%;border:3px solid #ffffffcc;box-shadow:0 2px 12px #000a;background:#174f86;pointer-events:auto;cursor:pointer`;
+cv.style.cssText = `position:absolute;left:12px;top:12px;width:${SIZE}px;height:${SIZE}px;border-radius:50%;border:3px solid #ffffffcc;box-shadow:0 2px 12px #000a;background:#174f86;pointer-events:auto;cursor:pointer`;
 cv.title = "M";
 document.getElementById("hud")?.appendChild(cv);
 const g = cv.getContext("2d")!;

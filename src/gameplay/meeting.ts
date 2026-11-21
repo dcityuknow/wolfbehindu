@@ -1,3 +1,5 @@
+import { mountStage, unmountStage, setDead, setSelected } from "../ui/meetStage";
+import { startDebate, stopDebate, playerSays, lockBallots } from "./debate";
 import { t } from "../i18n";
 import { $, show, hide, toast, sleep } from "../ui/dom";
 import { G } from "../state";
@@ -5,13 +7,13 @@ import { entities, bodies, markDead, me, setAlerts } from "../world/characters";
 import type { Entity } from "../types";
 import { nearestFreeSeat, sit, standAll } from "./seats";
 import { exile } from "./hostile";
-import { COLORS, NAMES, NO_TARGET, CHAT_LINES, CALL_SECONDS, CAMP_REACH } from "../config";
+import { NAMES, NO_TARGET, CALL_SECONDS, CAMP_REACH } from "../config";
 import { clearCombat } from "./combat";
 import { ctx } from "../web3/context";
-import { callMeeting, castVote, fetchStatuses, getRoom, parseEvents, tallyAndFinalize, reportFriendlyKill } from "../web3/chain";
+import { callMeeting, castVote, fetchStatuses, getRoom, parseEvents, tallyAndFinalize, reportFriendlyKill, setBotPlan } from "../web3/chain";
 import { ensureActed, finish, nextRound, checkpoint } from "./round";
 import { splash, hideSplash } from "../ui/hud";
-import { UI, OPENERS } from "../story";
+import { UI } from "../story";
 import { sfx, cineSfx } from "../audio";
 
 let beat = -1;   // last second at which the countdown heartbeat played
@@ -77,25 +79,22 @@ export async function startMeeting(why: string) {
   $("#mwhy").textContent = why; $("#chat").innerHTML = ""; $("#mstat").textContent = G.ghost ? UI.spectating : ""; $("#skip").style.display = G.ghost ? "none" : ""; show("#meet");
 
   let sel: number | null = null;
-  const row = () => ($("#mrow").innerHTML = entities.map((e) => `<div class="rw ${e.dead || e.out || (e.i === G.slot && G.ghost) ? "dd" : ""}${sel === e.i ? " sl" : ""}" data-i="${e.i}"><span class="dot" style="background:#${COLORS[e.i].toString(16).padStart(6, "0")}"></span>${NAMES[e.i]}${e.i === G.slot ? " " + t("w.youTag") : ""}${e.dead || e.out || (e.i === G.slot && G.ghost) ? " 💀" : ""}</div>`).join(""));
-  row();
+  const gone = (e: Entity) => e.dead || e.out || (e.i === G.slot && G.ghost);
+  mountStage($("#meet"), $("#mrow"), $<HTMLCanvasElement>("#mcv"), (i) => gone(entities[i]));
+  setSelected(null);
   $("#mrow").onclick = (ev) => {
-    const d = (ev.target as HTMLElement).closest<HTMLElement>(".rw"); if (!d || G.voted || G.ghost) return;
+    const d = (ev.target as HTMLElement).closest<HTMLElement>(".mt"); if (!d || G.voted || G.ghost) return;
     const i = +d.dataset.i!; if (entities[i].dead || entities[i].out) return;
-    sel = i; row(); $("#mstat").innerHTML = `${UI.picked(NAMES[i])} <button id="ok">${UI.confirm}</button>`; $("#ok").onclick = () => vote(i);
+    sel = i; setSelected(i); $("#mstat").innerHTML = `${UI.picked(NAMES[i])} <button id="ok">${UI.confirm}</button>`; $("#ok").onclick = () => vote(i);
   };
   $("#skip").onclick = () => vote(NO_TARGET);
-  $("#cs").onclick = () => { const i = $<HTMLInputElement>("#ci"), v = i.value.trim(); if (v) { chat(NAMES[G.slot], v); i.value = ""; } };
-
-  const alive = entities.filter((e) => !e.dead && !e.out);
-  { const op = (why === UI.callMeeting ? OPENERS.emergency : OPENERS.body), b0 = alive.find((e) => e.i !== G.slot); if (b0) chat(NAMES[b0.i], op[(Math.random() * op.length) | 0]); }
-  const bt = setInterval(() => { // Bot "tranh luận" bằng câu có sẵn
-    if (G.phase !== "meet") return clearInterval(bt);
-    const b = alive.filter((e) => e.i !== G.slot)[(Math.random() * (alive.length - 1)) | 0], o = alive[(Math.random() * alive.length) | 0];
-    if (b && o) chat(NAMES[b.i], CHAT_LINES[(Math.random() * CHAT_LINES.length) | 0].replace("{n}", NAMES[o.i]));
-  }, 3500);
+  const send = () => { const i = $<HTMLInputElement>("#ci"), v = i.value.trim(); if (v) { playerSays(v); i.value = ""; } };
+  $("#cs").onclick = send; $("#ci").onkeydown = (ev) => { ev.stopPropagation(); if ((ev as KeyboardEvent).key === "Enter") send(); };
+  $("#ci").onkeyup = (ev) => ev.stopPropagation();
+  setBotPlan(null);
+  startDebate({ me: G.slot, alive: () => entities.filter((e) => !gone(e)).map((e) => e.i), left: () => dl - Date.now() / 1e3, log: (w, tx) => chat(NAMES[w], tx) });   // tranh cãi: giọng thật, nói chồng lên nhau, biểu cảm theo lời
   const tm = setInterval(() => {
-    if (G.phase !== "meet") return clearInterval(tm);
+    if (G.phase !== "meet") { stopDebate(); unmountStage(); return clearInterval(tm); }
     const l = dl - Math.floor(Date.now() / 1e3); $("#mt").textContent = "⏱ " + Math.max(0, l) + "s";
     if (l <= 0 && !G.voted && autoVote) vote(abstain());
   }, 1000);
@@ -118,7 +117,8 @@ async function tallyRetry() {
 
 /** t = a player index / NO_TARGET to cast a (sealed) vote, or null to abstain without signing anything. */
 async function vote(t: number | null) {
-  if (G.voted) return; G.voted = true; lastChoice = t; $("#mstat").textContent = G.ghost ? UI.spectating : t === null ? UI.tally : UI.sealing;
+  if (G.voted) return; G.voted = true; lastChoice = t;
+  setBotPlan(lockBallots());   // các bot bỏ phiếu đúng như đã nói ở đống lửa (phiên tòa sau tiếng súng ảnh hưởng phiếu THẬT) $("#mstat").textContent = G.ghost ? UI.spectating : t === null ? UI.tally : UI.sealing;
   try {
     if (t !== null) {
       try { await castVote(t); chat(UI.sysName, UI.sysVote); }
@@ -127,7 +127,7 @@ async function vote(t: number | null) {
     if (!G.ghost) $("#mstat").textContent = UI.tally;
     const r = await tallyRetry(), ev = parseEvents(r);
     const ej = ev.find((x: any) => x.name === "PlayerEjected"), end = ev.find((x: any) => x.name === "GameEnded");
-    hide("#meet");
+    hide("#meet"); stopDebate(); unmountStage();
     await ejectAnimation(ej ? Number(ej.args.slotId) : null, !!(ej && ej.args.wasImpostor));
     if (end) finish(Number(end.args.winner)); else nextRound();
   } catch (e: any) {
