@@ -35,7 +35,7 @@ function compile(entries) {
   for (const [file] of entries) sources[file] = { content: fs.readFileSync(file, "utf8") };
   const input = {
     language: "Solidity", sources,
-    settings: { evmVersion: "cancun", viaIR: true, optimizer: { enabled: true, runs: 200 }, outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } } },
+    settings: { evmVersion: "cancun", viaIR: true, optimizer: { enabled: true, runs: 100 }, outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } } },
   };
   const out = JSON.parse(solc.compile(JSON.stringify(input), { import: findImport }));
   const errs = (out.errors || []).filter((e) => e.severity === "error");
