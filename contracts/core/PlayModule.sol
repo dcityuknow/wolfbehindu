@@ -10,6 +10,8 @@ import "./GameStorage.sol";
  *         and the batched solo bots.
  */
 abstract contract PlayModule is GameStorage {
+    error BadBotBallots();
+
     /**
      * @notice Hidden "kill" action. EVERY player calls it once per round (Crewmate = no-op) to hide the role.
      * @param encTarget  victim slotId, encrypted client-side (externalEuint8)
@@ -30,7 +32,7 @@ abstract contract PlayModule is GameStorage {
         Room storage r = _rooms[roomId];
         require(r.pendingKind == PendingKind.None, "Decryption pending");
 
-        uint8 slot = _slotOf(roomId, msg.sender);
+        uint8 slot = _actorSlot(roomId);
         Player[] storage ps = _players[roomId];
         Player storage me = ps[slot];
         require(me.lastActRound < r.round, "Already acted this round");
@@ -48,7 +50,7 @@ abstract contract PlayModule is GameStorage {
         Room storage r = _rooms[roomId];
         require(r.pendingKind == PendingKind.None, "Decryption pending");
 
-        uint8 slot = _slotOf(roomId, msg.sender);
+        uint8 slot = _actorSlot(roomId);
         Player storage me = _players[roomId][slot];
         require(me.tasksDone < TASKS_PER_PLAYER, "No tasks left"); // same cap for every role
         me.tasksDone++;
@@ -109,7 +111,7 @@ abstract contract PlayModule is GameStorage {
     function reportFriendlyKill(uint256 roomId, uint8 victim) external inPhase(roomId, Phase.Playing) {
         Room storage r = _rooms[roomId];
         require(r.isSolo, "Solo only: client-attested");   // in PvP nobody may declare another player dead
-        uint8 killer = _slotOf(roomId, msg.sender);
+        uint8 killer = _deathActorSlot(roomId);   // the player, or the session wallet acting for the solo player
         require(victim < r.totalSlots, "Bad victim");
         require(victim != killer, "Cannot target yourself");
         require(!_players[roomId][killer].ejected, "You are dead");
@@ -129,7 +131,7 @@ abstract contract PlayModule is GameStorage {
         Room storage r = _rooms[roomId];
         require(r.isSolo, "Solo only: client-attested");   // in PvP nobody may end the game for everyone
         require(r.phase == Phase.Playing || r.phase == Phase.Voting, "Game not running");
-        uint8 slot = _slotOf(roomId, msg.sender);
+        uint8 slot = _deathActorSlot(roomId);
         Player storage me = _players[roomId][slot];
         require(!me.ejected, "Already dead");
 
@@ -151,7 +153,7 @@ abstract contract PlayModule is GameStorage {
         Room storage r = _rooms[roomId];
         require(r.phase == Phase.Playing || r.phase == Phase.Voting, "Game not running");
         require(r.pendingKind == PendingKind.None, "Decryption pending");
-        uint8 slot = _slotOf(roomId, msg.sender);
+        uint8 slot = _deathActorSlot(roomId);
         require(!_players[roomId][slot].ejected, "Already dead");
 
         bytes32[] storage h = _pending[roomId];
@@ -223,6 +225,25 @@ abstract contract PlayModule is GameStorage {
             _accumulateVote(r, ps, ps[b].status, vote);
         }
         require(done > 0, "Bots already voted");
+    }
+
+    /// @notice Solo: ONE bot votes the way it ARGUED at the campfire. The client (player wallet or its session wallet) encrypts the bot's
+    ///         ballot exactly like `castShieldedVote` does for a human, so it is still ciphertext on-chain: nobody can read who voted for whom.
+    ///         A dead bot / a bot that abstains submits NO_TARGET, which matches no slot. The client encrypts all the ballots in ONE input proof
+    ///         and sends one tx per bot; bots it does not cover are still filled with encrypted randomness by `runBotVotes`.
+    ///         Solo only: in PvP every ballot belongs to a real wallet. (Custom error, not a string: the contract is near the 24,576-byte limit.)
+    function castBotVote(
+        uint256 roomId,
+        uint8 bot,
+        externalEuint8 encVote,
+        bytes calldata inputProof
+    ) external inPhase(roomId, Phase.Voting) {
+        Room storage r = _rooms[roomId];
+        _requireMemberOrOperator(roomId);
+        Player[] storage ps = _players[roomId];
+        if (!r.isSolo || bot < r.humanCount || bot >= r.totalSlots || ps[bot].hasVoted) revert BadBotBallots();
+        ps[bot].hasVoted = true;
+        _accumulateVote(r, ps, ps[bot].status, FHE.fromExternal(encVote, inputProof));
     }
 
     /// @notice Bots that have not acted yet this round (0 if not Solo / not in the Playing phase).

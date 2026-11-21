@@ -14,7 +14,7 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args: { solcVersion: string
 });
 
 const config: HardhatUserConfig = {
-  solidity: { version: "0.8.27", settings: { evmVersion: "cancun", viaIR: true, optimizer: { enabled: true, runs: 200 } } },
+  solidity: { version: "0.8.27", settings: { evmVersion: "cancun", viaIR: true, optimizer: { enabled: true, runs: 100 } } },
   paths: { sources: "./contracts", tests: "./test", cache: "./cache", artifacts: "./artifacts" },
   mocha: { timeout: 900000 },
 };

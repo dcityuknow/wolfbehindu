@@ -57,7 +57,7 @@ abstract contract MeetingModule is GameStorage {
         Room storage r = _rooms[roomId];
         require(block.timestamp < r.voteDeadline, "Voting closed");
 
-        uint8 slot = _slotOf(roomId, msg.sender);
+        uint8 slot = _actorSlot(roomId);
         Player[] storage ps = _players[roomId];
         require(!ps[slot].hasVoted, "Already voted");
         ps[slot].hasVoted = true;

@@ -1,3 +1,9 @@
+## v5.3 — SHUT UP + phiên tòa ở đống lửa (phiếu bot THẬT)
+* 10 giây đầu họp: cãi loạn như cũ. Sau đó mỗi giây 20% một bot random hét "SHUT THE FUCKING UP", giơ súng bắn lên trời; cả phòng im bặt nhìn hắn (rung màn hình, loé sáng, đèn sân khấu). Hắn nêu quan điểm, chỉ mặt đọc tên 2–3 người (nghi / không nghi), 2–3 bot khác hùa theo hoặc phản đối. Code: gameplay/debate.ts (shotScene), ui/meetStage.ts (emo gun/point/disagree, fireGun, setSpot). Chỉnh: CHAOS_SECONDS, ROLL_P, MAX_SHOTS, TRIAL_SUSP.
+* Phiếu bot giờ theo đúng diễn biến: contract mới `castBotVote` (solo only, phiếu vẫn mã hoá; client mã hoá cả 10 phiếu trong 1 proof, mỗi bot 1 tx). Bot không được chỉ định vẫn random (`runBotVotes`). **Phải deploy lại contract** (CHAY.bat tự làm); contract cũ thì game tự quay về random.
+* Contract sát giới hạn 24,576 byte: optimizer runs 200 → 100 (deploy.mjs + hh config), `castBotVote` dùng custom error.
+* Giọng: src/config/trialLines.json + tools/gen-trial-voice.py (396 clip mới trong public/voice/meet, câu chỉ mặt đọc đúng tên).
+
 ## v5.2 — Xác nằm nhiều kiểu + máu trên sàn
 * Ai bị giết (bot, đồng đội, chính bạn) đều ngã xuống một trong 9 tư thế ngẫu nhiên (ngửa dang tay chân chữ X, sấp như sao biển, nằm nghiêng co người, bò ngã…), hướng thân lệch ngẫu nhiên, súng KHÔNG còn dính tay. Code: world/corpse.ts.
 * Vũng máu loang ra dưới xác + vệt máu lê + các vệt bắn rải quanh sàn (world/fx.ts bloodPool). Máu không tự biến mất, chỉ xoá khi bắt đầu ván mới.

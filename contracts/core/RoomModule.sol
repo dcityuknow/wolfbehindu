@@ -162,6 +162,7 @@ abstract contract RoomModule is GameStorage {
         Player storage p = ps[ps.length - 1];
         p.wallet = who;
         uint8 slot = uint8(ps.length - 1);
+        require(_principalOf[roomId][who] == address(0), "Session key cannot join");
         _slotPlusOne[roomId][who] = slot + 1;
         r.humanCount++;
         // Staked room: the vault pulls the stake with an ENCRYPTED ERC-7984 transfer and records what was REALLY paid.
@@ -173,7 +174,7 @@ abstract contract RoomModule is GameStorage {
 
     /// @notice Solo only: a room member registers a session wallet (kept in the browser) that may run the technical,
     ///         role-free steps - bot turns, bot votes, opening a meeting, tally and checkpoint requests - so the player is not
-    ///         asked to sign for the bots. The operator can NOT act as a player (no kill, vote, task or death report).
+    ///         asked to sign for the bots. The operator also plays for the single human (secret/dummy act, task, vote, death reports) so nothing pops up mid-game; it can never move money.
     function setOperator(uint256 roomId, address op) external {
         Room storage r = _rooms[roomId];
         require(r.isSolo, "Solo only");
@@ -181,6 +182,28 @@ abstract contract RoomModule is GameStorage {
         _slotOf(roomId, msg.sender);
         r.operator = op;
         emit OperatorSet(roomId, op);
+    }
+
+    /// @notice PvP and solo: a room member registers a throw-away SESSION WALLET (kept in their browser) that may play for them
+    ///         (secret kill, task, vote, meeting, checkpoint, death proof) WITHOUT a wallet popup. It can never move money
+    ///         (stake, payout, bribe) or act as anyone else, and it only works inside this room.
+    function setSessionKey(uint256 roomId, address key) external {
+        Room storage r = _rooms[roomId];
+        require(r.phase == Phase.Lobby || r.phase == Phase.Playing || r.phase == Phase.Voting, "Wrong phase");
+        require(_slotPlusOne[roomId][msg.sender] != 0, "Not in room");
+        require(key != address(0) && key != msg.sender, "Bad key");
+        require(_slotPlusOne[roomId][key] == 0, "Key is a player");
+        address holder = _principalOf[roomId][key];
+        require(holder == address(0) || holder == msg.sender, "Key in use");
+        address old = _sessionOf[roomId][msg.sender];
+        if (old != address(0)) delete _principalOf[roomId][old];
+        _sessionOf[roomId][msg.sender] = key;
+        _principalOf[roomId][key] = msg.sender;
+        emit SessionKeySet(roomId, msg.sender, key);
+    }
+
+    function sessionKeyOf(uint256 roomId, address player) external view returns (address) {
+        return _sessionOf[roomId][player];
     }
 
     function operatorOf(uint256 roomId) external view returns (address) {

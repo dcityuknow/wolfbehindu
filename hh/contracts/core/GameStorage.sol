@@ -35,6 +35,10 @@ abstract contract GameStorage {
     mapping(uint256 => Room) internal _rooms;
     mapping(uint256 => Player[]) internal _players; // index = slotId (humans first, then bots)
     mapping(uint256 => mapping(address => uint8)) internal _slotPlusOne;
+    /// @dev PvP/solo session keys: roomId => session wallet => the player wallet it plays for (gameplay actions only, never money).
+    mapping(uint256 => mapping(address => address)) internal _principalOf;
+    /// @dev roomId => player wallet => its registered session wallet.
+    mapping(uint256 => mapping(address => address)) internal _sessionOf;
     mapping(uint256 => bytes32[]) internal _pending; // handles waiting for public decryption
     mapping(uint256 => uint8) internal _deathSlot; // slot whose death proof is pending
     mapping(uint256 => bytes32[]) internal _roleHandles; // handles made public by revealRoles (verified by settleRoom)
@@ -72,6 +76,7 @@ abstract contract GameStorage {
     event GameEnded(uint256 indexed roomId, Winner winner);
     /// @dev A player was gunned down by their own squad after shooting a teammate by mistake.
     event OperatorSet(uint256 indexed roomId, address operator);
+    event SessionKeySet(uint256 indexed roomId, address indexed player, address key);
     event PlayerExecuted(uint256 indexed roomId, uint8 slotId, uint32 round);
     /// @dev A player shot a squadmate dead. The victim stays dead for the rest of the game.
     event FriendlyKill(uint256 indexed roomId, uint8 killerSlot, uint8 victimSlot, uint32 round);
@@ -107,7 +112,23 @@ abstract contract GameStorage {
     function _requireMemberOrOperator(uint256 roomId) internal view {
         address op = _rooms[roomId].operator;
         if (op != address(0) && msg.sender == op) return;
-        _slotOf(roomId, msg.sender);
+        _actorSlot(roomId);
+    }
+
+    /// @dev Slot of the acting PLAYER for GAMEPLAY actions (secret kill / dummy act, task, vote, death proof): the player's own wallet,
+    ///      the session wallet that player registered with `setSessionKey` (PvP), or - in a SOLO room - the operator (session wallet)
+    ///      acting for the single human (host). So nobody is interrupted by a wallet popup mid-game.
+    ///      Money (stake / payout / bribe) and the chat/will modules keep using the strict `_slotOf(msg.sender)`: a session wallet can never touch funds.
+    function _actorSlot(uint256 roomId) internal view returns (uint8) {
+        Room storage r = _rooms[roomId];
+        if (r.isSolo && r.operator != address(0) && msg.sender == r.operator) return _slotOf(roomId, r.host);
+        address who = _principalOf[roomId][msg.sender];
+        return _slotOf(roomId, who == address(0) ? msg.sender : who);
+    }
+
+    /// @dev Death reports use the same rule.
+    function _deathActorSlot(uint256 roomId) internal view returns (uint8) {
+        return _actorSlot(roomId);
     }
 
     function _slotOf(uint256 roomId, address who) internal view returns (uint8) {

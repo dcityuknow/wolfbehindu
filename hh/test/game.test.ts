@@ -277,6 +277,45 @@ describe("Lost Island - game logic (FHE mock)", function () {
       await expect(game.connect(signers[4]).runBotTurns(roomId)).to.be.revertedWith("Not in room");
     });
 
+    it("castBotVote: the bots vote the way the debate decided (ciphertext ballots); uncovered bots fall back to random; abuse is rejected", async () => {
+      const { game, signers } = await deployAll(false);
+      const [me, op, outsider] = signers;
+      await game.connect(me).createSoloGame(op.address, GAS);
+      const roomId = await game.roomCount();
+      await game.connect(op).callMeeting(roomId, GAS);   // no bot turns -> nobody was killed, all 11 are alive
+      expect(await game.pendingBotVotes(roomId)).to.eq(10);
+      // all the ballots go through ONE input proof, bound to the operator that sends them (exactly what the client does)
+      const bots = [1, 2, 3, 4, 5, 6, 7];
+      const e = await fhevm.createEncryptedInput(await game.getAddress(), op.address);
+      bots.forEach((b) => e.add8(b === 4 ? 5 : 4));   // everyone accuses slot 4 (bot 4 itself accuses 5)
+      const enc = await e.encrypt();
+      const vote = (who: any, b: number, k: number) => game.connect(who).castBotVote(roomId, b, enc.handles[k], enc.inputProof, GAS);
+      // rejections: not a bot (the human slot), not a room member, a bot cannot vote twice
+      await expect(vote(op, 0, 0)).to.be.revertedWithCustomError(game, "BadBotBallots");
+      await expect(vote(outsider, 1, 0)).to.be.revertedWith("Not in room");
+      await vote(op, 1, 0);
+      await expect(vote(op, 1, 0)).to.be.revertedWithCustomError(game, "BadBotBallots");
+      for (let k = 1; k < bots.length; k++) await vote(op, bots[k], k);
+      expect(await game.pendingBotVotes(roomId)).to.eq(3);
+      await expect(game.connect(op).tallyVotes(roomId, GAS)).to.be.revertedWith("Bots must vote first");
+      await game.connect(op).runBotVotes(roomId, GAS);   // bots 8..10 were not covered: encrypted randomness, as before
+      expect(await game.pendingBotVotes(roomId)).to.eq(0);
+      // the human also votes 4: slot 4 now has at least 7 + 1 votes, the random bots cannot catch up (max 3)
+      const [h, proof] = await enc8(game, me, 4);
+      await game.connect(me).castShieldedVote(roomId, h, proof, GAS);
+      await expect(tally(game, roomId, op)).to.emit(game, "PlayerEjected");
+      expect((await game.getPlayers(roomId)).ejected[4]).to.eq(true);
+    });
+
+    it("castBotVote is solo-only (PvP ballots belong to real wallets)", async () => {
+      const { game, signers } = await deployAll(false);
+      const ps = signers.slice(0, 3);
+      const roomId = await newPvpRoom(game, ps);
+      await game.connect(ps[1]).callMeeting(roomId, GAS);
+      const [h, proof] = await enc8(game, ps[0], 1);
+      await expect(game.connect(ps[0]).castBotVote(roomId, 1, h, proof, GAS)).to.be.revertedWithCustomError(game, "BadBotBallots");
+    });
+
     it("client-attested actions (reportExecution / reportFriendlyKill) are solo-only", async () => {
       const { game, signers } = await deployAll(false);
       const ps = signers.slice(0, 3);
