@@ -135,3 +135,27 @@ WASD move · Space jump · **E** interact · **Q** assassinate (spy) · Left cli
 - Trong lúc chưa bung dù, click / Space / Enter KHÔNG bỏ qua được phân cảnh này (tránh bấm lướt nhầm). Nút **Bỏ qua ⏭** và phím Esc vẫn bỏ qua cả cảnh mở đầu như cũ.
 - Code: `world/cinePath.ts` (`DIVE`, `ALERT_LEAD`, `DEP`, nhánh `"crash"` trong `stateOf`; `EXT` tăng 14 → 16 để có thêm 2 giây rơi) · `world/cine3d.ts` (hạn chót, `failCam`, `cineDeploy`, `cineRetry`) · `ui/cutscene.ts` (phím E, nút, màn chết) · `styles.css` (`#cineKey`, `#cineDead`) · bản dịch `cine.key / cine.keyOk / cine.dead / cine.dead2 / cine.retry` (vi, en).
 - **Lồng tiếng**: câu cảnh báo cũ (`v5.mp3`) nói "tự động bung dù" nên không dùng nữa; câu mới `v5e` ("Warning! Critical altitude! Pull your chute! Press E!") hiện đọc bằng giọng trình duyệt vì chưa có file mp3. Muốn giọng giống các câu khác: chạy `python tools/gen-voice.py ...` (đã thêm dòng `v5e`) rồi bỏ `v5e.mp3` vào `public/voice/`.
+
+## Cập nhật: cú rơi không dù thực tế hơn (rầm · cây gãy · lăn lốc · máu)
+
+- **Mô phỏng vật lý** (`simFall` trong `world/cinePath.ts`): sau hạn chót bấm E người chơi rơi nhanh dần (không dù), có thể **đâm vào tán cây**, rồi **đập đất → nảy lên → lăn lốc lộn nhào theo đà (tay chân quăng quật) → dội lại khi va bậc đất cao → nằm im** (sấp hoặc ngửa). Đập đất ~40 m/s, nảy lần đầu ~2 m rồi nhỏ dần, lăn vài mét tới mười mấy mét.
+- **Trúng cây** (`CANOPIES` trong `map.ts`, điền khi rải cây ở `terrain.ts`): giảm ~55% tốc độ rơi, bị hất ngang, lộn tít; **cành gãy răng rắc ×3, lá rụng như mưa (màu theo loại cây), mảnh cành văng**, lá vãi dọc đường rơi xuyên tán, rung màn hình.
+- **Âm thanh** (`cineSfx` trong `audio.ts`): `slam` = RẦM cực to nhiều lớp (đập chát + trầm dội + đất xào xạc + dư âm), `crunch` xương gãy đục, `bounce` mỗi cú nảy (to nhỏ theo lực), `snap` cành gãy, `rustle` lá xào xạc.
+- **Máu** (`cine3d.ts`, phần "Hiệu ứng rơi chết"): máu bắn tung toé lúc đập đất và mỗi lần nảy, giọt máu rơi xuống thành vệt (ô voxel 0,5 m, chồng lên thì đậm dần), **vệt máu kéo dài theo đường lăn**, nằm im thì **vũng máu loang to dần**; kèm bụi đất bắn lên.
+- **Điện ảnh**: quay chậm nửa giây ngay lúc đập đất, rung màn hình + chớp trắng theo từng cú đập/nảy, camera tĩnh đặt giữa điểm đập và chỗ nằm im, bám theo người lăn rồi tiến lại gần, tối sầm sau khi nằm im ~1,8 s rồi hiện màn "BẠN ĐÃ TỬ NẠN".
+
+## Cập nhật: biệt kích bắn chết hết bot thì sao?
+
+- **Luật hợp đồng** (`hh/contracts/core`, không đổi): Biệt kích thắng khi xong đủ nhiệm vụ HOẶC không còn gián điệp nào sống; Gián điệp thắng khi số biệt kích sống ≤ số gián điệp sống. Gián điệp luôn là một bot trong phòng solo, nên bắn chết TẤT CẢ bot = gián điệp cũng chết = **Biệt kích thắng**.
+- **Lỗi đã sửa**: hợp đồng chỉ cho kiểm tra thắng thua **1 lần mỗi vòng**, mà trước đây client kiểm tra ngay sau phát bắn chết ĐẦU TIÊN → các phát sau không bao giờ được xét, bắn chết hết bot mà ván vẫn không kết thúc (phải họp mới ra kết quả). Giờ `afterFriendlyKill` (`gameplay/round.ts`) gom cả loạt phát bắn rồi kiểm tra MỘT lần: chờ 4 s sau phát cuối (0,9 s nếu đã hết người), chờ giao dịch ghi tử vong xong. Nếu lượt kiểm tra của vòng đã dùng mà bạn vẫn đứng một mình thì kết thúc ngay ở máy theo đúng luật trên.
+- **Kết cục riêng** "🎖 NGƯỜI SỐNG SÓT CUỐI CÙNG" (`ENDING.massacre`) cho biệt kích tự tay bắn hạ cả đội; vẫn tính là thắng.
+- Lưu ý: nếu có bot nhìn thấy bạn bắn đồng đội thì cả đội nổ súng (bị xử bắn = kết cục "EXECUTED BY YOUR OWN SQUAD", không ai thắng), và bot bị bắn từ xa giờ sẽ tìm và bắn trả — nên muốn giết sạch phải bắn lén (xa, không ai thấy) hoặc hạ nhanh hơn chúng.
+
+## Cập nhật: bot vừa chạy vừa bắn, nấp, đổi súng, nạp đạn, ném bom
+
+- **Lỗi hiển thị đã sửa**: trước đây khi bot đổi súng (xạ thủ sniper lại gần thì rút AK) chỉ đổi khẩu súng tính sát thương mà hình ảnh vẫn cầm khẩu cũ. Giờ đổi `userData.gunId` nên hoạt ảnh cất súng → rút súng mới (~0,6 s, không bắn được lúc đổi) hiện đúng. (`swapGun` trong `gameplay/hostile.ts`)
+- **Di chuyển khi chiến đấu** (không còn đứng yên một chỗ): tiến lên khi ở xa / mất dấu · **lách ngang** (đổi hướng 0,7–2,2 s, giữ khoảng cách trong tầm hiệu quả của khẩu đang cầm) · **lùi** khi bị áp sát · **chạy tới chỗ nấp** (thân cây / đá / tường trong 16 m mà đứng sau đó người chơi không thấy) khi bị bắn · thỉnh thoảng **nhảy né**. Vừa chạy vừa bắn thì kém chính xác hơn đứng ngắm (chạy ×0,65 · lách ×0,85).
+- **Bot vừa bị bắn** (trạng thái tìm kiếm): không đứng quay đầu nữa mà **chạy zig-zag về phía đạn bay tới** trong lúc quét mắt xa → gần; thấy người bắn là bắn trả.
+- **Đổi súng linh hoạt**: xạ thủ cầm sniper bắn từ >58 m, lại gần <48 m đổi sang AK; ai cũng rút **súng ngắn** khi bị áp sát <7 m (và đôi khi tự đổi); trả lại AK khi người chơi ra xa >12 m. **Có đạn thật**: AK 30, súng ngắn 12, sniper 5 — hết đạn thì rút súng ngắn (60%) hoặc nạp lại (hô "Reloading!"), không bắn trong lúc nạp/đổi.
+- **Lựu đạn**: 3 quả/bot, ném khi cách 8–42 m (cả khi bạn nấp sau vật cản để dồn ra), vừa chạy vừa ném, cách nhau ≥2,5 s giữa các bot, hô "Zama …".
+- Chỉnh số: khối `hostile.forEach` trong `gameplay/hostile.ts` (khoảng cách minD/maxD, thời gian lách, xác suất nấp / đổi súng).
