@@ -29,7 +29,7 @@ TRIM = "silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremo
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--model", required=True); ap.add_argument("--voices", required=True)
-    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "public", "voice", "meet")); ap.add_argument("--only", default=""); ap.add_argument("--intent", default="")
+    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "voice-src", "meet")); ap.add_argument("--only", default=""); ap.add_argument("--intent", default="")
     a = ap.parse_args(); os.makedirs(a.out, exist_ok=True)
     lines = json.load(open(os.path.join(os.path.dirname(__file__), "..", "src", "config", "meetLines.json"), encoding="utf-8"))
     k = Kokoro(a.model, a.voices)
