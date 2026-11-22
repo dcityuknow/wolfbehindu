@@ -19,7 +19,7 @@ abstract contract GameStorage {
     uint8 public constant BOTS_PER_TX = 3;
     uint8 public constant TASKS_PER_PLAYER = 3;
     uint8 public constant NO_TARGET = 255; // vote "skip" / nobody is ejected
-    uint64 public constant VOTE_DURATION = 120; // seconds
+    uint64 public constant VOTE_DURATION = 100; // seconds
     /// @dev A staked lobby nobody started can be cancelled by anyone after this long (host can cancel any time).
     uint64 public constant LOBBY_TIMEOUT = 1 days;
     /// @dev A staked game that never finished can be aborted by anyone after this long; every player is refunded.
