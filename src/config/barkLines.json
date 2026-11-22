@@ -1,0 +1,33 @@
+{
+ "_doc": "Câu hô ngoài chiến trường (hostile.ts / combat.ts) — mỗi lính 1 giọng Kokoro, file public/voice/bark/<lính>_<slug>.mp3 (tools/gen-bark-voice.py). Sửa câu ở code thì thêm vào đây rồi thu lại.",
+ "lines": [
+  "Zama grenade! Take cover!",
+  "Zama frag out!",
+  "Zama, eat this!",
+  "Zama fire in the hole!",
+  "Zama grenade, get down!",
+  "Zama incoming! Run!",
+  "Zama, catch this one!",
+  "Zama bomb's away! Move it!",
+  "Zama grenade out! Scatter!",
+  "Zama, say goodbye!",
+  "Zama, boom time! Take cover!",
+  "Zama frag in the air! Down!",
+  "I see him! Up there!",
+  "There he is! Return fire!",
+  "Found you! Open fire!",
+  "Got eyes on the shooter!",
+  "Ow! Who shot me?!",
+  "Argh! Who did that?!",
+  "I got hit! Did anyone see who it was?!",
+  "IT'S THE SPY!",
+  "I knew it! Shoot him!",
+  "Take down the spy! Hurry!",
+  "You've been exposed!",
+  "Don't let him get away!",
+  "Hey! Did you just shoot him?!",
+  "What was that?! Drop your weapon!",
+  "WHY YOU SHOT ME??",
+  "That's him! Squad, FIRE!"
+ ]
+}

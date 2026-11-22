@@ -1,0 +1,386 @@
+{
+  "_doc": "Thoại cảnh phiên tòa (tribunal.ts): giọng đọc luôn là tiếng Anh; phụ đề dòng dưới = bản dịch theo ngôn ngữ người chơi (vi, zh, ru, uk, ko, id, fil, hi, bn; en/ng chỉ hiện tiếng Anh). {0} = tên người bị loại.",
+  "intro": [
+    {
+      "emo": "read",
+      "en": "Here we go... every single ballot. Let me see.",
+      "vi": "Đây rồi... toàn bộ phiếu bầu. Để tôi xem nào.",
+      "zh": "来了……每一张选票。让我看看。",
+      "ru": "Вот оно... каждый бюллетень. Посмотрим.",
+      "uk": "Ось воно... кожен бюлетень. Подивимось.",
+      "ko": "자, 여기 있군... 모든 투표용지. 어디 보자.",
+      "id": "Ini dia... semua surat suara. Coba kulihat.",
+      "fil": "Ito na... bawat balota. Tingnan natin.",
+      "hi": "लो... हर एक मतपत्र। देखता हूँ।",
+      "bn": "এই যে... প্রতিটি ব্যালট। দেখি তো।"
+    },
+    {
+      "emo": "read",
+      "en": "One... two... three... hmm.",
+      "vi": "Một... hai... ba... hừm.",
+      "zh": "一……二……三……嗯。",
+      "ru": "Один... два... три... хм.",
+      "uk": "Один... два... три... хм.",
+      "ko": "하나... 둘... 셋... 흠.",
+      "id": "Satu... dua... tiga... hmm.",
+      "fil": "Isa... dalawa... tatlo... hmm.",
+      "hi": "एक... दो... तीन... हम्म।",
+      "bn": "এক... দুই... তিন... হুম।"
+    },
+    {
+      "emo": "shock",
+      "en": "Wait... what is this? That can't be...",
+      "vi": "Khoan... cái gì đây? Không thể nào...",
+      "zh": "等等……这是什么？不可能……",
+      "ru": "Погодите... что это? Не может быть...",
+      "uk": "Стривайте... що це? Не може бути...",
+      "ko": "잠깐... 이게 뭐지? 말도 안 돼...",
+      "id": "Tunggu... apa ini? Tidak mungkin...",
+      "fil": "Teka... ano ito? Hindi puwede...",
+      "hi": "रुको... ये क्या है? ऐसा नहीं हो सकता...",
+      "bn": "দাঁড়াও... এটা কী? এটা হতে পারে না..."
+    },
+    {
+      "emo": "shock",
+      "en": "Everyone... I can't believe my eyes.",
+      "vi": "Mọi người... tôi không tin vào mắt mình.",
+      "zh": "各位……我不敢相信自己的眼睛。",
+      "ru": "Все... я не верю своим глазам.",
+      "uk": "Усі... я не вірю своїм очам.",
+      "ko": "여러분... 내 눈을 믿을 수가 없어.",
+      "id": "Semuanya... aku tidak percaya mataku.",
+      "fil": "Lahat kayo... hindi ako makapaniwala.",
+      "hi": "सब लोग... मुझे अपनी आँखों पर यक़ीन नहीं हो रहा।",
+      "bn": "সবাই... আমি নিজের চোখকে বিশ্বাস করতে পারছি না।"
+    },
+    {
+      "emo": "anger",
+      "en": "I knew it! I knew it all along!",
+      "vi": "Tôi biết mà! Tôi đã biết từ đầu rồi!",
+      "zh": "我就知道！我早就知道了！",
+      "ru": "Я знал! Я с самого начала знал!",
+      "uk": "Я знав! Я з самого початку знав!",
+      "ko": "역시 그랬어! 처음부터 알고 있었어!",
+      "id": "Sudah kuduga! Aku sudah tahu dari awal!",
+      "fil": "Alam ko na! Alam ko na simula pa lang!",
+      "hi": "मुझे पता था! मुझे शुरू से पता था!",
+      "bn": "আমি জানতাম! আমি শুরু থেকেই জানতাম!"
+    },
+    {
+      "emo": "rage",
+      "en": "Someone has been lying to us this whole time!",
+      "vi": "Có kẻ đã nói dối chúng ta suốt từ nãy đến giờ!",
+      "zh": "有人一直在骗我们！",
+      "ru": "Кто-то всё это время нам лгал!",
+      "uk": "Хтось увесь цей час нам брехав!",
+      "ko": "누군가 지금까지 우리를 속여 왔어!",
+      "id": "Ada yang membohongi kita selama ini!",
+      "fil": "May nagsisinungaling sa atin buong oras na ito!",
+      "hi": "कोई इस पूरे वक़्त हमसे झूठ बोल रहा था!",
+      "bn": "কেউ এতক্ষণ আমাদের সঙ্গে মিথ্যা বলছিল!"
+    },
+    {
+      "emo": "tense",
+      "en": "Silence! Wait for the transaction to confirm... then I read the name.",
+      "vi": "Im lặng! Đợi giao dịch xác nhận xong... rồi tôi sẽ đọc tên.",
+      "zh": "安静！等交易确认……我再念名字。",
+      "ru": "Тишина! Ждём подтверждения транзакции... тогда я зачитаю имя.",
+      "uk": "Тихо! Чекаємо підтвердження транзакції... тоді я зачитаю ім'я.",
+      "ko": "조용! 트랜잭션이 확정될 때까지 기다려... 그다음에 이름을 읽겠다.",
+      "id": "Diam! Tunggu transaksi terkonfirmasi... baru aku bacakan namanya.",
+      "fil": "Tahimik! Hintayin muna na makumpirma ang transaksyon... saka ko babasahin ang pangalan.",
+      "hi": "चुप! ट्रांज़ैक्शन कन्फ़र्म होने तक रुको... फिर मैं नाम पढ़ूँगा।",
+      "bn": "চুপ! লেনদেন নিশ্চিত হওয়া পর্যন্ত অপেক্ষা করো... তারপর নাম পড়ব।"
+    }
+  ],
+  "wait": [
+    {
+      "emo": "read",
+      "en": "The ballots are still being decrypted on-chain...",
+      "vi": "Phiếu bầu vẫn đang được giải mã trên chuỗi...",
+      "zh": "选票还在链上解密……",
+      "ru": "Бюллетени всё ещё расшифровываются в блокчейне...",
+      "uk": "Бюлетені досі розшифровуються в блокчейні...",
+      "ko": "투표용지가 아직 체인에서 복호화되는 중이야...",
+      "id": "Surat suara masih didekripsi di on-chain...",
+      "fil": "Dinedecrypt pa rin ang mga balota sa on-chain...",
+      "hi": "मतपत्र अभी भी ऑन-चेन डिक्रिप्ट हो रहे हैं...",
+      "bn": "ব্যালটগুলো এখনও অন-চেইনে ডিক্রিপ্ট হচ্ছে..."
+    },
+    {
+      "emo": "tense",
+      "en": "Nobody move. The result is almost here.",
+      "vi": "Không ai được động đậy. Kết quả sắp có rồi.",
+      "zh": "谁都别动。结果马上出来。",
+      "ru": "Никому не двигаться. Результат почти готов.",
+      "uk": "Нікому не рухатись. Результат майже готовий.",
+      "ko": "아무도 움직이지 마. 결과가 거의 나왔어.",
+      "id": "Jangan ada yang bergerak. Hasilnya hampir keluar.",
+      "fil": "Walang gagalaw. Malapit na ang resulta.",
+      "hi": "कोई हिलना मत। नतीजा बस आने ही वाला है।",
+      "bn": "কেউ নড়বে না। ফল প্রায় এসে গেছে।"
+    },
+    {
+      "emo": "read",
+      "en": "I need to check every slip once more.",
+      "vi": "Tôi cần kiểm tra lại từng tờ một.",
+      "zh": "我得再检查一遍每一张。",
+      "ru": "Мне нужно ещё раз проверить каждый листок.",
+      "uk": "Мені треба ще раз перевірити кожен папірець.",
+      "ko": "한 장씩 다시 확인해야겠어.",
+      "id": "Aku perlu memeriksa setiap lembar sekali lagi.",
+      "fil": "Kailangan kong suriin ulit ang bawat papel.",
+      "hi": "मुझे हर पर्ची एक बार फिर जाँचनी होगी।",
+      "bn": "আমাকে প্রতিটি স্লিপ আরেকবার যাচাই করতে হবে।"
+    },
+    {
+      "emo": "tense",
+      "en": "Just a moment more...",
+      "vi": "Chỉ một chút nữa thôi...",
+      "zh": "再等一会儿……",
+      "ru": "Ещё немного...",
+      "uk": "Ще трішки...",
+      "ko": "조금만 더...",
+      "id": "Sebentar lagi...",
+      "fil": "Sandali na lang...",
+      "hi": "बस थोड़ी देर और...",
+      "bn": "আর একটু..."
+    },
+    {
+      "emo": "anger",
+      "en": "Come on... next block, hurry up.",
+      "vi": "Nhanh lên... khối tiếp theo đâu rồi.",
+      "zh": "快点……下一个区块呢，快点。",
+      "ru": "Давай же... следующий блок, быстрее.",
+      "uk": "Ну ж бо... наступний блок, швидше.",
+      "ko": "어서... 다음 블록은 어디야, 서둘러.",
+      "id": "Ayo... blok berikutnya, cepatlah.",
+      "fil": "Dali na... susunod na block, bilis.",
+      "hi": "चलो... अगला ब्लॉक कहाँ है, जल्दी करो।",
+      "bn": "চলো... পরের ব্লক কোথায়, তাড়াতাড়ি।"
+    },
+    {
+      "emo": "shock",
+      "en": "Hold on... the signature is coming in.",
+      "vi": "Khoan... chữ ký đang về.",
+      "zh": "等等……签名来了。",
+      "ru": "Постойте... подпись приходит.",
+      "uk": "Зачекайте... підпис надходить.",
+      "ko": "잠깐... 서명이 들어오고 있어.",
+      "id": "Tunggu... tanda tangannya masuk.",
+      "fil": "Sandali... paparating na ang pirma.",
+      "hi": "रुको... सिग्नेचर आ रहा है।",
+      "bn": "দাঁড়াও... সিগনেচার আসছে।"
+    }
+  ],
+  "announce": {
+    "ready": {
+      "en": "The result is in.",
+      "vi": "Kết quả đã có.",
+      "zh": "结果出来了。",
+      "ru": "Результат получен.",
+      "uk": "Результат є.",
+      "ko": "결과가 나왔다.",
+      "id": "Hasilnya sudah keluar.",
+      "fil": "Nandito na ang resulta.",
+      "hi": "नतीजा आ गया है।",
+      "bn": "ফল এসে গেছে।"
+    },
+    "before": {
+      "en": "The one cast out of this squad... is...",
+      "vi": "Kẻ bị loại khỏi đội này... là...",
+      "zh": "被这支小队淘汰的人是……",
+      "ru": "Тот, кого исключают из отряда... это...",
+      "uk": "Той, кого виключено з загону... це...",
+      "ko": "이 분대에서 쫓겨날 사람은...",
+      "id": "Orang yang dikeluarkan dari regu ini... adalah...",
+      "fil": "Ang itinatakwil sa skwad na ito... ay si...",
+      "hi": "इस दस्ते से निकाला जाने वाला शख़्स... है...",
+      "bn": "এই দল থেকে যাকে বাদ দেওয়া হচ্ছে... সে হলো..."
+    },
+    "name": {
+      "en": "{0}!",
+      "vi": "{0}!",
+      "zh": "{0}！",
+      "ru": "{0}!",
+      "uk": "{0}!",
+      "ko": "{0}!",
+      "id": "{0}!",
+      "fil": "{0}!",
+      "hi": "{0}!",
+      "bn": "{0}!"
+    },
+    "self": {
+      "en": "The name on the slip... no... it's... ME?!",
+      "vi": "Cái tên trên phiếu... không... là... TÔI?!",
+      "zh": "票上的名字……不……是……我？！",
+      "ru": "Имя в бюллетене... нет... это... Я?!",
+      "uk": "Ім'я в бюлетені... ні... це... Я?!",
+      "ko": "용지에 적힌 이름... 아니... 설마... 나?!",
+      "id": "Nama di kertas ini... bukan... ini... AKU?!",
+      "fil": "Ang pangalan sa papel... hindi... ako... ako?!",
+      "hi": "पर्ची पर नाम... नहीं... ये तो... मैं?!",
+      "bn": "স্লিপে নামটা... না... এটা... আমি?!"
+    },
+    "tie": {
+      "en": "The votes are split. Nobody is cast out today.",
+      "vi": "Phiếu bầu hòa nhau. Hôm nay không ai bị loại.",
+      "zh": "票数持平。今天没有人被淘汰。",
+      "ru": "Голоса разделились. Сегодня никого не исключают.",
+      "uk": "Голоси розділились. Сьогодні нікого не виключено.",
+      "ko": "표가 갈렸다. 오늘은 아무도 추방되지 않는다.",
+      "id": "Suara seri. Hari ini tidak ada yang dikeluarkan.",
+      "fil": "Pantay ang boto. Walang itatakwil ngayon.",
+      "hi": "वोट बराबर बँटे हैं। आज किसी को नहीं निकाला जाएगा।",
+      "bn": "ভোট সমান সমান। আজ কেউ বাদ যাচ্ছে না।"
+    }
+  },
+  "plea": [
+    {
+      "en": "No! Not me! I'm innocent, I swear!",
+      "vi": "Không! Không phải tôi! Tôi vô tội, tôi thề!",
+      "zh": "不！不是我！我是无辜的，我发誓！",
+      "ru": "Нет! Не я! Я невиновен, клянусь!",
+      "uk": "Ні! Не я! Я невинний, присягаюсь!",
+      "ko": "안 돼! 내가 아니야! 난 결백해, 맹세해!",
+      "id": "Tidak! Bukan aku! Aku tidak bersalah, aku bersumpah!",
+      "fil": "Hindi! Hindi ako! Inosente ako, sumpa!",
+      "hi": "नहीं! मैं नहीं! मैं बेक़सूर हूँ, क़सम से!",
+      "bn": "না! আমি না! আমি নির্দোষ, শপথ করে বলছি!"
+    },
+    {
+      "en": "You're making a mistake! Please!",
+      "vi": "Các người nhầm rồi! Làm ơn!",
+      "zh": "你们搞错了！求你们了！",
+      "ru": "Вы ошибаетесь! Пожалуйста!",
+      "uk": "Ви помиляєтесь! Будь ласка!",
+      "ko": "당신들이 틀렸어! 제발!",
+      "id": "Kalian salah! Kumohon!",
+      "fil": "Nagkakamali kayo! Pakiusap!",
+      "hi": "तुम लोग ग़लती कर रहे हो! प्लीज़!",
+      "bn": "তোমরা ভুল করছ! দয়া করো!"
+    }
+  ],
+  "strip": [
+    {
+      "en": "Seize him! Strip him. Take his weapon.",
+      "vi": "Bắt lấy hắn! Lột đồ hắn ra. Lấy vũ khí đi.",
+      "zh": "抓住他！扒掉他的衣服，缴了他的武器。",
+      "ru": "Взять его! Раздеть. Забрать оружие.",
+      "uk": "Хапайте його! Роздягніть. Заберіть зброю.",
+      "ko": "잡아! 옷을 벗겨. 무기를 빼앗아.",
+      "id": "Tangkap dia! Lucuti bajunya. Ambil senjatanya.",
+      "fil": "Hulihin siya! Hubaran. Kunin ang armas niya.",
+      "hi": "पकड़ो उसे! कपड़े उतारो। उसका हथियार ले लो।",
+      "bn": "ধরো ওকে! জামা খুলে নাও। অস্ত্র কেড়ে নাও।"
+    }
+  ],
+  "tie": [
+    {
+      "en": "Tie him to that tree!",
+      "vi": "Trói hắn vào gốc cây kia!",
+      "zh": "把他绑到那棵树上！",
+      "ru": "Привяжите его к тому дереву!",
+      "uk": "Прив'яжіть його до того дерева!",
+      "ko": "저 나무에 묶어라!",
+      "id": "Ikat dia ke pohon itu!",
+      "fil": "Itali siya sa punong iyon!",
+      "hi": "उसे उस पेड़ से बाँध दो!",
+      "bn": "ওকে ওই গাছে বেঁধে ফেলো!"
+    }
+  ],
+  "begging": [
+    {
+      "en": "Please... I beg you... we are a team...",
+      "vi": "Làm ơn... tôi xin các người... chúng ta là đồng đội mà...",
+      "zh": "求求你们……我求你们……我们是一个团队啊……",
+      "ru": "Прошу... умоляю вас... мы же одна команда...",
+      "uk": "Прошу... благаю вас... ми ж одна команда...",
+      "ko": "제발... 부탁이야... 우린 한 팀이잖아...",
+      "id": "Kumohon... aku mohon... kita ini satu tim...",
+      "fil": "Pakiusap... nagmamakaawa ako... magkakampi tayo...",
+      "hi": "प्लीज़... मैं हाथ जोड़ता हूँ... हम एक टीम हैं...",
+      "bn": "দয়া করো... আমি মিনতি করছি... আমরা তো একই দল..."
+    }
+  ],
+  "squad": [
+    {
+      "key": "pos",
+      "en": "Firing squad, take position!",
+      "vi": "Xạ thủ, vào vị trí!",
+      "zh": "行刑队，就位！",
+      "ru": "Расстрельная команда, на позиции!",
+      "uk": "Розстрільна команда, на позиції!",
+      "ko": "사격조, 위치로!",
+      "id": "Regu tembak, ambil posisi!",
+      "fil": "Firing squad, pumuwesto!",
+      "hi": "फ़ायरिंग स्क्वाड, पोज़ीशन लो!",
+      "bn": "ফায়ারিং স্কোয়াড, পজিশন নাও!"
+    },
+    {
+      "key": "load",
+      "en": "Load!",
+      "vi": "Nạp đạn!",
+      "zh": "装弹！",
+      "ru": "Заряжай!",
+      "uk": "Заряджай!",
+      "ko": "장전!",
+      "id": "Isi peluru!",
+      "fil": "Kargahan!",
+      "hi": "लोड करो!",
+      "bn": "লোড করো!"
+    },
+    {
+      "key": "aim",
+      "en": "Aim!",
+      "vi": "Nhắm!",
+      "zh": "瞄准！",
+      "ru": "Целься!",
+      "uk": "Цілься!",
+      "ko": "조준!",
+      "id": "Bidik!",
+      "fil": "Itutok!",
+      "hi": "निशाना साधो!",
+      "bn": "নিশানা করো!"
+    },
+    {
+      "key": "fire",
+      "en": "FIRE!",
+      "vi": "BẮN!",
+      "zh": "开火！",
+      "ru": "ОГОНЬ!",
+      "uk": "ВОГОНЬ!",
+      "ko": "발사!",
+      "id": "TEMBAK!",
+      "fil": "PUTOK!",
+      "hi": "फ़ायर!",
+      "bn": "ফায়ার!"
+    }
+  ],
+  "after": [
+    {
+      "en": "It's done. I hope we chose right.",
+      "vi": "Xong rồi. Mong là chúng ta đã chọn đúng.",
+      "zh": "结束了。希望我们没选错。",
+      "ru": "Всё кончено. Надеюсь, мы не ошиблись.",
+      "uk": "Все скінчено. Сподіваюсь, ми не помилились.",
+      "ko": "끝났다. 우리가 옳은 선택을 했길 바란다.",
+      "id": "Sudah selesai. Semoga kita memilih dengan benar.",
+      "fil": "Tapos na. Sana tama ang napili natin.",
+      "hi": "हो गया। उम्मीद है हमने सही चुना।",
+      "bn": "শেষ হলো। আশা করি আমরা ঠিক সিদ্ধান্ত নিয়েছি।"
+    }
+  ],
+  "tag": {
+    "en": "● COUNTING BALLOTS ON-CHAIN…",
+    "vi": "● ĐANG KIỂM PHIẾU TRÊN CHUỖI…",
+    "zh": "● 正在链上统计选票…",
+    "ru": "● ИДЁТ ПОДСЧЁТ ГОЛОСОВ В БЛОКЧЕЙНЕ…",
+    "uk": "● ТРИВАЄ ПІДРАХУНОК ГОЛОСІВ У БЛОКЧЕЙНІ…",
+    "ko": "● 체인에서 투표 집계 중…",
+    "id": "● MENGHITUNG SUARA DI ON-CHAIN…",
+    "fil": "● BINIBILANG ANG MGA BOTO SA ON-CHAIN…",
+    "hi": "● ऑन-चेन वोटों की गिनती हो रही है…",
+    "bn": "● অন-চেইনে ভোট গণনা চলছে…"
+  }
+}

@@ -9,6 +9,7 @@ export const BOTS = 10;                // = SOLO_BOTS trong contract
 export const PLAYERS = BOTS + 1;       // bạn + bot
 /** Họp: ghế quanh đống lửa (mỗi người một ghế) · thời gian chạy tới lửa trại sau khi có người gọi họp · tầm với để ngồi vào ghế. */
 export const CALL_SECONDS = 30;
+export const MEET_SECONDS = 100;   // cuộc họp ở đống lửa: đếm ngược 100 s; về 0 -> phiên tòa (tribunal.ts) chiếu trong lúc chờ giao dịch kiểm phiếu
 export const CAMP_REACH = 4.5;
 export const seatPos = (k: number) => { const a = (k / PLAYERS) * Math.PI * 2 + 0.3; return { x: Math.cos(a) * 2.5, z: Math.sin(a) * 2.5 }; };
 export const COLORS = [0xff4d4d, 0x4da6ff, 0x4dff88, 0xffd24d, 0xff9f43, 0xc77dff, 0x2ee6d6, 0xff7aa8, 0xb8e04d, 0xa0a8ff, 0xe8e8e8];

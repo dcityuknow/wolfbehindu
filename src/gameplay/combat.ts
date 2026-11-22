@@ -1,3 +1,4 @@
+import { playBark } from "../meetVoice";
 import { t } from "../i18n";
 import * as THREE from "three";
 import { G } from "../state";
@@ -150,11 +151,7 @@ export function throwGrenade() { equipNade(true); }   // phím G
 const GREN_LINE = "Zama fire in the hole";
 function sayGren() {
   toast('🗣️ "' + GREN_LINE + '"');
-  try {
-    const ss = window.speechSynthesis; if (!ss) return;
-    ss.cancel();   // ném liên tiếp thì không dồn hàng đợi
-    const u = new SpeechSynthesisUtterance(GREN_LINE); u.lang = "en-US"; u.rate = 1; u.pitch = 0.9; u.volume = 1; ss.speak(u);
-  } catch { /* không có giọng đọc */ }
+  try { playBark(G.slot, GREN_LINE, false, 0.9); } catch { /* không có âm thanh */ }   // giọng Kokoro của chính nhân vật người chơi
 }
 function launch() {
   sayGren(); sfx.nadeLaunch();

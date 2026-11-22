@@ -10,7 +10,7 @@ import { buildGun, buildGrenade, setSlide, type GunRig } from "./guns";
 import { reloadPose, newRelOut, slideK, e3, cl } from "./gunpose";
 import { W, MV, HURT, ROLL_T } from "../weaponState";
 import { DEATH } from "../ui/deathSeq";
-import { CINE } from "./cineState";
+import { CINE, TRIB } from "./cineState";
 import { groundAt, terrainRay, CAMP_Y } from "./island";
 
 /** Camera 2 chế độ: thứ ba (qua vai) · thứ nhất. Quy ước: hướng nhìn = (sin yaw, cos yaw). */
@@ -162,7 +162,8 @@ function fpNade(hide: boolean, moving: boolean) {
 }
 /** overview = họp/eject (camera cố định nhìn bàn), menu = quay quanh trạm làm nền cho màn giới thiệu. */
 export function updateCamera(dt: number, t: number, shake: number) {
-  if (CINE.active) return;   // cảnh mở đầu 3D tự điều khiển camera (world/cine3d.ts)
+  if (CINE.active || TRIB.active) return;   // phiên tòa (gameplay/tribunal.ts) tự đặt camera
+  // (cảnh mở đầu 3D tự điều khiển camera (world/cine3d.ts)
   const m = me(), sx = (Math.random() - 0.5) * shake, sz = (Math.random() - 0.5) * shake;
   HURT.target *= Math.exp(-dt / HURT.TAU); HURT.tilt += (HURT.target - HURT.tilt) * Math.min(1, dt * 18);   // nghiêng nhanh khi trúng, trả về từ từ
   const rollK = MV.roll > 0 ? Math.sin(Math.PI * (1 - MV.roll / ROLL_T)) : 0, tilt = G.phase === "play" ? -HURT.tilt : 0;   // rollK: 0→1→0 trong cú lăn

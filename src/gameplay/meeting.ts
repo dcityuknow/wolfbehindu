@@ -7,7 +7,9 @@ import { entities, bodies, markDead, me, setAlerts } from "../world/characters";
 import type { Entity } from "../types";
 import { nearestFreeSeat, sit, standAll } from "./seats";
 import { exile } from "./hostile";
-import { NAMES, NO_TARGET, CALL_SECONDS, CAMP_REACH } from "../config";
+import { NAMES, NO_TARGET, CALL_SECONDS, CAMP_REACH, MEET_SECONDS } from "../config";
+import { beginTribunal } from "./tribunal";
+import { locale } from "../i18n";
 import { clearCombat } from "./combat";
 import { ctx } from "../web3/context";
 import { callMeeting, castVote, fetchStatuses, getRoom, parseEvents, tallyAndFinalize, reportFriendlyKill, setBotPlan } from "../web3/chain";
@@ -16,6 +18,10 @@ import { splash, hideSplash } from "../ui/hud";
 import { UI } from "../story";
 import { sfx, cineSfx } from "../audio";
 
+const SEALED: Record<string, string> = {
+  en: "🔒 Ballot sealed — waiting for the clock…", vi: "🔒 Phiếu đã niêm — chờ hết giờ họp…", zh: "🔒 选票已加密封存——等待倒计时结束…", ru: "🔒 Бюллетень запечатан — ждём конца таймера…", uk: "🔒 Бюлетень запечатано — чекаємо кінця таймера…",
+  ko: "🔒 투표가 봉인되었습니다 — 타이머 종료 대기 중…", id: "🔒 Suara tersegel — menunggu waktu habis…", fil: "🔒 Selyado na ang boto — hinihintay ang oras…", hi: "🔒 वोट सील हो गया — टाइमर ख़त्म होने का इंतज़ार…", bn: "🔒 ব্যালট সিল করা হয়েছে — টাইমার শেষ হওয়ার অপেক্ষা…",
+};
 let beat = -1;   // last second at which the countdown heartbeat played
 export const ejecting = { cur: null as null | { e: (typeof entities)[number]; t: number; dx: number; dz: number; done: () => void } };
 const chat = (n: string, t: string) => { const c = $("#chat"); c.innerHTML += `<div><b>${n}:</b> ${t}</div>`; c.scrollTop = 1e9; };
@@ -74,6 +80,7 @@ export async function startMeeting(why: string) {
   $("#callbar").style.display = "none"; setAlerts(() => false, 0);
 
   const dl = Number((await getRoom()).voteDeadline);
+  meetEnd = Math.min(dl, Date.now() / 1e3 + MEET_SECONDS);   // đồng hồ họp: 100 s (hạn on-chain có thể dài hơn một chút, phần dư được phiên tòa lấp đầy)
   entities.forEach((e) => { e.g.visible = !e.dead && !e.out; });   // everyone is already seated around the fire
   bodies.forEach((b) => { if (!entities.some((e) => e.g === b.g)) b.g.visible = false; });
   $("#mwhy").textContent = why; $("#chat").innerHTML = ""; $("#mstat").textContent = G.ghost ? UI.spectating : ""; $("#skip").style.display = G.ghost ? "none" : ""; show("#meet");
@@ -92,17 +99,17 @@ export async function startMeeting(why: string) {
   $("#cs").onclick = send; $("#ci").onkeydown = (ev) => { ev.stopPropagation(); if ((ev as KeyboardEvent).key === "Enter") send(); };
   $("#ci").onkeyup = (ev) => ev.stopPropagation();
   setBotPlan(null);
-  startDebate({ me: G.slot, alive: () => entities.filter((e) => !gone(e)).map((e) => e.i), left: () => dl - Date.now() / 1e3, log: (w, tx) => chat(NAMES[w], tx) });   // tranh cãi: giọng thật, nói chồng lên nhau, biểu cảm theo lời
+  startDebate({ me: G.slot, alive: () => entities.filter((e) => !gone(e)).map((e) => e.i), left: () => meetEnd - Date.now() / 1e3, log: (w, tx) => chat(NAMES[w], tx) });   // tranh cãi: giọng thật, nói chồng lên nhau, biểu cảm theo lời
   const tm = setInterval(() => {
     if (G.phase !== "meet") { stopDebate(); unmountStage(); return clearInterval(tm); }
-    const l = dl - Math.floor(Date.now() / 1e3); $("#mt").textContent = "⏱ " + Math.max(0, l) + "s";
+    const l = Math.ceil(meetEnd - Date.now() / 1e3); $("#mt").textContent = "⏱ " + Math.max(0, l) + "s";
     if (l <= 0 && !G.voted && autoVote) vote(abstain());
   }, 1000);
   autoVote = true;
   if (G.ghost) vote(abstain()); // a dead player has nothing to vote: with the session wallet we just close the vote, otherwise a zero-weight vote is sent
 }
 
-let autoVote = true, lastChoice: number | null = null;
+let autoVote = true, lastChoice: number | null = null, meetEnd = 0;
 /** Abstain: with the session wallet nothing is signed (the operator just closes the vote); without it a "skip" vote is cast. */
 const abstain = () => (ctx.opGame ? null : NO_TARGET);
 
@@ -115,23 +122,33 @@ async function tallyRetry() {
   throw new Error("The vote is still open on-chain — try again in a moment.");
 }
 
-/** t = a player index / NO_TARGET to cast a (sealed) vote, or null to abstain without signing anything. */
+/** t = a player index / NO_TARGET to cast a (sealed) vote, or null to abstain without signing anything.
+ *  Phiếu được niêm (mã hoá) ngay khi chọn, nhưng cuộc họp VẪN chạy đủ 100 s. Đồng hồ về 0 -> chốt phiếu bot -> phiên tòa (tribunal.ts) chiếu trong lúc giao dịch kiểm phiếu
+ *  chờ xác nhận on-chain; đúng lúc giao dịch trả ai bị loại thì người cầm phiếu công bố, cả nhóm lột đồ, trói vào gốc cây và xử bắn. */
 async function vote(t: number | null) {
   if (G.voted) return; G.voted = true; lastChoice = t;
-  setBotPlan(lockBallots());   // các bot bỏ phiếu đúng như đã nói ở đống lửa (phiên tòa sau tiếng súng ảnh hưởng phiếu THẬT) $("#mstat").textContent = G.ghost ? UI.spectating : t === null ? UI.tally : UI.sealing;
+  let trib: ReturnType<typeof beginTribunal> | null = null;
   try {
     if (t !== null) {
       try { await castVote(t); chat(UI.sysName, UI.sysVote); }
       catch (e: any) { if (!/Voting closed/i.test(String(e.reason || e.shortMessage || e.message))) throw e; chat(UI.sysName, UI.timesUp); }   // the deadline passed while signing: not an error, just abstain
     }
-    if (!G.ghost) $("#mstat").textContent = UI.tally;
+    if (!G.ghost) $("#mstat").textContent = SEALED[locale.lang] ?? SEALED.en;
+    while (G.phase === "meet" && meetEnd - Date.now() / 1e3 > 0) await sleep(250);   // họp đủ 100 s
+    if (G.phase !== "meet") return;
+    setBotPlan(lockBallots());   // các bot bỏ phiếu đúng như đã nói ở đống lửa (phiên tòa sau tiếng súng ảnh hưởng phiếu THẬT)
+    $("#mstat").textContent = UI.tally;
+    stopDebate(); hide("#meet"); unmountStage();
+    trib = beginTribunal();   // clip chờ kết quả: chạy song song với giao dịch kiểm phiếu
     const r = await tallyRetry(), ev = parseEvents(r);
     const ej = ev.find((x: any) => x.name === "PlayerEjected"), end = ev.find((x: any) => x.name === "GameEnded");
-    hide("#meet"); stopDebate(); unmountStage();
-    await ejectAnimation(ej ? Number(ej.args.slotId) : null, !!(ej && ej.args.wasImpostor));
+    const slot = ej ? Number(ej.args.slotId) : null;
+    await trib.resolve(slot, !!(ej && ej.args.wasImpostor)); trib = null;   // công bố + xử bắn (hoặc "hòa")
+    if (slot !== null) { const e = entities[slot]; if (slot === G.slot) G.ghost = true; G.dead.add(slot); e.out = true; e.g.visible = false; }
     if (end) finish(Number(end.args.winner)); else nextRound();
   } catch (e: any) {
-    // Never loop: stop auto-voting and offer a manual retry button.
+    // Never loop: stop auto-voting and offer a manual retry button. Giao dịch lỗi -> dừng phiên tòa, mở lại màn họp.
+    if (trib) { trib.abort(); mountStage($("#meet"), $("#mrow"), $<HTMLCanvasElement>("#mcv"), (i) => entities[i].dead || entities[i].out || (entities[i].i === G.slot && G.ghost)); show("#meet"); }
     autoVote = false; G.voted = false; toast("✗ " + String(e.reason || e.shortMessage || e.message || e).slice(0, 120));
     $("#mstat").innerHTML = `${UI.voteFail} <button id="rt">${UI.retryVote}</button>`;
     $("#rt").onclick = () => { $("#mstat").textContent = ""; void vote(lastChoice); };

@@ -16,12 +16,12 @@ export const e3 = (x: number) => x * x * (3 - 2 * x);
 export const cl = (u: number, a: number, b: number) => Math.min(1, Math.max(0, (u - a) / (b - a)));
 const mix = (o: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3, t: number) => o.copy(a).lerp(b, t);
 
-const SH = { r: V(0.336, 1.344, 0), l: V(-0.336, 1.344, 0) }, REACH = 0.588;   // vai (tâm xoay tay) · khoảng từ vai tới giữa bàn tay
+export const SH = { r: V(0.336, 1.344, 0), l: V(-0.336, 1.344, 0) }, REACH = 0.588;   // vai (tâm xoay tay) · khoảng từ vai tới giữa bàn tay
 const DOWN = V(0, -1, 0), AX = V(1, 0, 0), _a = V(), _e = new THREE.Euler();
 const LA = 4 * 0.056, LB = 6.8 * 0.056, _q = new THREE.Quaternion(), _qx = new THREE.Quaternion(), _zw = V(), _pole = V();   // bắp tay · (cẳng tay + nửa bàn tay)
 export const ELBOW_REST = -0.22;   // cùi chỏ hơi gập khi buông tay
 /** Đưa bàn tay tới đúng điểm target bằng 2 đốt xương (bắp tay + cẳng tay) có KHỚP CÙI CHỎ: cùi chỏ gập xuống và hơi chìa ra ngoài như người cầm súng thật; xa quá thì tay duỗi thẳng và kéo dài nhẹ. */
-function reach(arm: THREE.Object3D, sh: THREE.Vector3, target: THREE.Vector3) {
+export function reach(arm: THREE.Object3D, sh: THREE.Vector3, target: THREE.Vector3) {
   _a.copy(target).sub(sh); const D = _a.length() || 1e-3; _a.divideScalar(D);
   const el = arm.userData.elbow as THREE.Object3D | undefined;
   arm.quaternion.setFromUnitVectors(DOWN, _a);

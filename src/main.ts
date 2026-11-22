@@ -37,6 +37,8 @@ import { lethal, friendlyKill } from "./gameplay/actions";
 import { cineUpdate } from "./world/cine3d";
 import { updateHostile } from "./gameplay/hostile";
 import { CINE } from "./world/cineState";
+import { tribunalUpdate } from "./gameplay/tribunal";
+import { preloadVoices } from "./meetVoice";
 import { tickDeath } from "./ui/deathSeq";
 import { updateAltitude } from "./world/altitude";
 
@@ -139,7 +141,7 @@ function update(dt: number) {
     if (ej.t > 3) { e.g.scale.setScalar(1); ejecting.cur = null; ej.done(); }
   }
   shake.v = Math.max(0, shake.v - dt);
-  tNow += dt; updateFx(dt); updateWeaponHud(); updateMinimap(dt); animateCrew(dt, tNow); updateMap(tNow, dt); updateTerrain(tNow, dt);
+  tNow += dt; updateFx(dt); updateWeaponHud(); updateMinimap(dt); animateCrew(dt, tNow); tribunalUpdate(dt); updateMap(tNow, dt); updateTerrain(tNow, dt);
   cineUpdate(dt); tickDeath(dt);
   updateCamera(dt, tNow, shake.v);
   followSun(m.x, m.y, m.z); torch.position.set(m.x, m.y + 3, m.z);
@@ -148,6 +150,7 @@ function update(dt: number) {
   updateBlizzard(dt, tNow);   // gió thổi + tuyết bay trên đỉnh núi
 }
 
+preloadVoices();   // giọng 11 lính (audio sprite) nạp nền ngay khi vào game
 let tNow = 0;
 let last = performance.now();
 (function loop(now: number) {

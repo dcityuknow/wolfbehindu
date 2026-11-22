@@ -1,3 +1,4 @@
+import { playBark } from "../meetVoice";
 import { deathFlow } from "./gameover";
 import * as THREE from "three";
 import { entities, me, collide, BOT_GUNS } from "../world/characters";
@@ -53,14 +54,10 @@ const box = document.createElement("div"); box.id = "bubbles"; $("#hud").appendC
 const bubs = entities.map(() => { const d = document.createElement("div"); d.className = "bub"; box.appendChild(d); return d; });
 const wanted = document.createElement("div"); wanted.id = "wanted"; wanted.textContent = UI.wanted; $("#hud").appendChild(wanted);
 function speak(text: string, i: number, shout: boolean) {
-  try {
-    const ss = window.speechSynthesis; if (!ss) return; ss.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.lang = "en-US";
-    u.pitch = shout ? 1.4 : 0.7 + ((i * 0.37) % 0.9); u.rate = shout ? 1.25 : 1.1; ss.speak(u);
-  } catch { /* không có giọng đọc */ }
+  try { playBark(i, text, shout, shout ? 1.4 : 0.7 + ((i * 0.37) % 0.9)); } catch { /* không có âm thanh */ }   // CÙNG giọng Kokoro của lính đó như mọi chỗ khác (thiếu file mới rơi về giọng trình duyệt)
 }
-function say(i: number, text: string, shout = false, voice = false) {
-  ms[i].say = shout ? 3.2 : 2.8; bubs[i].textContent = text; bubs[i].classList.toggle("shout", shout); if (voice) speak(text, i, shout);
+function say(i: number, text: string, shout = false, voice: boolean | string = false) {   // voice = chuỗi: câu TIẾNG ANH để đọc (chữ hiển thị có thể là bản dịch)
+  ms[i].say = shout ? 3.2 : 2.8; bubs[i].textContent = text; bubs[i].classList.toggle("shout", shout); if (voice) speak(typeof voice === "string" ? voice : text, i, shout);
 }
 const V = new THREE.Vector3();
 function updateBubbles(dt: number) {
@@ -176,7 +173,7 @@ export function onUnseenDeath(v: Entity) {
 }
 function warn(e: Entity, victim: boolean) {
   const m = ms[e.i]; if (m.mood > 0 && m.mood !== 3) return;
-  m.mood = 1; m.t = 0; m.q = 0; say(e.i, victim ? UI.whyShot : pick(["Hey! Did you just shoot him?!", "What was that?! Drop your weapon!"]), true, true);
+  m.mood = 1; m.t = 0; m.q = 0; say(e.i, victim ? UI.whyShot : pick(["Hey! Did you just shoot him?!", "What was that?! Drop your weapon!"]), true, victim ? "WHY YOU SHOT ME??" : true);
 }
 function rage(e: Entity, delay: number) {
   const m = ms[e.i]; m.mood = 2; m.react = delay + Math.random() * 0.7; m.burst = 0; m.rest = 0.3; m.cd = 0; m.nc = Math.max(m.nc, 3 + Math.random() * 4);
@@ -184,7 +181,7 @@ function rage(e: Entity, delay: number) {
 function expose(first: Entity, wit: Entity[]) {
   exposed = true; wanted.style.display = "block";
   for (const e of wit) rage(e, e === first ? 0.15 : 0.3);
-  say(first.i, UI.firstAccuse, true, true);
+  say(first.i, UI.firstAccuse, true, "That's him! Squad, FIRE!");
   let n = 0; for (const e of wit) if (e !== first && n++ < 3) say(e.i, pick(ALARM), false);
   for (const o of entities) if (!wit.includes(o) && o.i !== G.slot && !o.dead && !o.out && Math.hypot(o.x - first.x, o.z - first.z) < WIT.hear) investigate(o, first.x, first.z);   // the rest run over to hear it from the witnesses
 }
