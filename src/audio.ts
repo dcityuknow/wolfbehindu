@@ -181,8 +181,30 @@ const tone = (f: number, dur: number, vol: number, type: OscillatorType = "squar
   o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.03);
 };
+/** Tiếng HÉT của nhân vật khi rơi không dù: sawtooth + vuông trượt cao độ (lên rồi trôi xuống), rung vibrato, 3 formant "AAA", nhiễu hơi thở, méo nhẹ cho khàn. Dừng bằng screamStop() (lúc chạm đất). */
+let scr: { stop: () => void } | null = null;
+const screamStopNow = () => { if (!scr) return; const s = scr; scr = null; s.stop(); };
 export const cineSfx = {
   static: safe((d: number, v: number = 0.5) => hiss(2600, d, v, "highpass")),
+  scream: safe((dur: number = 12, vol: number = 1) => {
+    screamStopNow();
+    const a = A(), t = a.currentTime, out = a.createGain(), ws = a.createWaveShaper(), mix = a.createGain(), vib = a.createOscillator(), vg = a.createGain(), srcs: AudioScheduledSourceNode[] = [vib];
+    const k = 28, cv = new Float32Array(257); for (let i = 0; i < 257; i++) { const x = (i / 128) - 1; cv[i] = Math.tanh(x * k * 0.1) ; } ws.curve = cv;
+    vib.frequency.setValueAtTime(5.5, t); vib.frequency.linearRampToValueAtTime(8.5, t + 3); vg.gain.value = 16; vib.connect(vg);
+    for (const [type, det] of [["sawtooth", 0], ["square", 7]] as [OscillatorType, number][]) {
+      const o = a.createOscillator(); o.type = type; o.detune.value = det;
+      o.frequency.setValueAtTime(260, t); o.frequency.exponentialRampToValueAtTime(560, t + 0.28); o.frequency.exponentialRampToValueAtTime(500, t + 2.5); o.frequency.exponentialRampToValueAtTime(420, t + Math.max(3, dur));
+      vg.connect(o.frequency); const g = a.createGain(); g.gain.value = type === "square" ? 0.35 : 0.8; o.connect(g); g.connect(mix); o.start(t); srcs.push(o);
+    }
+    for (const [f, q, gv] of [[850, 5, 1.0], [1350, 6, 0.8], [2700, 9, 0.35]] as number[][]) { const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f; bp.Q.value = q; const g = a.createGain(); g.gain.value = gv; mix.connect(bp); bp.connect(g); g.connect(ws); }
+    const n = a.createBufferSource(), nf = a.createBiquadFilter(), ng = a.createGain(); n.buffer = noise(a); n.loop = true; nf.type = "bandpass"; nf.frequency.value = 2300; nf.Q.value = 0.8; ng.gain.value = 0.22; n.connect(nf); nf.connect(ng); ng.connect(ws); n.start(t); srcs.push(n);
+    const lfo = a.createOscillator(), lg = a.createGain(); lfo.frequency.value = 11; lg.gain.value = 0.08 * vol * VOL; lfo.connect(lg); lg.connect(out.gain); lfo.start(t); srcs.push(lfo);   // run giọng
+    ws.connect(out); out.connect(a.destination);
+    out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.32 * vol * VOL, t + 0.07);
+    const stop = () => { const n2 = a.currentTime; out.gain.cancelScheduledValues(n2); out.gain.setTargetAtTime(0, n2, 0.03); setTimeout(() => { for (const x of srcs) { try { x.stop(); } catch { /* đã dừng */ } } try { out.disconnect(); } catch { /* */ } }, 300); };
+    scr = { stop }; setTimeout(() => { if (scr && scr.stop === stop) screamStopNow(); }, dur * 1000);
+  }),
+  screamStop: safe(() => screamStopNow()),
   squelch: safe(() => { hiss(3500, 0.05, 0.35, "bandpass"); tone(1300, 0.04, 0.08, "sine", 0.05); }),   // bấm nút nói bộ đàm
   beep: safe((vol: number = 1) => tone(1760, 0.16, 0.2 * vol)),                                  // tiếng bíp bộ phát tín hiệu (khớp giây 0:08 và 0:58)
   alarm: safe(() => { tone(2400, 0.09, 0.16); tone(2400, 0.09, 0.16, "square", 0.14); }),   // đồng hồ độ cao cảnh báo

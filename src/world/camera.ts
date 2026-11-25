@@ -10,6 +10,7 @@ import { buildGun, buildGrenade, setSlide, type GunRig } from "./guns";
 import { reloadPose, newRelOut, slideK, e3, cl } from "./gunpose";
 import { W, MV, HURT, ROLL_T } from "../weaponState";
 import { DEATH } from "../ui/deathSeq";
+import { PV, tickPlayerView, deathView } from "./hitreact";
 import { CINE, TRIB } from "./cineState";
 import { groundAt, terrainRay, CAMP_Y } from "./island";
 
@@ -124,6 +125,7 @@ function fpWeapons(moving: boolean, rollK: number) {
   vg.position.set(lerpN(c.p[0], c.ads[0], ads) - tl * 0.05, lerpN(c.p[1], c.ads[1], ads) - tl * 0.1 - W.swapT * 0.4 + (moving ? Math.sin(bob) * 0.012 : 0), lerpN(c.p[2], c.ads[2], ads) + W.kick * 0.07);
   vg.rotation.set(W.kick * 0.12 - tl * 0.35 - W.swapT * 0.5, Math.PI, tl * 0.45);
   vg.position.y -= 1.2 * MV.swimK + 0.8 * rollK;
+  vg.position.x += PV.vx; vg.position.y += PV.vy; vg.position.z += PV.vz; vg.rotation.x += PV.vrx; vg.rotation.z += PV.vrz;   // trúng đạn: súng khựng / tuột xuống
   vg.updateMatrix();
   const mg = vg.userData.mag as THREE.Object3D, home = vg.userData.magHome as THREE.Vector3, fore = vg.userData.fore as THREE.Vector3;
   let magOn = true, rack = 0;
@@ -133,7 +135,7 @@ function fpWeapons(moving: boolean, rollK: number) {
   mg.visible = magOn; setSlide(vg, slideK(id, rack));
   _L.applyMatrix4(vg.matrix);
   vg.visible = !hide;
-  if (vg.visible) placeArm(fpHandL, _L.x, _L.y, _L.z, -1, -0.25);
+  if (vg.visible) placeArm(fpHandL, _L.x + PV.hx, _L.y + PV.hy, _L.z, -1, -0.25);
 }
 function fpNade(hide: boolean, moving: boolean) {
   const g = viewNade, D = GRENADE.draw, PT = GRENADE.pin, TH = GRENADE.throwT, throwing = W.gThrowT > 0, hold = W.gHold || W.gAuto;
@@ -146,7 +148,7 @@ function fpNade(hide: boolean, moving: boolean) {
   } else if (W.gDrawT < D) { // móc túi: quả lựu đạn từ hông trái nhấc lên
     const r = e3(cl(Math.max(0, W.gDrawT), 0, D)); ox = -0.3 * (1 - r); oy = -0.5 * (1 - r); oz = 0.1 * (1 - r);
   }
-  g.position.set(FP_NADE.x + ox, FP_NADE.y + oy + (moving ? Math.sin(bob) * 0.012 : 0) - 1.2 * MV.swimK, FP_NADE.z + oz); g.rotation.set(rx, 0, 0); g.updateMatrix();
+  g.position.set(FP_NADE.x + ox + PV.vx, FP_NADE.y + PV.vy + oy + (moving ? Math.sin(bob) * 0.012 : 0) - 1.2 * MV.swimK, FP_NADE.z + oz); g.rotation.set(rx, 0, 0); g.updateMatrix();
   (g.userData.model as THREE.Object3D).visible = !(throwing && W.gThrown);
   ((g.userData.model as THREE.Object3D).userData.pin as THREE.Object3D).visible = !W.gPin;
   g.visible = !hide && W.gDrawT > -0.05;
@@ -165,6 +167,7 @@ export function updateCamera(dt: number, t: number, shake: number) {
   if (CINE.active || TRIB.active) return;   // phiên tòa (gameplay/tribunal.ts) tự đặt camera
   // (cảnh mở đầu 3D tự điều khiển camera (world/cine3d.ts)
   const m = me(), sx = (Math.random() - 0.5) * shake, sz = (Math.random() - 0.5) * shake;
+  tickPlayerView(dt);   // phản ứng trúng đạn của người chơi (PV): camera + súng + tay góc thứ nhất
   HURT.target *= Math.exp(-dt / HURT.TAU); HURT.tilt += (HURT.target - HURT.tilt) * Math.min(1, dt * 18);   // nghiêng nhanh khi trúng, trả về từ từ
   const rollK = MV.roll > 0 ? Math.sin(Math.PI * (1 - MV.roll / ROLL_T)) : 0, tilt = G.phase === "play" ? -HURT.tilt : 0;   // rollK: 0→1→0 trong cú lăn
   if (document.pointerLockElement && (G.mini || G.phase !== "play")) document.exitPointerLock();
@@ -178,25 +181,25 @@ export function updateCamera(dt: number, t: number, shake: number) {
   if (G.phase === "menu") { // quay quanh đảo
     const a = t * 0.06 + 0.6; camera.position.set(Math.sin(a) * 128, 58, Math.cos(a) * 128); camera.lookAt(0, 9, 0); return;
   }
-  if (DEATH.active) { // bị hạ: ngã sang trái — mắt tụt sát đất, đầu chúi xuống, góc nhìn nghiêng gần 90° (giống game tham khảo)
-    const de = DEATH.k, lx = Math.cos(rig.yaw), lz = -Math.sin(rig.yaw);   // lx,lz = hướng "trái" của nhân vật
-    camera.position.set(m.x + lx * 0.5 * de + sx, m.y + 1.62 * (1 - de) + 0.3 * de, m.z + lz * 0.5 * de + sz);
-    camera.rotation.set(-(rig.pitch - W.recoil) * (1 - de) - 0.25 * de, rig.yaw + Math.PI, 1.5 * de);
+  if (DEATH.active && firstNow()) { // bị hạ (góc thứ nhất): mắt tụt xuống khi khuỵu gối, đầu gục, rồi đổ ra sau / úp mặt / nghiêng — cùng nhịp với avatar (hitreact.ts); góc thứ ba thì camera quỹ đạo thường nhìn avatar ngã
+    const d = deathView(DEATH.t), fx = Math.sin(rig.yaw), fz = Math.cos(rig.yaw), lx = Math.cos(rig.yaw), lz = -Math.sin(rig.yaw);   // lx,lz = hướng "trái" của nhân vật
+    camera.position.set(m.x + lx * d.lat + fx * d.fwd + sx, m.y + 1.62 + d.dy, m.z + lz * d.lat + fz * d.fwd + sz);
+    camera.rotation.set(-(rig.pitch - W.recoil) * (1 - d.k) + d.pitch, rig.yaw + Math.PI, d.roll);
     m.g.visible = false; camera.updateMatrixWorld(); return;
   }
-  if (G.phase === "end") { // kết thúc: nhìn đống lửa từ trên cao (khi họp, camera của người chơi được giữ nguyên)
+  if (G.phase === "end" && !DEATH.active) { // kết thúc: nhìn đống lửa từ trên cao (khi họp, camera của người chơi được giữ nguyên)
     const a = t * 0.12; camera.position.set(Math.sin(a) * 3, CAMP_Y + 10.5, 9 + Math.cos(a) * 1.2); camera.lookAt(0, CAMP_Y + 0.5, 0); return;
   }
   if (firstNow()) {
     const moving = Math.hypot(m.x - lastX, m.z - lastZ) > 0.001; bob += moving ? dt * 9 : 0;
-    camera.position.set(m.x + sx, m.y + 1.62 - 0.35 * MV.swimK - 0.6 * rollK + (moving && !MV.swimming ? Math.sin(bob) * 0.035 : 0) + (MV.inWater ? Math.sin(t * 2.1) * 0.03 : 0), m.z + sz);
-    camera.rotation.set(-(rig.pitch - W.recoil) - 0.5 * rollK, rig.yaw + Math.PI, tilt + Math.sin(MV.stk) * 0.03 * MV.swimK);
+    camera.position.set(m.x + sx - Math.sin(rig.yaw) * PV.back, m.y + 1.62 + PV.dy - 0.35 * MV.swimK - 0.6 * rollK + (moving && !MV.swimming ? Math.sin(bob) * 0.035 : 0) + (MV.inWater ? Math.sin(t * 2.1) * 0.03 : 0), m.z + sz - Math.cos(rig.yaw) * PV.back);
+    camera.rotation.set(-(rig.pitch - W.recoil) - 0.5 * rollK + PV.pitch, rig.yaw + Math.PI + PV.yaw, tilt + PV.roll + Math.sin(MV.stk) * 0.03 * MV.swimK);
     if (!G.ghost && playing) fpWeapons(moving, rollK);
     updateSwimArms();
     me().g.visible = false;
   } else {
     me().g.visible = true;
-    const px = m.x, py = m.y + 1.6 - 0.5 * MV.swimK - 0.55 * rollK, pz = m.z;
+    const px = m.x, py = m.y + 1.6 + PV.dy * 0.5 - 0.5 * MV.swimK - 0.55 * rollK, pz = m.z;
     const rx = -Math.cos(rig.yaw) * 0.55, rz = Math.sin(rig.yaw) * 0.55;               // lệch qua vai phải
     const ox = px + rx, oz = pz + rz;
     // Camera sau lưng bị vách/đồi chắn → thay vì dí sát vào nhân vật, nâng camera lên cao dần (nhìn từ trên xuống) cho tới khi thoáng.
@@ -215,7 +218,7 @@ export function updateCamera(dt: number, t: number, shake: number) {
     const fin = probe(lift), L = CL.set(Math.sin(rig.yaw) * Math.cos(fin.p), -Math.sin(fin.p), Math.cos(rig.yaw) * Math.cos(fin.p)), d = fin.d;
     const cx = ox - L.x * d + sx, cz = oz - L.z * d + sz;
     camera.position.set(cx, Math.max(groundAt(cx, cz) + 0.5, py - L.y * d), cz);
-    camera.rotation.set(-(fin.p - W.recoil), rig.yaw + Math.PI, tilt);
+    camera.rotation.set(-(fin.p - W.recoil) + PV.pitch * 0.35, rig.yaw + Math.PI + PV.yaw * 0.4, tilt + PV.roll * 0.5);
   }
   lastX = m.x; lastZ = m.z;
   camera.updateMatrixWorld();

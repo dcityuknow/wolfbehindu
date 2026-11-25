@@ -9,7 +9,7 @@ const st = new Map<number, Walk>();
 export const resetWalk = (i?: number) => { if (i === undefined) st.clear(); else st.delete(i); };
 
 export function walkTo(e: Entity, gx: number, gz: number, dt: number, speed: number, replan = 6): number {
-  const dist = Math.hypot(gx - e.x, gz - e.z); if (dist < 0.05) return dist;
+  const dist = Math.hypot(gx - e.x, gz - e.z); if (dist < 0.05 || (e.freeze ?? 0) > 0) return dist;   // đang khựng vì trúng đạn: đứng yên
   let s = st.get(e.i);
   s ??= { path: [], i: 0, gx: 1e9, gz: 1e9, age: 99, stuck: 0, lx: e.x, lz: e.z };
   s.age += dt;

@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { scene, sky, sunOrb, camera } from "./scene";
+import { scene, sky, camera } from "./scene";
+import { DAY } from "./daycycle";
 import { CINE } from "./cineState";
 import { VoxelBatch, Glow, hash, fbm, smooth } from "./voxel";
 import { H, WATER_Y, PADS, PONDS, ISLE, limit, dist6, slopeAt, isPond, groundAt, walkable, NG } from "./island";
@@ -188,6 +189,7 @@ const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true
 const pondMat = new THREE.MeshStandardMaterial({ color: 0x2f86d6, transparent: true, opacity: 0.78, roughness: 0.2, depthWrite: false });
 
 scene.add(T.build(false, true), D.build(true, true), EM.build(), FOAM.build(false, false, foamMat), WB.build(false, false, pondMat));
+const floorMat = floor.material as THREE.MeshBasicMaterial, FLOOR0 = floorMat.color.clone(), FOAM0 = foamMat.color.clone();   // màu gốc ban ngày của vật liệu không ăn đèn
 
 /* ── Mây (cao hơn đỉnh núi) ── */
 const clouds = new THREE.Group(), cv = new VoxelBatch();
@@ -195,7 +197,8 @@ for (let i = 0; i < 64; i++) {
   const ox = (hash(i, 1) - 0.5) * 1100, oz = (hash(i, 2) - 0.5) * 1100, oy = 110 + hash(i, 3) * 30, cw = 5 + ((hash(i, 4) * 6) | 0);
   for (let a = 0; a < cw; a++) for (let b = 0; b < 3 + ((hash(i, a) * 3) | 0); b++) cv.box(ox + a * 3, oy + (a % 2 ? 1.5 : 0), oz + b * 3, 3.2, 2.6, 3.2, 0xffffff, 0.03);
 }
-clouds.add(cv.build(false, false, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.92, fog: false }))); scene.add(clouds);
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.92, fog: false });   // không ăn đèn → updateTerrain nhân màu theo giờ (DAY.tint)
+clouds.add(cv.build(false, false, cloudMat)); scene.add(clouds);
 
 /* ── Hải âu: bay vòng quanh cả đảo, cao hơn đỉnh núi ── */
 const birds: { g: THREE.Group; wl: THREE.Mesh; wr: THREE.Mesh; r: number; sp: number; ph: number; h: number }[] = [];
@@ -226,7 +229,11 @@ const flies = new THREE.Points(fg, new THREE.PointsMaterial({ color: 0xfff3a0, s
 flies.frustumCulled = false; scene.add(flies);
 
 export function updateTerrain(t: number, dt: number) {
-  if (!CINE.active) { sky.position.set(camera.position.x, 0, camera.position.z); sunOrb.position.set(camera.position.x + 230, 190, camera.position.z + 150); }   // đảo rộng: bầu trời + mặt trời đi theo người chơi
+  if (!CINE.active) sky.position.set(camera.position.x, 0, camera.position.z);   // đảo rộng: bầu trời đi theo người chơi (mặt trời / trăng / sao do daycycle.ts đặt)
+  if (!CINE.active) {   // vật liệu KHÔNG ăn đèn: nhân màu theo giờ để ban đêm mây / đáy biển / bọt sóng không trắng sáng như ban ngày
+    cloudMat.color.copy(DAY.tint); floorMat.color.copy(FLOOR0).multiply(DAY.tint); foamMat.color.copy(FOAM0).multiply(DAY.tint);
+    const fm = flies.material as THREE.PointsMaterial; fm.opacity = 0.85 + 0.1 * DAY.night; fm.size = 0.26 + 0.1 * DAY.night;   // phấn hoa ban ngày → đom đóm phát sáng ban đêm
+  }
   wu.uT.value = t; foamMat.opacity = 0.45 + 0.2 * Math.sin(t * 1.5);
   EM.update(t);
   clouds.position.x = (t * 1.4) % 1100; if (clouds.position.x > 550) clouds.position.x -= 1100;

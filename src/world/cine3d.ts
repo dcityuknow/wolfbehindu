@@ -1,8 +1,10 @@
 import * as THREE from "three";
 import { scene, camera, sun, hemi, sky, sunOrb, torch } from "./scene";
+import { realLook } from "./daycycle";
 import { buildSoldier, defOf, PX, shade } from "./soldier";
 import { attachGun, type GunRig } from "./guns";
 import { curlArm } from "./gunpose";
+import { buildBlackHawk } from "./blackhawk";
 import { COLORS, SQUAD, type GunId } from "../config";
 import { CINE, VO } from "./cineState";
 import { reserved, WALLS, CANOPIES } from "./map";
@@ -10,7 +12,7 @@ import { groundAt, walkable, H, slopeAt, CAMP_Y, CORE_R } from "./island";
 import { reachable } from "./nav";
 import { cineSfx } from "../audio";
 import { say, voicePreload, voiceStop } from "../voice";
-import { N, EXT, DEP_ORDER, T_DEP, PLANE_YAW, SEAT, planeAt, toWorld, RANK, LAND, stateOf, smooth, lerp, storm, DIVE, DEP, ALERT_LEAD, diveReset } from "./cinePath";
+import { N, EXT, DEP_ORDER, T_DEP, PLANE_YAW, SEAT, planeAt, toWorld, RANK, TJ, DZ, LAND, stateOf, smooth, lerp, storm, DIVE, DEP, ALERT_LEAD, diveReset } from "./cinePath";
 import { CALLSIGNS } from "../story";
 
 /**
@@ -40,24 +42,47 @@ const CUTS = [0, ...SHOT.map((s) => s.a), ...SUBCUTS, MASTER2].sort((x, y) => x 
 /** Đèn "key" bám theo máy quay ở từng cú cận cảnh: [màu, cường độ] — đỏ gắt cho giận dữ, lạnh xanh cho nghi kỵ, xanh bệnh cho sợ hãi, cam ấm cho nỗi buồn… */
 const KEY: Record<number, [number, number]> = { 7: [0x7be0a0, 2.6], 8: [0xa0b8ff, 2.4], 9: [0xd8e8ff, 2.2], 10: [0xffd8a0, 2.8], 1: [0xff3a22, 3.2], 3: [0x8fd8ee, 2.6], 4: [0xd0f0d8, 2.8], 5: [0xffbe84, 2.6], 0: [0x9ab4ff, 2.4], 6: [0x5af0b4, 3.0], 2: [0xff7a3a, 3.2] };
 const WFLASH = [2.6, 8.9, 13.4, 19.7, 26.1, 30.6, 34.8, 39.4];   // thời điểm sét xa loé qua cửa sổ
-export const BEAT_MIN = [CAB, 12, 16, 10 + EXT, 12];   // thời lượng hình ảnh mỗi phân cảnh (giây) — tổng 60 + EXT giây (phân cảnh 4 dài thêm để thấy rõ cú rơi)
+export const BEAT_MIN = [CAB, 12, 16, 10.8 + EXT, 12];   // thời lượng hình ảnh mỗi phân cảnh (giây) — tổng 60 + EXT giây (phân cảnh 4 dài thêm để thấy rõ cú rơi)
 const GUN_IDS: GunId[] = ["rifle", "pistol", "rifle", "pistol", "rifle", "sniper", "pistol", "pistol", "rifle", "sniper", "rifle"];
 
 /* ───────────── ánh sáng / bầu trời theo từng cảnh ───────────── */
 interface Look { top: number; mid: number; hor: number; fog: number; fogD: number; hemi: number; hemiC: number; sun: number; sunC: number; cloud: number; stars: number; orb: number }
-const NIGHT: Look = { top: 0x070b24, mid: 0x16224a, hor: 0x2b3c68, fog: 0x1d2a4d, fogD: 0.0035, hemi: 0.95, hemiC: 0x8fa4ff, sun: 0.55, sunC: 0xa9c0ff, cloud: 0x2a3558, stars: 1, orb: 0 };
-const STORM: Look = { top: 0x0d1016, mid: 0x1f252d, hor: 0x39424d, fog: 0x2a313a, fogD: 0.011, hemi: 0.6, hemiC: 0x9aa6b8, sun: 0.18, sunC: 0x8899aa, cloud: 0x20252c, stars: 0, orb: 0 };
+const NIGHT0: Look = { top: 0x070b24, mid: 0x16224a, hor: 0x2b3c68, fog: 0x1d2a4d, fogD: 0.0035, hemi: 0.95, hemiC: 0x8fa4ff, sun: 0.55, sunC: 0xa9c0ff, cloud: 0x2a3558, stars: 1, orb: 0 };
+const STORM0: Look = { top: 0x0d1016, mid: 0x1f252d, hor: 0x39424d, fog: 0x2a313a, fogD: 0.011, hemi: 0.6, hemiC: 0x9aa6b8, sun: 0.18, sunC: 0x8899aa, cloud: 0x20252c, stars: 0, orb: 0 };
 const BLACK: Look = { top: 0x000000, mid: 0x020306, hor: 0x05070b, fog: 0x020306, fogD: 0.02, hemi: 0.02, hemiC: 0x333344, sun: 0, sunC: 0x000000, cloud: 0x050608, stars: 0, orb: 0 };
 const DAWN: Look = { top: 0x4a78b4, mid: 0xf2a679, hor: 0xffd9a3, fog: 0xf0cfa4, fogD: 0.0055, hemi: 1.15, hemiC: 0xffe0c0, sun: 2.0, sunC: 0xffc890, cloud: 0xf2c9a8, stars: 0, orb: 1 };
-const INTERIOR: Look = { ...NIGHT, hemi: 0.22, hemiC: 0x4f8294, sun: 0, fogD: 0.002 };   // trong khoang: tối, ánh teal nhẹ, đèn đỏ/xanh làm chủ đạo (Chiaroscuro)
-const GREY: Look = { top: 0x34445a, mid: 0x62788e, hor: 0xa3b4c0, fog: 0x8798a6, fogD: 0.0055, hemi: 0.95, hemiC: 0xb8cadb, sun: 0.4, sunC: 0xcfd9e2, cloud: 0x7b8a99, stars: 0, orb: 0 };   // bình minh xám lạnh trên biển
-const FOREST_LOW: Look = { top: 0x16302b, mid: 0x24493f, hor: 0x4a6b5c, fog: 0x2c4a40, fogD: 0.016, hemi: 0.75, hemiC: 0x8fd0b4, sun: 1.7, sunC: 0xe6f4c8, cloud: 0x24493f, stars: 0, orb: 0 };    // rừng ẩm xanh rêu, tia nắng xuyên kẽ lá
-const FOREST_HIGH: Look = { ...FOREST_LOW, top: 0x3c6a6a, mid: 0x6a9b8a, hor: 0xb9d6b8, fog: 0x7fa593, fogD: 0.0045, hemi: 0.95 };
+const INTERIOR0: Look = { ...NIGHT0, hemi: 0.22, hemiC: 0x4f8294, sun: 0, fogD: 0.002 };   // trong khoang: tối, ánh teal nhẹ, đèn đỏ/xanh làm chủ đạo (Chiaroscuro)
+const GREY0: Look = { top: 0x34445a, mid: 0x62788e, hor: 0xa3b4c0, fog: 0x8798a6, fogD: 0.0055, hemi: 0.95, hemiC: 0xb8cadb, sun: 0.4, sunC: 0xcfd9e2, cloud: 0x7b8a99, stars: 0, orb: 0 };   // bình minh xám lạnh trên biển
+/** Ánh sáng cú máy bung dù: bão xé mây, mặt trời thấp (golden hour) chiếu ngược từ phía sau nhân vật → viền sáng (rim light) quanh người + dù; trời trên cao xanh thẫm, chân trời cam. */
+const BREAK0: Look = { top: 0x182544, mid: 0x6f6385, hor: 0xffb070, fog: 0xe8a070, fogD: 0.0036, hemi: 1.0, hemiC: 0x9fb8ff, sun: 3.6, sunC: 0xffa75a, cloud: 0x6a5468, stars: 0, orb: 1 };
+const FOREST_LOW0: Look = { top: 0x16302b, mid: 0x24493f, hor: 0x4a6b5c, fog: 0x2c4a40, fogD: 0.016, hemi: 0.75, hemiC: 0x8fd0b4, sun: 1.7, sunC: 0xe6f4c8, cloud: 0x24493f, stars: 0, orb: 0 };    // rừng ẩm xanh rêu, tia nắng xuyên kẽ lá
+const FOREST_HIGH0: Look = { ...FOREST_LOW0, top: 0x3c6a6a, mid: 0x6a9b8a, hor: 0xb9d6b8, fog: 0x7fa593, fogD: 0.0045, hemi: 0.95 };
+/** Các bộ ánh sáng đang dùng. Mỗi lần phim bắt đầu, buildLooks() dựng lại từ GIỜ THẬT của người chơi (daycycle.realLook): trưa thì bão là mây xám nhưng vẫn sáng, đêm thì bão tối đen,
+ *  chiều tối thì dù bung dưới nắng cam… — khớp với trời khi vào đảo. Các hằng *0 ở trên chỉ còn giữ "gu" kịch bản (màu mây bão, rừng ẩm...). */
+let NIGHT = NIGHT0, STORM = STORM0, GREY = GREY0, BREAK = BREAK0, FOREST_LOW = FOREST_LOW0, FOREST_HIGH = FOREST_HIGH0, INTERIOR = INTERIOR0;
+let LOOK_DAY = 1, ORB_C = 0xfff6c8;   // 1 = ban ngày … 0 = đêm (làm nhỏ lens flare khi "mặt trời" thực ra là trăng) · màu quả cầu sáng trên trời
 const mixHex = (a: number, b: number, k: number) => { const r = lerp((a >> 16) & 255, (b >> 16) & 255, k), g = lerp((a >> 8) & 255, (b >> 8) & 255, k), bl = lerp(a & 255, b & 255, k); return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl); };
 const mixLook = (a: Look, b: Look, k: number): Look => ({
   top: mixHex(a.top, b.top, k), mid: mixHex(a.mid, b.mid, k), hor: mixHex(a.hor, b.hor, k), fog: mixHex(a.fog, b.fog, k), fogD: lerp(a.fogD, b.fogD, k), hemi: lerp(a.hemi, b.hemi, k),
   hemiC: mixHex(a.hemiC, b.hemiC, k), sun: lerp(a.sun, b.sun, k), sunC: mixHex(a.sunC, b.sunC, k), cloud: mixHex(a.cloud, b.cloud, k), stars: lerp(a.stars, b.stars, k), orb: lerp(a.orb, b.orb, k),
 });
+
+const scaleHex = (c: number, f: number) => (Math.min(255, Math.round(((c >> 16) & 255) * f)) << 16) | (Math.min(255, Math.round(((c >> 8) & 255) * f)) << 8) | Math.min(255, Math.round((c & 255) * f));
+function buildLooks() {
+  const r = realLook(), d = r.day; LOOK_DAY = d; ORB_C = r.orbC;
+  NIGHT = { top: r.top, mid: r.mid, hor: r.hor, fog: r.fog, fogD: lerp(0.0035, 0.0048, d), hemi: r.hemi, hemiC: r.hemiC, sun: r.sun, sunC: r.sunC, cloud: r.cloud, stars: r.stars, orb: 0 };   // "trời quang" đúng giờ thật
+  INTERIOR = { ...NIGHT, hemi: lerp(0.55, 0.6, d), hemiC: 0x7fb4c8, sun: 0, fogD: INTERIOR0.fogD };   // khoang có đèn trần: ánh nền trắng-lạnh, ban đêm không còn tối đen
+  const sf = lerp(1, 2.6, d);   // bão ban ngày: xám sáng hơn nhiều so với bão ban đêm
+  STORM = { top: mixHex(scaleHex(STORM0.top, sf), r.top, 0.2), mid: mixHex(scaleHex(STORM0.mid, sf), r.mid, 0.2), hor: mixHex(scaleHex(STORM0.hor, sf), r.hor, 0.2), fog: mixHex(scaleHex(STORM0.fog, lerp(1, 2.8, d)), r.fog, 0.2), fogD: STORM0.fogD,
+    hemi: lerp(STORM0.hemi, r.hemi * 0.62, d), hemiC: mixHex(STORM0.hemiC, r.hemiC, d * 0.5), sun: lerp(STORM0.sun, r.sun * 0.14, d), sunC: STORM0.sunC, cloud: scaleHex(STORM0.cloud, lerp(1, 2.4, d)), stars: 0, orb: 0 };
+  const gf = lerp(0.22, 1, d);   // trời xám sau bão: tối theo giờ
+  GREY = { top: scaleHex(GREY0.top, gf), mid: scaleHex(GREY0.mid, gf), hor: scaleHex(GREY0.hor, gf), fog: scaleHex(GREY0.fog, gf), fogD: GREY0.fogD, hemi: r.hemi * 0.6, hemiC: mixHex(GREY0.hemiC, r.hemiC, 0.4), sun: r.sun * 0.125, sunC: mixHex(GREY0.sunC, r.sunC, 0.5), cloud: scaleHex(GREY0.cloud, gf), stars: 0, orb: 0 };
+  BREAK = { ...NIGHT, fogD: BREAK0.fogD, hemi: r.hemi * 0.9, sun: Math.max(r.sun * 1.12, 1.9), orb: 1 };   // mây xé ra → đúng trời hiện tại (nắng / hoàng hôn / trăng), ngược sáng làm viền sáng quanh người
+  const forest = (high: boolean): Look => ({ ...NIGHT, fog: mixHex(r.fog, scaleHex(high ? FOREST_HIGH0.fog : FOREST_LOW0.fog, lerp(0.3, 1, d)), 0.45), fogD: high ? FOREST_HIGH0.fogD : FOREST_LOW0.fogD,
+    hemi: Math.max(r.hemi * (high ? 0.6 : 0.48), 0.5), hemiC: mixHex(r.hemiC, FOREST_LOW0.hemiC, 0.35 * d), sun: r.sun * 0.53, stars: 0, orb: 0 });
+  FOREST_LOW = forest(false); FOREST_HIGH = forest(true);
+  setSunEl(Math.min(0.75, Math.max(0.2, r.sunEl)));   // mặt trời cao thật theo giờ (không xuống quá thấp / lên quá đỉnh để vẫn có ánh viền)
+}
 
 /* ───────────── dựng đối tượng (một lần) ───────────── */
 const cineLight = new THREE.PointLight(0xff3a1a, 0, 10, 2); scene.add(cineLight);   // đèn đỏ báo nhảy (tạo sẵn để không phải biên dịch lại shader giữa chừng)
@@ -66,49 +91,37 @@ const mt = (c: number, r = 0.85, m = 0.1) => new THREE.MeshStandardMaterial({ co
 const mb = (c: number) => new THREE.MeshBasicMaterial({ color: c, fog: false });
 const bx = (g: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
 
-const plane = new THREE.Group(), ramp = new THREE.Group(), props: THREE.Group[] = [];
+const plane = new THREE.Group(); let doors: THREE.Group[] = [], rotorMain: THREE.Group, rotorTail: THREE.Group;   // trực thăng Black Hawk (blackhawk.ts) · cửa trượt hai bên hông · cánh quạt chính / đuôi
 const lampMat = mb(0xff2a2a), tipR = mb(0xff2020), tipG = mb(0x20ff40);
+const cabLampMat = mb(0xfff4d8), cabLedMat = mb(0x40ff90), cabPoolMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.4, fog: false, side: THREE.DoubleSide });   // đèn trần khoang · LED chỉ lối · vệt sáng cộng dồn (không phải PointLight → không làm biên dịch lại shader)
 const PANE_DARK = 0x0b1424, PANE_FLASH = 0x7ba0d4, paneMat = mb(PANE_DARK);   // kính cửa sổ phía trong khoang: tối, chớp sáng theo sét xa
 const GHOST_Z = 0, GHOST_Y = 1.5;
 let ghost: THREE.Mesh, ghostMat: THREE.MeshBasicMaterial;                     // bóng phản chiếu mờ của một gương mặt trên kính (cú "người vô cảm nhìn ra cửa sổ")
-{ // máy bay vận tải hai động cơ cánh quạt kiểu An-26 (theo ảnh minh họa): cánh cao, 2 nacelle + càng chính, mũi kính, đuôi hếch, ramp sau mở được. Mũi = -z, đuôi = +z, sàn y = 0.
-  const hull = mt(0x9a9a86, 0.7, 0.15), wingM = mt(0x6a6f76, 0.65, 0.3), dark = mt(0x2c3322, 0.9), liner = mt(0x3c4630, 0.95), metal = mt(0x7b8086, 0.45, 0.6), strap = mt(0x3a4a2e, 0.95), glass = mb(0x1b2a40), win = mb(0x34506e);
-  // thân rỗng (nhìn được cả từ trong lẫn từ ngoài): vỏ ngoài sáng, lớp lót trong tối để khoang vẫn u ám
-  bx(plane, 4.2, 0.2, 16.3, 0, -0.1, -1.15, dark); bx(plane, 4.2, 0.2, 16.3, 0, 3.1, -1.15, hull);
-  bx(plane, 0.2, 3.2, 16.3, -2, 1.5, -1.15, hull); bx(plane, 0.2, 3.2, 16.3, 2, 1.5, -1.15, hull); bx(plane, 4.2, 3.4, 0.2, 0, 1.5, -9.3, hull);
-  bx(plane, 0.06, 3.0, 16.1, -1.86, 1.5, -1.15, liner); bx(plane, 0.06, 3.0, 16.1, 1.86, 1.5, -1.15, liner); bx(plane, 3.7, 0.06, 16.1, 0, 2.95, -1.15, liner);
-  // bo tròn thân: vát 4 góc
-  for (const sx of [-1, 1]) { const c = bx(plane, 0.5, 0.5, 16.3, sx * 1.95, 3.0, -1.15, hull); c.rotation.z = sx * Math.PI / 4; const d = bx(plane, 0.5, 0.5, 16.3, sx * 1.95, 0.05, -1.15, dark); d.rotation.z = -sx * Math.PI / 4; }
-  // mũi + buồng lái + mũi kính hoa tiêu
-  bx(plane, 3.6, 2.8, 3.6, 0, 1.3, -11.2, hull); bx(plane, 2.6, 2.2, 1.8, 0, 1.0, -13.4, hull); bx(plane, 1.6, 1.4, 1.2, 0, 0.6, -14.6, hull);
-  bx(plane, 1.5, 0.9, 0.1, 0, 0.55, -15.25, glass); bx(plane, 2.4, 0.8, 0.1, 0, 1.0, -14.32, glass);
-  bx(plane, 0.1, 0.7, 2.2, -1.82, 1.9, -11.9, glass); bx(plane, 0.1, 0.7, 2.2, 1.82, 1.9, -11.9, glass); bx(plane, 2.6, 0.7, 0.1, 0, 2.0, -13.06, glass);
-  for (let z = -7.6; z <= 5; z += 1.9) {   // cửa sổ thân: ô ngoài + khung và ô kính phía trong khoang (ngang tầm mắt người ngồi)
-    bx(plane, 0.08, 0.5, 0.7, -2.07, 1.5, z, win); bx(plane, 0.08, 0.5, 0.7, 2.07, 1.5, z, win);
-    for (const sx of [-1, 1]) { bx(plane, 0.03, 0.62, 0.82, sx * 1.83, 1.5, z, dark); bx(plane, 0.02, 0.5, 0.7, sx * 1.815, 1.5, z, paneMat); }
-  }
+{ // TRỰC THĂNG SIKORSKY MH-60 BLACK HAWK cỡ lớn dựng bằng voxel (xem blackhawk.ts): vỏ, kính, động cơ, rotor, đuôi, bánh đáp, súng cửa hông, cửa trượt. Ở đây chỉ dựng NỘI THẤT khoang (ghế, đai, đèn, cửa sổ trong).
+  const dark = mt(0x2c3322, 0.9), strap = mt(0x3a4a2e, 0.95);
+  for (const z of [-5.7, -3.8, -1.9, 0, 5.7]) for (const sx of [-1, 1]) { bx(plane, 0.03, 0.62, 0.82, sx * 1.935, 1.5, z, dark); bx(plane, 0.02, 0.5, 0.7, sx * 1.92, 1.5, z, paneMat); }   // khung + ô kính phía trong khoang (chớp theo sét)
   { // bóng phản chiếu trên kính cửa sổ bên phải (đối diện ghế người chơi, ngang z = 0)
     const cv = document.createElement("canvas"); cv.width = 64; cv.height = 80; const x = cv.getContext("2d")!; x.filter = "blur(1.6px)";
     const gr = x.createRadialGradient(32, 34, 4, 32, 36, 30); gr.addColorStop(0, "rgba(150,185,225,.9)"); gr.addColorStop(1, "rgba(60,90,130,0)"); x.fillStyle = gr; x.beginPath(); x.ellipse(32, 36, 19, 26, 0, 0, 6.3); x.fill();
     x.fillStyle = "rgba(255,255,255,.95)"; x.fillRect(20, 31, 9, 3); x.fillRect(36, 31, 9, 3); x.fillStyle = "rgba(10,20,40,.7)"; x.fillRect(25, 47, 15, 2); x.fillStyle = "rgba(100,140,190,.7)"; x.beginPath(); x.ellipse(32, 78, 26, 16, 0, 0, 6.3); x.fill();
     const tex = new THREE.CanvasTexture(cv); ghostMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, fog: false });
-    ghost = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.42), ghostMat); ghost.position.set(1.8, GHOST_Y, GHOST_Z); ghost.rotation.y = -Math.PI / 2; ghost.visible = false; plane.add(ghost);
+    ghost = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.42), ghostMat); ghost.position.set(1.925, GHOST_Y, GHOST_Z); ghost.rotation.y = -Math.PI / 2; ghost.visible = false; plane.add(ghost);
   }
-  // đuôi hếch + vây đứng (sọc 3 màu) + cánh đuôi
-  const tail = bx(plane, 3.2, 0.3, 4.2, 0, 3.9, 9.0, hull); tail.rotation.x = 0.28; const tail2 = bx(plane, 0.3, 2.2, 3.4, -1.45, 3.4, 8.7, hull); tail2.rotation.x = 0.28; const tail3 = bx(plane, 0.3, 2.2, 3.4, 1.45, 3.4, 8.7, hull); tail3.rotation.x = 0.28;
-  bx(plane, 0.4, 5.2, 3.4, 0, 5.8, 9.2, hull); bx(plane, 0.42, 1.0, 3.2, 0, 7.2, 9.3, mb(0xc8c8c8)); bx(plane, 0.42, 1.0, 3.2, 0, 6.2, 9.3, mb(0x2a4d9b)); bx(plane, 0.42, 1.0, 3.2, 0, 5.2, 9.3, mb(0xc0302a));
-  bx(plane, 9.4, 0.28, 2.0, 0, 4.9, 9.6, wingM); bx(plane, 0.5, 0.4, 0.5, -4.7, 4.9, 9.6, tipR); bx(plane, 0.5, 0.4, 0.5, 4.7, 4.9, 9.6, tipG);
-  // cánh cao, dải đèn mép cánh
-  bx(plane, 29, 0.4, 3.8, 0, 3.55, -2.0, wingM); bx(plane, 29, 0.1, 0.6, 0, 3.77, -3.4, hull); bx(plane, 0.5, 0.3, 0.5, -14.5, 3.55, -2, tipR); bx(plane, 0.5, 0.3, 0.5, 14.5, 3.55, -2, tipG);
-  for (const x of [-5.6, 5.6]) { // nacelle động cơ + ống xả + bầu càng chính + cánh quạt 4 lá
-    bx(plane, 1.3, 1.3, 4.6, x, 2.7, -3.2, hull); bx(plane, 1.0, 1.0, 0.8, x, 2.7, -5.7, metal); bx(plane, 0.5, 0.5, 0.5, x, 2.7, -6.2, mb(0x3a3d42));
-    bx(plane, 1.0, 1.0, 3.2, x, 2.1, -0.4, hull);
-    const p = new THREE.Group(); p.position.set(x, 2.7, -6.55); bx(p, 0.16, 3.4, 0.08, 0, 0, 0, dark); bx(p, 3.4, 0.16, 0.08, 0, 0, 0, dark); plane.add(p); props.push(p);
+  // băng ghế dọc hai bên + dây đai tựa lưng + đèn trần + đèn báo nhảy
+  bx(plane, 0.5, 0.5, 12, -1.65, 0.25, -1, dark); bx(plane, 0.5, 0.5, 12, 1.65, 0.25, -1, dark);
+  for (const sx of [-1, 1]) { bx(plane, 0.08, 1.3, 7.2, sx * 1.86, 1.15, -3.4, strap); bx(plane, 0.08, 1.3, 2.2, sx * 1.86, 1.15, 5.7, strap); }   // dây đai chỉ ở đoạn vách đặc — chừa trống ô cửa hông (z 0.5 → 4.5)
+  bx(plane, 0.25, 0.05, 11.8, 0, 2.95, -0.9, mb(0x602020)); bx(plane, 0.35, 0.2, 0.35, 0, 2.9, 6.2, lampMat);
+  { // ĐÈN KHOANG: panel trắng ấm trên trần + vệt sáng trên sàn + quầng quanh đèn + LED chỉ lối + đèn báo động đỏ (nhấp nháy cùng đèn báo nhảy) — ban đêm khoang vẫn có ánh đèn thật
+    const gc = document.createElement("canvas"); gc.width = gc.height = 64; const g = gc.getContext("2d")!, gr = g.createRadialGradient(32, 32, 1, 32, 32, 32);
+    gr.addColorStop(0, "rgba(255,236,190,1)"); gr.addColorStop(0.45, "rgba(255,220,160,0.4)"); gr.addColorStop(1, "rgba(255,210,150,0)"); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); cabPoolMat.map = new THREE.CanvasTexture(gc);
+    for (let z = -6; z <= 5.4; z += 2.4) {
+      bx(plane, 0.5, 0.05, 1.0, 0, 2.93, z, cabLampMat);
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 4.4), cabPoolMat); pool.rotation.x = -Math.PI / 2; pool.position.set(0, 0.05, z); plane.add(pool);            // vệt sáng trên sàn / ghế
+      const halo = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 2.8), cabPoolMat); halo.rotation.x = Math.PI / 2; halo.position.set(0, 2.9, z); plane.add(halo);          // quầng quanh đèn (nhìn từ dưới lên)
+    }
+    for (const x of [-1.38, 1.38]) for (let z = -6.8; z <= 5.6; z += 1.2) bx(plane, 0.05, 0.03, 0.26, x, 0.04, z, cabLedMat);   // LED chỉ lối dọc hai mép lối đi
+    for (const x of [-1.2, 1.2]) for (const z of [-6.4, -2.2, 3.0]) bx(plane, 0.22, 0.16, 0.22, x, 2.9, z, lampMat);          // đèn báo động đỏ trên trần
   }
-  bx(plane, 0.5, 0.5, 14.5, -1.65, 0.25, -1.5, dark); bx(plane, 0.5, 0.5, 14.5, 1.65, 0.25, -1.5, dark);                 // băng ghế
-  bx(plane, 0.08, 1.3, 14.5, -1.88, 1.15, -1.5, strap); bx(plane, 0.08, 1.3, 14.5, 1.88, 1.15, -1.5, strap);             // dây đai tựa lưng
-  bx(plane, 0.25, 0.06, 12, 0, 2.98, -1.5, mb(0x602020)); bx(plane, 0.35, 0.2, 0.35, 0, 2.95, 6.2, lampMat);              // đèn trần + đèn báo nhảy
-  ramp.position.set(0, 0.02, 7); bx(ramp, 3.6, 3.4, 0.16, 0, 1.7, 0, dark); plane.add(ramp);
   plane.rotation.y = PLANE_YAW; root.add(plane);
 }
 
@@ -381,7 +394,7 @@ const rainMat = new THREE.LineBasicMaterial({ color: 0xaec0d8, transparent: true
 const rain = (() => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(rpos, 3)); const l = new THREE.LineSegments(g, rainMat); l.frustumCulled = false; root.add(l); return l; })();
 
 /* ───────────── Hiệu ứng rơi chết: lá · cành gãy · bụi đất · máu bắn + vũng máu lan (khối voxel) ───────────── */
-let TREM = 0, IMPF = 0;   // TREM: rung màn hình dư chấn (0..1, giảm dần) · IMPF: chớp trắng lúc đập đất
+let TREM = 0, IMPF = 0, SCREAM = false;   // TREM: rung màn hình dư chấn (0..1, giảm dần) · IMPF: chớp trắng lúc đập đất
 const FXG = new THREE.Group(); root.add(FXG);
 interface Pt { m: THREE.Mesh; v: THREE.Vector3; kind: number; rest: boolean; ph: number; life: number }
 const GEO1 = new THREE.BoxGeometry(1, 1, 1), mstd = (c: number, r = 1) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
@@ -473,6 +486,7 @@ function failFx(dt: number, d: number, w: { x: number; y: number; z: number }) {
 const S = { beat: -1, t: 0, clock: 0, cut: 0 };
 let GL: number[] = [], env: any = null;
 let ovFade: HTMLElement | null, ovFlash: HTMLElement | null, ovBlur: HTMLElement | null, ovLidT: HTMLElement | null, ovLidB: HTMLElement | null, ovAlt: HTMLElement | null, ovAltV: HTMLElement | null, ovVig: HTMLElement | null, ovRays: HTMLElement | null;
+let ovGrade: HTMLElement | null = null, ovDof: HTMLElement | null = null, ovFlare: HTMLElement | null = null;
 let ovStatic: HTMLElement | null, ovTag: HTMLElement | null, tagId = -2, ovKey: HTMLElement | null = null, ovKeyBar: HTMLElement | null = null, ovDead: HTMLElement | null = null;
 let LZ = 0, fired = new Set<number>();   // LZ: vị trí dọc khoang của camera (để đặt đèn đỏ bên cạnh khuôn mặt)
 const V = new THREE.Vector3(), P0 = new THREE.Vector3(), T0 = new THREE.Vector3(), P1 = new THREE.Vector3(), T1 = new THREE.Vector3(), CEN = new THREE.Vector3();
@@ -494,14 +508,18 @@ function pickLandings() {
   }
   LAND.splice(0, LAND.length, ...pts);
 }
+/** Dựng trực thăng voxel (~0.4s) lần đầu bắt đầu phim, không làm chậm lúc tải game. */
+function ensureBH() { if (rotorMain) return; const bh = buildBlackHawk({ tipR, tipG }); plane.add(bh.body); doors = bh.doors; rotorMain = bh.rotorMain; rotorTail = bh.rotorTail; }
 export function cineBegin() {
+  ensureBH();
   pickLandings();
   buildRigs();
   GL = LAND.map((l) => groundAt(l.x, l.z));
   const u = (sky.material as THREE.ShaderMaterial).uniforms, fog = scene.fog as THREE.FogExp2;
-  env = { hemiI: hemi.intensity, hemiC: hemi.color.getHex(), sunI: sun.intensity, sunC: sun.color.getHex(), fogC: fog.color.getHex(), fogD: fog.density, top: u.top.value.getHex(), mid: u.mid.value.getHex(), hor: u.hor.value.getHex(), bg: (scene.background as THREE.Color).getHex(), torchI: torch.intensity, orb: sunOrb.visible, fov: camera.fov, far: camera.far };
+  env = { hemiI: hemi.intensity, hemiC: hemi.color.getHex(), sunI: sun.intensity, sunC: sun.color.getHex(), fogC: fog.color.getHex(), fogD: fog.density, top: u.top.value.getHex(), mid: u.mid.value.getHex(), hor: u.hor.value.getHex(), bg: (scene.background as THREE.Color).getHex(), torchI: torch.intensity, hg: hemi.groundColor.getHex(), orb: sunOrb.visible, fov: camera.fov, far: camera.far };
+  buildLooks(); (sky.material as THREE.ShaderMaterial).uniforms.uEnc.value = 1;   // ánh sáng cảnh phim lấy từ GIỜ THẬT (daycycle.realLook)
   ovFade = document.getElementById("cineFade"); ovFlash = document.getElementById("cineFlash"); ovBlur = document.getElementById("cineBlur"); ovLidT = document.getElementById("cineLidT"); ovLidB = document.getElementById("cineLidB");
-  ovAlt = document.getElementById("cineAlt"); ovAltV = document.getElementById("cineAltV"); ovVig = document.getElementById("cineVig"); ovRays = document.getElementById("cineRays"); fired = new Set(); cineSfx.ambStart(); voicePreload(); ovStatic = document.getElementById("cineStatic"); ovTag = document.getElementById("cineTag"); tagId = -2;
+  ovAlt = document.getElementById("cineAlt"); ovAltV = document.getElementById("cineAltV"); ovVig = document.getElementById("cineVig"); ovRays = document.getElementById("cineRays"); fired = new Set(); cineSfx.ambStart(); voicePreload(); ovStatic = document.getElementById("cineStatic"); ovGrade = document.getElementById("cineGrade"); ovDof = document.getElementById("cineDof"); ovFlare = document.getElementById("cineFlare"); ovTag = document.getElementById("cineTag"); tagId = -2;
   ovKey = document.getElementById("cineKey"); ovKeyBar = document.getElementById("cineKeyBar"); ovDead = document.getElementById("cineDead"); diveReset(); DIVE.trees = CANOPIES; clearFx();
   S.beat = 0; S.t = 0; S.clock = 0; S.cut = 0; camera.far = 1500; camera.updateProjectionMatrix();
   scene.add(root); CINE.active = true;
@@ -511,28 +529,30 @@ export function cineSeek(t: number) { S.t = Math.max(0, Math.min(t, BEAT_MIN[Mat
 export function cineBeat(b: number) { S.beat = b; S.t = 0; fired = new Set(); voiceStop(); if (b === 1 || b === 2 || b === 3) S.cut = 1; }
 export function cineEnd() {
   if (!CINE.active) return;
-  CINE.active = false; scene.remove(root); cineLight.intensity = 0; cineSfx.ambStop(); voiceStop();
+  CINE.active = false; SCREAM = false; cineSfx.screamStop(); scene.remove(root); cineLight.intensity = 0; cineSfx.ambStop(); voiceStop();
   const u = (sky.material as THREE.ShaderMaterial).uniforms, fog = scene.fog as THREE.FogExp2;
   hemi.intensity = env.hemiI; hemi.color.setHex(env.hemiC); sun.intensity = env.sunI; sun.color.setHex(env.sunC); fog.color.setHex(env.fogC); fog.density = env.fogD;
   u.top.value.setHex(env.top); u.mid.value.setHex(env.mid); u.hor.value.setHex(env.hor); (scene.background as THREE.Color).setHex(env.bg); torch.intensity = env.torchI;
   sunOrb.visible = env.orb; sky.position.set(0, 0, 0); camera.fov = env.fov; camera.far = env.far; camera.rotation.set(0, 0, 0); camera.updateProjectionMatrix();
-  for (const o of [ovFade, ovFlash, ovAlt, ovVig, ovRays, ovKey]) if (o) o.style.opacity = "0";
+  for (const o of [ovFade, ovFlash, ovAlt, ovVig, ovRays, ovKey, ovGrade, ovDof, ovFlare]) if (o) o.style.opacity = "0";
+  CINE.hero = false; hemi.groundColor.setHex(env.hg); cineLight.distance = 10;
   ovDead?.classList.remove("on"); diveReset(); clearFx();
 }
 /** Người chơi bấm E (hoặc chạm vào nút E): bung dù. Chỉ có tác dụng khi cảnh báo đang bật. Bấm sớm thì nhảy tới ngay trước lúc dù bung (cắt cảnh nhanh che chỗ nối). */
 export function cineDeploy() {
   if (S.beat !== 3 || !DIVE.armed || DIVE.ok || DIVE.fail) return false;
   DIVE.ok = true; DIVE.press = S.clock;
-  const target = EXT + DEP - 0.3;
-  if (S.t < target) { S.t = target; S.cut = 1; }
-  const ev = EV[3]; for (let e = 0; e < ev.length; e++) if (ev[e].t < S.t) fired.add(e);   // bỏ các tiếng còi đã quá giờ
-  voiceStop(); cineSfx.whoosh();
+  const target = EXT + HU0;   // nhảy tới đầu cú máy điện ảnh (còn ~0.9s rơi tự do trước khi dù bung để khán giả thấy nhân vật + khoảnh khắc bung)
+  if (S.t < target) S.t = target;
+  S.cut = 1;   // cắt cảnh từ POV sang máy ngoài
+  const ev = EV[3]; for (let e = 0; e < ev.length; e++) if (ev[e].t < Math.max(S.t, EXT + 2.3)) fired.add(e);   // bỏ các tiếng còi báo động (đã bung dù thì không còn báo nữa)
+  voiceStop(); cineSfx.whoosh(); setTimeout(() => { if (CINE.active && S.beat === 3) cineSfx.thunder(false); }, 260);   // sét loé lúc cắt sang máy ngoài
   return true;
 }
 /** Sau khi chết: chơi lại đoạn nhảy dù (quay lại ngay trước lúc cảnh báo bật). */
 export function cineRetry() {
   if (S.beat !== 3 || !DIVE.fail) return false;
-  diveReset(); clearFx(); TREM = 0;
+  diveReset(); clearFx(); TREM = 0; SCREAM = false; cineSfx.screamStop();
   S.t = EXT - ALERT_LEAD - 0.8; S.cut = 1; voiceStop(); fired = new Set();
   const ev = EV[3]; for (let e = 0; e < ev.length; e++) if (ev[e].t < S.t) fired.add(e);
   return true;
@@ -561,11 +581,17 @@ function poseSoldier(i: number, ct: number, rise: number) {
     }
     case "fall": { // rơi tự do, sấp, dang tay
       const w = Math.sin(c * 9 + i) * (i === 0 && DIVE.fail ? 0.45 : 0.1);   // không có dù: quờ quạng tay chân
+      // HOẢNG HỐT (người chơi, lúc cảnh báo bật mà chưa bấm E): tay chân quơ loạn, rồi tay phải với ra sau lưng mò dây giật dù ở ba lô, bàn tay xoè run run
+      const u0 = S.t - EXT, pn = i === 0 && S.beat === 3 && !DIVE.ok && (DIVE.armed || DIVE.fail) ? (DIVE.fail ? 1 : smooth(-ALERT_LEAD, -ALERT_LEAD + 0.5, u0)) : 0, rch = pn > 0 ? smooth(-1.4, -0.4, DIVE.fail ? 9 : u0) : 0;
       const tum = i === 2 ? smooth(22, 22.6, ct) : 0;   // người bị sóng xung kích của tia sét hất văng: xoay tít mất kiểm soát
-      r.rig.position.set(st.wx, st.wy, st.wz); r.rig.rotation.set(Math.sin(c * 6 + i) * 0.12 + tum * (ct - 22) * 4.5, Math.PI / 2, tum * (ct - 22) * 3.2);
+      const jb = st.js !== undefined ? smooth(0, 0.6, st.js) : 1, yF = st.ey !== undefined && jb < 1 ? st.ey + Math.atan2(Math.sin(Math.PI / 2 - st.ey), Math.cos(Math.PI / 2 - st.ey)) * jb : Math.PI / 2;   // vừa bước khỏi cửa hông: xoay dần về hướng rơi, từ đứng sang sấp
+      r.rig.position.set(st.wx, st.wy, st.wz); r.rig.rotation.set(Math.sin(c * 6 + i) * 0.12 + tum * (ct - 22) * 4.5, yF, tum * (ct - 22) * 3.2);
       if (i === 0 && DIVE.fail && st.hd !== undefined) { r.rig.rotation.order = "YXZ"; r.rig.rotation.set(st.spin ?? 0, st.hd, 0); }   // không dù: quay đầu theo hướng rơi, lộn nhào nếu đâm vào cây
-      g.rotation.x = Math.PI / 2; g.position.set(0, 0, -0.9);
-      r.s.armL.rotation.set(-0.3, 0, -1.3 + w); r.s.armR.rotation.set(-0.3, 0, 1.3 - w); r.s.legL.rotation.set(0.3, 0, -0.35); r.s.legR.rotation.set(0.3, 0, 0.35); r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0.35; curl(r, 0.8, 0.7); break;
+      g.rotation.x = (Math.PI / 2) * jb; g.position.set(0, 0, -0.9 * jb);
+      r.s.armL.rotation.set(-0.3 + 0.9 * pn * Math.sin(c * 13), 0, -1.3 + w - 0.5 * pn * Math.sin(c * 11 + 1)); r.s.armR.rotation.set(lerp(-0.3 + 0.9 * pn * Math.sin(c * 12 + 2), 1.15 + 0.2 * Math.sin(c * 15), rch), 0, lerp(1.3 - w + 0.5 * pn * Math.sin(c * 10), 0.35 + 0.12 * Math.sin(c * 17 + 1), rch));
+      r.s.legL.rotation.set(0.3 + 0.55 * pn * Math.sin(c * 10), 0, -0.35); r.s.legR.rotation.set(0.3 - 0.55 * pn * Math.sin(c * 10 + 1.5), 0, 0.35); r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0.35 + 0.5 * pn * Math.abs(Math.sin(c * 10)); curl(r, 0.8 - 0.6 * pn, 0.7);
+      if (rch > 0) { r.s.armR.userData.elbow.rotation.x = lerp(r.s.armR.userData.elbow.rotation.x, -0.55 + 0.2 * Math.sin(c * 15), rch); curlArm(r.s.armR, 0.1, 0.1); }   // tay phải xoè ra mò ba lô
+      if (pn > 0) r.rig.rotation.x += pn * Math.sin(c * 8) * 0.1; break;
     }
     case "crash": { // KHÔNG bấm E: đập đất cái RẦM, nảy lên, LĂN LỐC theo đà (lộn nhào đầu-chân), tay chân quăng quật, dừng lại nằm sấp/ngửa
       const sp = st.spin ?? 0, hs = st.hs ?? 0, fl = Math.min(1, hs / 5);
@@ -583,15 +609,16 @@ function poseSoldier(i: number, ct: number, rise: number) {
       r.rig.position.set(st.wx, st.wy + HANG * b2, st.wz);
       r.rig.rotation.set(Math.sin(ct * 1.5 + i) * A * 0.6 * b2 + (1 - b2) * Math.sin(c * 6 + i) * 0.12, Math.PI / 2 + d0 * b2, Math.sin(ct * 1.9 + i * 2.1) * A * b2);
       const jolt = Math.exp(-5 * ou) * smooth(0, 0.08, ou);
-      g.rotation.x = (Math.PI / 2) * (1 - b2); g.position.set(0, -HANG * b2 - 0.3 * jolt, -0.9 * (1 - b2));
+      const limp = i === 0 && S.beat === 3 && DIVE.ok ? smooth(1.6, 4.4, ou) : 0;   // bị giật dù đập đầu → dần buông thõng, ngất (khớp mắt nhắm ở faceOf)
+      g.rotation.x = (Math.PI / 2) * (1 - b2) + 0.4 * limp; g.position.set(0, -HANG * b2 - 0.3 * jolt, -0.9 * (1 - b2));
       const sy = lerp(0.25, 1, smooth(0.1, 0.35, ou)), sx = ou < 0.4 ? lerp(0.06, 0.14, smooth(0.1, 0.4, ou)) : 1 - 0.86 * Math.exp(-5 * tau) * Math.cos(11 * tau), sz = ou < 0.4 ? lerp(0.3, 0.5, smooth(0.1, 0.4, ou)) : 1 - 0.5 * Math.exp(-4 * tau) * Math.cos(9 * tau);
       const anc = -HANG * b2 + 1.34 * b2 + 0.4 * (1 - b2), rock = smooth(0.38, 0.5, ou);
       r.chute.visible = ou > 0.08; r.chute.position.set(0, anc + 2.7 * CK * sy, 0); r.chute.scale.set(sx * CK, sy * CK * (1 + 0.04 * Math.sin(ct * 5 + i) * b2), sz * CK);
       r.chute.rotation.set(0.28 * rock * Math.exp(-3 * tau) * Math.sin(8 * tau + 1), 0, 0.22 * rock * Math.exp(-3.5 * tau) * Math.sin(9 * tau));
       r.pack.lidG.rotation.x = -1.5 * smooth(0, 0.1, ou); const pk = 1 - 0.55 * smooth(0.15, 0.5, ou); r.pack.body.scale.y = pk; r.pack.lidG.position.y = 0.3 * pk;
-      r.s.armL.rotation.set(lerp(-0.3, -2.9, b1), 0, lerp(-1.3, 0.15, b1)); r.s.armR.rotation.set(lerp(-0.3, -2.9, b1), 0, lerp(1.3, -0.15, b1));
+      r.s.armL.rotation.set(lerp(lerp(-0.3, -2.9, b1), 0.15, limp), 0, lerp(lerp(-1.3, 0.15, b1), 0.2, limp)); r.s.armR.rotation.set(lerp(lerp(-0.3, -2.9, b1), 0.15, limp), 0, lerp(lerp(1.3, -0.15, b1), -0.2, limp));
       r.s.legL.rotation.set(lerp(0.3, Math.sin(c * 2 + i) * 0.15, b1) - 0.9 * jolt, 0, lerp(-0.35, 0, b1)); r.s.legR.rotation.set(lerp(0.3, -Math.sin(c * 2 + i) * 0.15, b1) - 0.9 * jolt, 0, lerp(0.35, 0, b1));
-      r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0.25 + 0.2 * Math.sin(c * 2 + i); curl(r, 1.1, 0.8);   // đầu gối hơi co, tay nắm dây dù
+      r.s.legL.userData.knee.rotation.x = r.s.legR.userData.knee.rotation.x = 0.25 + 0.2 * Math.sin(c * 2 + i); curl(r, lerp(1.1, 0.3, limp), 0.8);   // đầu gối hơi co, tay nắm dây dù
       deployFx(r, ou, b2);
       if (i === 0 && S.beat >= 4) { // người bị ngất: buông thõng, tụt qua tán lá — dù mắc lại trên ngọn cây
         r.s.armL.rotation.set(0.15, 0, 0.2); r.s.armR.rotation.set(0.15, 0, -0.2); r.s.legL.rotation.x = 0.25; r.s.legR.rotation.x = -0.1; g.rotation.x = 0.4;
@@ -680,9 +707,9 @@ const EV: { t: number; f: () => void }[][] = [
     { t: SA(5) + 0.1, f: () => say("v9") }, { t: SA(0) + 0.3, f: () => say("v10") }, { t: SA(6) + 0.25, f: () => say("v11") },
     { t: SA(7) + 0.15, f: () => say("v13") }, { t: SA(8) + 0.15, f: () => say("v14") }, { t: SA(9) + 0.2, f: () => say("v15") }, { t: SA(10) + 0.15, f: () => say("v16") },
     { t: SA(2) + 0.4, f: () => say("v2") }, { t: SA(2) + 1.9, f: () => say("v2b") }, { t: SA(2) + 3.0, f: () => say("v2c") }, { t: MASTER2 + 0.05, f: () => say("v12") }],      // bíp của bộ phát tín hiệu · lời thoại
-  [{ t: 0.8, f: () => say("v3") }, { t: 5.4, f: () => say("v17") }],
+  [{ t: 0.8, f: () => say("v3") }, { t: 5.4, f: () => say("v17") }, ...[2.4, 6.4, 9.2].map((t) => ({ t, f: () => cineSfx.cut() })), ...[...Array(N).keys()].map((k) => ({ t: TJ(k) - 0.05, f: () => cineSfx.whoosh() }))],
   [...[0.8, 3.7, 5.0, 8.2, 14.6].map((t) => ({ t: t + 0.15, f: () => cineSfx.thunder(false) })), { t: 12.0, f: () => cineSfx.thunder(true) }, { t: 2.0, f: () => say("v4a") }, { t: 5.2, f: () => say("v4b") }, { t: 8.0, f: () => say("v4c") }, { t: 4.6, f: () => cineSfx.static(0.5, 0.6) }, { t: 7.5, f: () => cineSfx.static(0.5, 0.6) }],
-  [...[-2.1, -1.6, -1.1, -0.6, -0.1, 0.4, 0.9, 1.4, 1.9].map((t) => ({ t: t + EXT, f: () => cineSfx.alarm() })), { t: 2.4 + EXT, f: () => { if (!DIVE.fail) cineSfx.chute(); } }, { t: EXT - ALERT_LEAD, f: () => say("v5e") },
+  [...[-2.1, -1.6, -1.1, -0.6, -0.1, 0.4, 0.9, 1.4, 1.9].map((t) => ({ t: t + EXT, f: () => cineSfx.alarm() })), { t: 2.4 + EXT, f: () => { if (!DIVE.fail) cineSfx.chute(); } }, { t: EXT - ALERT_LEAD, f: () => say("v5e") }, ...[-1.9, -1.3, -0.7, -0.1, 0.5, 1.1, 1.7].map((t) => ({ t: t + EXT, f: () => { if (!DIVE.ok && !DIVE.fail) cineSfx.breath(); } })),
     ...DEP_ORDER.flatMap((i) => [{ t: T_DEP(i) - 0.45, f: () => cineSfx.whoosh() }, { t: T_DEP(i), f: () => cineSfx.pop() }])],   // mỗi đồng đội bung dù: camera lia tới (vút) + tiếng dù bung            // cảnh báo độ cao · dù bung "BOOM"
   [{ t: 2.35, f: () => cineSfx.crack() }, { t: 2.5, f: () => cineSfx.crack() }, { t: 2.9, f: () => cineSfx.thud() },
     ...[4.2, 5.3, 6.9, 8.4].map((t) => ({ t, f: () => cineSfx.drip() })), ...[5.0, 7.2, 9.0].map((t) => ({ t, f: () => cineSfx.cricket() })), { t: 10.0, f: () => cineSfx.beep(0.6) }, { t: 6.4, f: () => say("v6") }],   // rừng đêm · bíp ở 0:58
@@ -757,15 +784,76 @@ function failCam(t: number, win: { x: number; y: number; z: number }[]) {
   else { T0.set(w.x, w.y + 0.3, w.z); setFov(lerp(62, 48, push)); look(P0, T0, 0.9 * TREM + 0.004); camera.rotateZ(0.05 * TREM); }
 }
 
+/* ───────────── CÚ MÁY ĐIỆN ẢNH "BUNG DÙ" (sau khi bấm E) ─────────────
+ * Thay cho góc nhìn sát mặt: máy đứng NGOÀI nhân vật, luôn lấy trọn người + tán dù trong khung.
+ *  A · u 1.5→3.2   góc thấp, nhìn ngược lên người đang rơi sấp; dù bung ở u = 2.4 → máy lùi ra + nâng lên, nhân vật bị giật lên khung hình (camera "trễ" nhịp rơi → cảm giác lực giật)
+ *  B · u 2.3→7.8   orbit ~175° quanh nhân vật + dù, đi từ NGƯỢC SÁNG (viền sáng, lens flare) sang THUẬN SÁNG (nắng vàng chiếu logo Z trên tán dù), máy cẩu dần lên cao
+ *  C · u 6→10      kéo xa, nhìn xuống cả hòn đảo; vignette + nhoè + tối dần = nhân vật ngất
+ * Ánh sáng 3 điểm: KEY = đèn điểm xanh lạnh cạnh máy (soft) · RIM/BACK = mặt trời thấp ấm (directional) đặt phía sau chủ thể · FILL = hemisphere xanh trời + nảy đất cam.
+ * Mọi thứ là hàm thuần của (u, vị trí người chơi) nên bấm sớm / seek vẫn đúng khung hình. */
+const HU0 = 1.5;
+const H_SUN_AZ = 2.2, H_SUN_EL = 0.24;   // hướng mặt trời (góc phương vị trên mặt phẳng xz, độ cao)
+const SUNDIR = new THREE.Vector3();
+function setSunEl(el: number) { SUNDIR.set(Math.cos(H_SUN_AZ) * Math.cos(el), Math.sin(el), Math.sin(H_SUN_AZ) * Math.cos(el)); }
+setSunEl(H_SUN_EL);
+const H_AZ0 = H_SUN_AZ + Math.PI - 0.5;  // máy bắt đầu ở phía đối diện mặt trời (ngược sáng)
+const H_FLARE = { k: 0, x: 0, y: 0, d: 0 };   // lens flare: độ sáng · vị trí mặt trời trên màn hình (px) · độ lệch khỏi tâm
+const lagAvg = (c: number) => { let a = 0; for (let k = 0; k < 7; k++) a += stateOf(0, c - 0.8 * k / 6, GL[0], groundAt).wy; return a / 7; };   // độ cao người chơi lấy trung bình 0.8s gần nhất → máy "trễ" khi vận tốc đổi đột ngột
+function heroCam(t: number, ct: number, w: { x: number; y: number; z: number }) {
+  const u = t - EXT, ou = u - 2.4, pk = ou > 0 ? Math.exp(-ou * 4) : 0, clk = S.clock;
+  const lag = ((lagAvg(ct) - w.y) - (lagAvg(26 + EXT + HU0) - stateOf(0, 26 + EXT + HU0, GL[0], groundAt).wy)) * (ou > 0 ? Math.exp(-1.3 * ou) : 1);   // < 0 sau khi dù bung: máy tụt xuống so với người → người "bật" lên trong khung rồi lắng lại
+  const e1 = smooth(HU0, 3.4, u), orb = smooth(2.3, 7.8, u), pull = smooth(6.0, 10.5, u);
+  const az = H_AZ0 + 3.1 * orb;
+  const rv = smooth(2.4, 4.6, u);   // "reveal": lùi máy ra + thu hẹp ống kính để cả người lẫn tán dù (rộng ~11m, cao ~6m trên đầu) lọt trọn khung
+  const el = lerp(lerp(-0.3, -0.04, e1), 0.3, smooth(3.4, 7.8, u)) + 0.14 * pull;
+  const dist = lerp(lerp(6.8, 9.5, e1), 25.5, rv) + 10 * pull;
+  const fov = lerp(lerp(54, 46, e1), 34, rv) + 6 * pk;   // + nhấp fov lúc dù bung (punch-in/out)
+  const ty = lerp(0.6, 4.0, smooth(2.35, 3.9, u));   // điểm ngắm: thân người → tâm cụm người + dù
+  const ce = Math.cos(el) * dist;
+  P0.set(w.x + Math.cos(az) * ce, w.y + ty + Math.sin(el) * dist + lag, w.z + Math.sin(az) * ce);
+  T0.set(w.x, w.y + ty + lag, w.z);
+  P0.x += 0.07 * Math.sin(clk * 1.9) + 0.04 * Math.sin(clk * 3.7 + 1); P0.y += 0.06 * Math.sin(clk * 1.3 + 2) + 0.03 * Math.sin(clk * 4.1); P0.z += 0.07 * Math.sin(clk * 1.6 + 4);   // rung tay nhẹ (handheld)
+  P0.y = Math.max(P0.y, groundAt(P0.x, P0.z) + 3);
+  setFov(fov); look(P0, T0, 0.012 + 0.3 * pk);
+  camera.rotateZ(0.04 * Math.sin(u * 0.8 + 0.5) + 0.07 * pk * Math.sin(ou * 9));   // nghiêng khung (dutch) nhẹ + giật lúc bung
+  // ── ánh sáng ──
+  const C = P1.set(w.x, w.y + 3.2, w.z);
+  sun.position.copy(C).addScaledVector(SUNDIR, 70); sun.target.position.copy(C); sun.target.updateMatrixWorld();   // rim/back light
+  cineLight.color.setHex(0xbcd4ff); cineLight.distance = 90;                                                       // key light mềm, lệch trái-trên so với máy
+  cineLight.position.copy(V.set(-0.55, 0.4, 0.1).multiplyScalar(dist * 0.45).applyQuaternion(camera.quaternion).add(camera.position));
+  cineLight.intensity = dist * dist * 1.15 * (0.9 + 0.1 * smooth(1.8, 3.2, u)) * (1 - 0.6 * smooth(7.2, 9.4, u));   // E ≈ hằng số theo khoảng cách
+  sunOrb.position.copy(camera.position).addScaledVector(SUNDIR, 330);
+  // ── lens flare: chiếu hướng mặt trời lên màn hình ──
+  const fw = camera.getWorldDirection(T1), dp = fw.dot(SUNDIR);
+  const sp = V.copy(camera.position).addScaledVector(SUNDIR, 300).project(camera), W = innerWidth, H = innerHeight;
+  H_FLARE.x = (sp.x * 0.5 + 0.5) * W; H_FLARE.y = (-sp.y * 0.5 + 0.5) * H; H_FLARE.d = Math.hypot(sp.x, sp.y);
+  H_FLARE.k = (0.25 + 0.75 * LOOK_DAY) * smooth(0.05, 0.55, dp) * smooth(1.5, 3.2, u) * (1 - smooth(5.8, 7.6, u)) * (1 - 0.35 * smooth(0.6, 1.6, H_FLARE.d));
+}
+
+/** Cảnh chờ bấm E: máy đứng NGOÀI, ba góc cắt gắt theo nhịp hoảng loạn — (A) từ dưới-trước nhìn lên khuôn mặt hoảng hốt · (B) từ trên-sau thấy ba lô + tay đang với ra sau · (C) áp sát tay mò dây giật, rung mạnh dần. */
+function panicCam(t: number, w: { x: number; y: number; z: number }) {
+  const u = t - EXT, k = smooth(-ALERT_LEAD, DEP, u), clk = S.clock;
+  let fov: number;
+  if (u < -0.5) { const s = lerp(1, 0.8, smooth(-ALERT_LEAD, -0.5, u)); P0.set(w.x + 4.6 * s, w.y - 3.2 * s, w.z + 2.6 * s); T0.set(w.x + 0.6, w.y, w.z); fov = 58; }
+  else if (u < 1.0) { const s = lerp(1, 0.85, smooth(-0.5, 1.0, u)); P0.set(w.x - 3.8 * s, w.y + 4.0 * s, w.z + 4.4 * s); T0.set(w.x, w.y + 0.1, w.z); fov = 50; }
+  else { const s = lerp(1, 0.8, smooth(1.0, 2.4, u)); P0.set(w.x - 3.4 * s, w.y + 4.0 * s, w.z + 4.3 * s); T0.set(w.x - 0.2, w.y + 0.1, w.z); fov = lerp(46, 40, smooth(1.0, 2.4, u)); }
+  { const d = T1.copy(T0).sub(P0); V.set(-d.z, 0, d.x).normalize(); T0.addScaledVector(V, 1.5); P0.addScaledVector(V, 1.5 * 0.15); }   // dịch khung: nhân vật lệch sang trái, nhường giữa màn hình cho bảng ĐỘ CAO + nút E
+  setFov(fov); look(P0, T0, 0.04 + 0.16 * k); camera.rotateZ(0.1 * Math.sin(clk * 2.1) + 0.05 * k * Math.sin(clk * 9));
+}
+
 function camera3d(b: number, t: number, ct: number, win: { x: number; y: number; z: number }[]) {
   WHIP = 0;
   CEN.set(0, 0, 0); for (const w of win) CEN.add(V.set(w.x, w.y, w.z)); CEN.multiplyScalar(1 / N);
   const c = S.clock;
   if (b === 0) { cabinCam(t, ct); return; }   // PHÂN CẢNH 1 · trong khoang: master shot + cận cảnh từng người
-  if (b === 1) { // PHÂN CẢNH 2 · góc thấp từ sàn nhìn ngược lên bóng người ngược sáng ở cửa, rồi lao theo người nhảy cuối
-    const w6 = win[6], kF = smooth(7.0, 8.8, t); LZ = 1.0;
-    Wv(ct, 0.3, 0.28, 1.0, P1); Wv(ct, 0, 1.7, 8.0, T1); P0.set(w6.x + 4.5, w6.y + 1.6, w6.z + 2.2); T0.set(w6.x, w6.y + 0.9, w6.z);
-    setFov(lerp(62, 58, kF)); look(P1.lerp(P0, kF), T1.lerp(T0, kF), 0.02); return;
+  if (b === 1) { // PHÂN CẢNH 2 · (0–2.4s) trong khoang nhìn hàng lính dồn ra cửa hông đang trượt mở → CẮT RA NGOÀI: (2.4–6.4s) toàn cảnh Black Hawk từ phải-trước lia dần ra bên hông, thấy từng người bước ra cửa nhảy → (6.4–9.2s) từ trên cao phía sau nhìn cả đội lao xuống → (9.2s+) lao theo người nhảy cuối
+    const CUT1 = [2.4, 6.4, 9.2]; let lc1 = 0; for (const x of CUT1) if (t >= x) lc1 = x; WHIP = lc1 > 0 ? 0.9 * Math.exp(-(t - lc1) * 18) : 0;
+    const w6 = win[6]; LZ = DZ - 1.1;
+    if (t < 2.4) { const k = t / 2.4; setFov(62); Wv(ct, -1.3, 1.35, lerp(-3.4, -2.4, k), P0); Wv(ct, 1.4, 1.2, DZ + 0.4, T0); look(P0, T0, 0.012); return; }
+    const C = Wv(ct, 0, 1.5, 1.0, P1);
+    if (t < 6.4) { const k = smooth(2.4, 6.4, t), a = lerp(0.5, 1.55, k), R = lerp(36, 29, k); setFov(46); look(P0.set(C.x + Math.cos(a) * R, C.y + lerp(3, 1, k), C.z + Math.sin(a) * R), T0.set(C.x - 0.5, C.y + 0.5, C.z), 0.015); return; }
+    if (t < 9.2) { const k = smooth(6.4, 9.2, t); setFov(52); look(P0.set(C.x - 24 + 6 * k, C.y + 13 - 3 * k, C.z + lerp(20, 26, k)), T0.set(lerp(C.x - 8, CEN.x, 0.6), lerp(C.y - 5, CEN.y, 0.6), lerp(C.z, CEN.z, 0.6)), 0.03); return; }
+    setFov(58); look(P0.set(w6.x + 4.5, w6.y + 1.6, w6.z + 2.2), T0.set(w6.x, w6.y + 0.9, w6.z), 0.05); return;
   }
   if (b === 2) { // PHÂN CẢNH 3 · toàn cảnh đội hình bị xé lẻ → POV xoay 360° → áp sát người bị sét hất văng
     const sh = 0.05 + 0.15 * storm(ct);
@@ -778,6 +866,8 @@ function camera3d(b: number, t: number, ct: number, win: { x: number; y: number;
     return;
   }
   if (b === 3 && DIVE.fail) { failCam(t, win); return; }
+  if (b === 3 && DIVE.armed && !DIVE.ok && !DIVE.fail) { panicCam(t, win[0]); return; }   // chờ bấm E: máy ngoài, nhân vật hoảng hốt
+  if (b === 3 && DIVE.ok) { heroCam(t, ct, win[0]); return; }   // đã bấm E: máy ngoài điện ảnh (xem heroCam)
   if (b === 3) { // PHÂN CẢNH 4 · POV người chơi: nhìn xuống đồng hồ cảnh báo → giật ngược lên theo lực dù bung → mờ dần, đầu gục, tối sầm
     // t chạy 0 → EXT: rơi tự do, camera nhìn xuống đất từ trên cao (mặt đất to dần) · u = t - EXT: đồng hồ báo đỏ → dù bung (u ≈ 2.4) → ngất
     const w0 = win[0], u = t - EXT, pre = smooth(0, EXT, t), kUp = smooth(2.4, 2.75, u), droop = smooth(3.6, 7, u);
@@ -810,15 +900,17 @@ export function cineUpdate(dt: number) {
   const t = S.t, ct = b === 0 ? -CAB + t : b === 1 ? t : b === 2 ? 10 + t : b === 3 ? 26 + t : 36 + EXT + t;
   if (b === 3) {   // ĐOẠN BẤM E: cảnh báo bật ALERT_LEAD giây trước hạn chót; quá hạn mà chưa bấm → không bung dù, rơi chết
     const du = t - EXT;
+    const was = DIVE.armed;
     if (!DIVE.ok && !DIVE.fail) DIVE.armed = du >= -ALERT_LEAD;
-    if (DIVE.armed && !DIVE.ok && !DIVE.fail && du >= DEP) { DIVE.fail = true; DIVE.armed = false; DIVE.tc = -1; DIVE.hit = false; S.cut = 1; voiceStop(); cineSfx.whoosh(); }
+    if (DIVE.armed && !was) S.cut = 0.6;   // cảnh báo bật: cắt sang máy ngoài (panicCam)
+    if (DIVE.armed && !DIVE.ok && !DIVE.fail && du >= DEP) { DIVE.fail = true; DIVE.armed = false; DIVE.tc = -1; DIVE.hit = false; S.cut = 1; voiceStop(); cineSfx.whoosh(); cineSfx.scream(14); SCREAM = true; }   // không bấm: nhân vật HÉT suốt quãng rơi cho tới lúc chạm đất
     if (DIVE.ok && du >= DEP) DIVE.armed = false;
   } else DIVE.armed = false;
   const win: { x: number; y: number; z: number }[] = [];
   for (let i = 0; i < N; i++) { poseSoldier(i, ct, 0); const w = stateOf(i, ct, GL[i], groundAt); win.push({ x: w.wx, y: w.wy, z: w.wz }); }
   const pa = planeAt(Math.min(ct, 60));
-  plane.visible = b <= 3; plane.position.set(pa.x, pa.y, pa.z); ramp.rotation.x = (b <= 0 ? 0 : b === 1 ? smooth(0.2, 1.6, t) : 1) * (Math.PI / 2);
-  for (const p of props) p.rotation.z += dt * 40;
+  plane.visible = b <= 3; plane.position.set(pa.x, pa.y, pa.z); const dOpen = b <= 0 ? 0 : b === 1 ? smooth(0.2, 1.6, t) : 1; for (const d of doors) d.position.z = 2.5 + 4.2 * dOpen;   // cửa trượt hai bên hông mở dần
+  rotorMain.rotation.y += dt * 24; rotorTail.rotation.x += dt * 45;
   const green = ct >= 0, blink = Math.max(0, Math.sin(S.clock * 4.5)) ** 2;
   if (green) lampMat.color.setHex(0x20ff40); else lampMat.color.setHex(mixHex(0x401010, 0xff2a2a, blink));
   tipR.color.setHex(Math.sin(S.clock * 6) > 0 ? 0xff2020 : 0x300808); tipG.color.setHex(Math.sin(S.clock * 6 + 2) > 0 ? 0x20ff40 : 0x083010);
@@ -827,23 +919,29 @@ export function cineUpdate(dt: number) {
 
   // ánh sáng + bầu trời + bão
   let L = NIGHT, rainK = 0, fade = 0, lid = 0, blur = 0, flash = 0, vig = 0;
+  const hero = b === 3 && DIVE.ok && !DIVE.fail, hu = t - EXT; CINE.hero = hero;
   if (b === 0) { L = INTERIOR; lid = 0.085 * smooth(0, 0.8, t); vig = shotAt(t) ? 0.5 : 0.28; }   // khoang: tối, dải đen điện ảnh, viền tối góc hình
-  else if (b === 1) L = mixLook(INTERIOR, NIGHT, smooth(8.2, 10.2, t));
+  else if (b === 1) L = mixLook(INTERIOR, NIGHT, smooth(2.0, 3.0, t));   // 0–2.4s còn trong khoang, từ 2.4s máy quay ra ngoài quay toàn cảnh trực thăng
   else if (b === 2) { L = mixLook(NIGHT, STORM, smooth(0, 3, t)); rainK = smooth(1, 4, t); }
+  else if (hero) { L = mixLook(STORM, BREAK, smooth(1.4, 3.6, hu)); rainK = 1 - smooth(0.8, 3.0, hu); lid = 0.115 * smooth(0, 0.7, S.clock - DIVE.press); blur = 12 * smooth(6.6, 9.4, hu); vig = Math.max(0.3, smooth(5.6, 8.6, hu)); fade = smooth(8.6, 9.9, hu); }   // golden hour xé bão · letterbox 2.3:1 · ngất dần ở cuối
   else if (b === 3) { const u = t - EXT, ue = DIVE.fail ? Math.min(u, DEP - 0.01) : u; L = mixLook(STORM, GREY, smooth(0, 3, ue)); rainK = 1 - smooth(0, 2.5, ue); blur = 14 * smooth(3.0, 7.0, ue); vig = smooth(3.4, 7.2, ue); fade = smooth(7.3, 8.5, ue);
     if (DIVE.fail && DIVE.tc >= 0) { const sc = u - DEP - DIVE.tc, sr = u - DEP - DIVE.tr; rainK = 1; blur = 5 * smooth(0, 0.6, sc); vig = 0.35 + 0.4 * smooth(0, 1.2, sc); fade = smooth(0.4, 1.6, sr); } }
   else { L = mixLook(FOREST_LOW, FOREST_HIGH, smooth(5, 11.3, t)); fade = Math.max(1 - smooth(1.9, 2.4, t), smooth(11.3, 12, t)); }
   for (const te of flashAt[b] ?? []) if (t >= te) flash += Math.exp(-(t - te) * 12);
+  if (hero && hu > 1.6) flash += 0.85 * Math.exp(-(hu - 1.6) * 8);   // sét loé đúng lúc vào cú máy → thấy rõ người đang rơi trong bão
+  if (hero && hu > 2.4) flash += 0.5 * Math.exp(-(hu - 2.4) * 10);   // chớp trắng ngắn lúc dù nổ bung
   if (b === 3 && DIVE.fail) { flash = Math.max(flash, IMPF); IMPF *= Math.exp(-dt * 6); }   // đập đất: chớp trắng
   flash = Math.min(1, flash);
   let wf = 0; if (b === 0) for (const te of WFLASH) if (t >= te) wf += Math.exp(-(t - te) * 7);   // sét xa ngoài cửa sổ: kính chớp sáng, khoang sáng loé
   wf = Math.min(1, wf); paneMat.color.setHex(mixHex(PANE_DARK, PANE_FLASH, wf));
+  { const fl = 1 - 0.2 * Math.max(0, Math.sin(S.clock * 23) * Math.sin(S.clock * 7.3)); cabLampMat.color.setHex(mixHex(0xb0a080, 0xfff4d8, fl)); cabPoolMat.opacity = (0.32 + 0.2 * (1 - LOOK_DAY)) * fl * (1 + 0.5 * wf); }   // đèn khoang chập chờn nhẹ, chớp sáng thêm khi có sét
   const u = (sky.material as THREE.ShaderMaterial).uniforms, fog = scene.fog as THREE.FogExp2;
   u.top.value.setHex(L.top); u.mid.value.setHex(L.mid); u.hor.value.setHex(L.hor); (scene.background as THREE.Color).setHex(L.hor); fog.color.setHex(L.fog); fog.density = L.fogD;
-  hemi.color.setHex(L.hemiC); hemi.intensity = L.hemi + 4 * flash + (b === 0 ? (shotAt(t) ? 0.55 : 1.5) + 0.5 * wf : 0); sun.color.setHex(L.sunC); sun.intensity = L.sun; torch.intensity = b >= 4 ? env.torchI * smooth(0, 1, L.hemi) : 0;
-  cloudMat.color.setHex(L.cloud); starMat.opacity = L.stars; stars.visible = L.stars > 0.01; sunOrb.visible = L.orb > 0.5; clouds.position.x = -6 * ct * (b <= 3 ? 1 : 0);
+  hemi.groundColor.setHex(hero ? 0x6a4632 : env.hg); hemi.color.setHex(L.hemiC); hemi.intensity = L.hemi + 4 * flash + (b === 0 ? (shotAt(t) ? 0.55 : 1.5) + 0.5 * wf : 0); sun.color.setHex(L.sunC); sun.intensity = L.sun; torch.intensity = b >= 4 ? env.torchI * smooth(0, 1, L.hemi) : 0;
+  cloudMat.color.setHex(L.cloud); starMat.opacity = L.stars; stars.visible = L.stars > 0.01; sunOrb.visible = L.orb > 0.5; if (sunOrb.visible) (sunOrb.material as THREE.MeshBasicMaterial).color.setHex(ORB_C); clouds.position.x = -6 * ct * (b <= 3 ? 1 : 0);
   clouds.visible = b <= 3;
 
+  if (SCREAM && b === 3 && DIVE.fail && DIVE.tc >= 0 && t - EXT - DEP >= DIVE.tc - 0.02) { SCREAM = false; cineSfx.screamStop(); }   // đập đất → tiếng hét tắt ngấm
   if (b === 3 && DIVE.fail && DIVE.tc >= 0) failFx(dt, t - EXT - DEP, win[0]);
   if (DIVE.fail) updateFx(dt, S.clock);
   TREM *= Math.exp(-dt * 3.2);
@@ -877,6 +975,12 @@ export function cineUpdate(dt: number) {
   if (ovLidT && ovLidB) { ovLidT.style.height = ovLidB.style.height = lid * 50 + "%"; }
   if (ovBlur) { const bb = Math.max(blur, 7 * WHIP), f = bb > 0.05 ? `blur(${bb.toFixed(1)}px)` : "none"; ovBlur.style.backdropFilter = f; (ovBlur.style as any).webkitBackdropFilter = f; }
   if (ovVig) ovVig.style.opacity = String(vig);
+  if (ovGrade) ovGrade.style.opacity = hero ? String(smooth(0, 0.8, S.clock - DIVE.press)) : "0";                       // chỉnh màu teal-cam + hạt phim
+  if (ovDof) ovDof.style.opacity = hero ? String(smooth(0, 0.8, S.clock - DIVE.press) * (1 - 0.6 * smooth(8, 9.4, hu))) : "0";   // rìa khung nhoè nhẹ (giả độ sâu trường ảnh)
+  if (ovFlare) { // lens flare: quầng sáng + vệt anamorphic ngang + 3 vòng ma dọc đường nối mặt trời → tâm màn hình
+    const k = hero ? H_FLARE.k : 0; ovFlare.style.opacity = k > 0.01 ? String(k) : "0";
+    if (k > 0.01) { const cx = innerWidth / 2, cy = innerHeight / 2, ch = ovFlare.children, dx = H_FLARE.x - cx, dy = H_FLARE.y - cy, ps = [1, 1, -0.22, -0.5, -0.85];
+      for (let q = 0; q < ch.length; q++) { const e = ch[q] as HTMLElement, f = ps[q] ?? 1; e.style.left = (q < 2 ? H_FLARE.x : cx + dx * f) + "px"; e.style.top = (q < 2 ? H_FLARE.y : cy + dy * f) + "px"; } } }
   if (ovAlt) { const on = b === 3 && t >= EXT - ALERT_LEAD - 0.1 && t < EXT + 2.45 && !DIVE.fail && !DIVE.ok; ovAlt.style.opacity = on ? String(0.6 + 0.4 * Math.sin(S.clock * 14)) : "0"; if (on && ovAltV) ovAltV.textContent = String(Math.max(0, Math.round(win[0].y - GL[0]))); }
   if (ovKey) {   // nút E nhấp nháy vàng + thanh đếm ngược; bấm xong hiện xác nhận "ĐÃ BUNG DÙ"
     const show = b === 3 && DIVE.armed && !DIVE.ok, confirm = b === 3 && DIVE.ok && S.clock - DIVE.press < 1.1;

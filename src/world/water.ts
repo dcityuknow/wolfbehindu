@@ -6,6 +6,7 @@ import { WATER } from "../config";
 import { me } from "./characters";
 import { surfaceAt, pondAt } from "./island";
 import { CINE } from "./cineState";
+import { DAY } from "./daycycle";
 import { sfx, cineSfx, underSfx } from "../audio";
 import { flashRed } from "../ui/hud";
 
@@ -50,7 +51,7 @@ function bubble(x: number, y: number, z: number, top: number) {
 }
 
 /* ── sương dưới nước: nhớ màu/độ đặc gốc để trả lại khi lên mặt nước ── */
-const WC = new THREE.Color(), FOG0 = (scene.fog as THREE.FogExp2).color.clone();
+const WC = new THREE.Color(), WC0 = new THREE.Color(), FOG0 = DAY.fog;   // FOG0 = màu sương trên mặt nước THEO GIỜ (daycycle.ts cập nhật mỗi khung), không còn là hằng số ban ngày
 let fogOn = false, uw = 0;
 
 let wasIn = false, wasUnder = false, strokePh = 0, treadT = 0, bubT = 0, dmT = 0, deepT = 0;
@@ -109,8 +110,10 @@ export function updateWater(dt: number, t: number) {
   if (key !== tintKey) {
     tintKey = key;
     overlay().style.background = pond ? "linear-gradient(rgba(40,110,180,.5),rgba(10,50,120,.82))" : "linear-gradient(rgba(20,130,160,.5),rgba(6,70,110,.82))";
-    WC.setHex(pond ? 0x0b4a86 : 0x0a5a78);
+    WC0.setHex(pond ? 0x0b4a86 : 0x0a5a78);
   }
+  WC.copy(WC0).multiply(DAY.tint);   // dưới nước ban đêm tối hơn
+  overlay().style.filter = `brightness(${(0.3 + 0.7 * (1 - DAY.night)).toFixed(2)})`;
   overlay().style.opacity = uw < 0.01 ? "0" : uw.toFixed(2);
   if (uw > 0.005) { fogOn = true; F.color.copy(FOG0).lerp(WC, uw); F.density += (0.11 - F.density) * uw; }
   else if (fogOn) { F.color.copy(FOG0); fogOn = false; }

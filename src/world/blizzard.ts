@@ -4,6 +4,7 @@ import { G } from "../state";
 import { BLIZZARD as B } from "../config";
 import { me } from "./characters";
 import { CINE } from "./cineState";
+import { DAY } from "./daycycle";
 
 /**
  * Gió thổi + tuyết bay trên đỉnh núi: hạt tuyết trôi theo chiều gió (có cơn gió giật mạnh yếu theo nhịp) trong một hộp quanh người chơi,
@@ -28,6 +29,7 @@ const flake = (() => {   // chấm tròn mềm
   x.fillStyle = g; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c);
 })();
 const snowMat = new THREE.PointsMaterial({ map: flake, color: 0xf4fbff, size: 0.26, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true });
+const SNOW0 = snowMat.color.clone();   // màu gốc ban ngày; ban đêm nhân DAY.tint để tuyết không trắng sáng
 const snow = new THREE.Points(geo, snowMat); snow.frustumCulled = false; snow.visible = false; scene.add(snow);
 
 /* ── vệt gió ── */
@@ -58,7 +60,7 @@ export function updateBlizzard(dt: number, t: number) {
   const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
   snow.visible = streaks.visible = true;
   geo.setDrawRange(0, Math.max(40, Math.floor(N * (0.18 + 0.82 * k))));
-  snowMat.opacity = 0.35 + 0.5 * k; snowMat.size = 0.2 + 0.1 * k;
+  snowMat.opacity = 0.35 + 0.5 * k; snowMat.size = 0.2 + 0.1 * k; snowMat.color.copy(SNOW0).multiply(DAY.tint);
   streakMat.opacity = Math.min(0.5, (0.1 + 0.35 * gust) * k);
 
   for (let i = 0; i < N; i++) {

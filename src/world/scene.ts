@@ -23,17 +23,20 @@ Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, n
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
 /** Ánh nắng + bóng đổ đi theo người chơi (giữ bản đồ shadow nhỏ mà vẫn nét). */
+/** Hướng TỪ mặt đất TỚI nguồn sáng chính (nắng ban ngày, trăng ban đêm). daycycle.ts cập nhật mỗi khung theo giờ thật; mặc định = hướng cũ. */
+export const SUN_DIR = new THREE.Vector3(26, 46, 16).normalize();
+const SUN_DIST = 55.4;   // khoảng cách đặt đèn tới người chơi (như bản cũ: |(26,46,16)|)
 export function followSun(x: number, y: number, z: number) {
   const q = 1; x = Math.round(x / q) * q; z = Math.round(z / q) * q; // làm tròn để bóng không rung
-  sun.target.position.set(x, y, z); sun.position.set(x + 26, y + 46, z + 16); sun.target.updateMatrixWorld();
+  sun.target.position.set(x, y, z); sun.position.set(x + SUN_DIR.x * SUN_DIST, y + SUN_DIR.y * SUN_DIST, z + SUN_DIR.z * SUN_DIST); sun.target.updateMatrixWorld();
 }
 
 // Bầu trời gradient + mặt trời
 export const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { top: { value: new THREE.Color(0x3d90e6) }, mid: { value: new THREE.Color(0xa6d8f5) }, hor: { value: new THREE.Color(HORIZON) } },
+  uniforms: { top: { value: new THREE.Color(0x3d90e6) }, mid: { value: new THREE.Color(0xa6d8f5) }, hor: { value: new THREE.Color(HORIZON) }, uEnc: { value: 0 } },   // uEnc: 0 = xuất màu thô (cảnh phim cine3d.ts) · 1 = mã hoá sRGB (daycycle.ts, màu khai báo dạng hex hiển thị)
   vertexShader: "varying vec3 p;void main(){p=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-  fragmentShader: "uniform vec3 top,mid,hor;varying vec3 p;void main(){float h=clamp(normalize(p).y,0.,1.);vec3 c=mix(hor,mid,smoothstep(0.,.25,h));c=mix(c,top,smoothstep(.2,.9,h));gl_FragColor=vec4(c,1.);}",
+  fragmentShader: "uniform vec3 top,mid,hor;uniform float uEnc;varying vec3 p;void main(){float h=clamp(normalize(p).y,0.,1.);vec3 c=mix(hor,mid,smoothstep(0.,.25,h));c=mix(c,top,smoothstep(.2,.9,h));gl_FragColor=vec4(c,1.);if(uEnc>.5)gl_FragColor=linearToOutputTexel(gl_FragColor);}",
 }));
 sky.renderOrder = -10; scene.add(sky);
 const orb = (r: number, col: number, x: number, y: number, z: number) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color: col, fog: false })); m.position.set(x, y, z); scene.add(m); return m; };

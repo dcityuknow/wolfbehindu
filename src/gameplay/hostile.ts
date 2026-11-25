@@ -1,3 +1,4 @@
+import { hitPlayer } from "../world/hitreact";
 import { playBark } from "../meetVoice";
 import { deathFlow } from "./gameover";
 import * as THREE from "three";
@@ -205,9 +206,10 @@ function clear(e: Entity, p: Entity) {
 }
 const gunOf = (e: Entity): GunDef => { const r = e.g.userData.gunRig as GunRig; return GUNS.find((g) => g.id === r.cur) ?? GUNS[1]; };
 
-export function hurtPlayer(d: number) {
+export function hurtPlayer(d: number, from: { x: number; z: number } | null = null, blast = false) {
   if (G.phase !== "play" || W.hp <= 0) return;
   W.hp = Math.max(0, W.hp - d); flashRed(d);
+  hitPlayer(me(), from, d, blast);   // giật camera / súng / avatar theo vùng trúng + nhớ hướng đạn cho cảnh chết
   if (W.hp <= 0) executed();
 }
 /** Out of health: the squad executes you. Game over right now; the death is written to the contract. */
@@ -256,7 +258,7 @@ function botShot(e: Entity, g: GunDef, d: number, acc = 1) {
   for (let k = 0; k < g.pellets; k++) {
     const hit = Math.random() < pHit * acc; T.set(P.x, P.y + 1.2, P.z);   // vừa chạy vừa bắn thì kém chính xác hơn đứng ngắm
     if (!hit) T.add(B.set((Math.random() - 0.5) * (1 + d * 0.12), (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * (1 + d * 0.12)));
-    tracer(MZ, T); if (hit) hurtPlayer(g.dmg * COMBAT.botDmg);
+    tracer(MZ, T); if (hit) hurtPlayer(g.dmg * COMBAT.botDmg, e);
   }
   sfx.shot(g.id, g.id === "sniper" ? Math.max(0.3, 1 - d / 220) : Math.max(0.12, 0.8 - d / 70));
 }

@@ -17,6 +17,7 @@ import { toast } from "../ui/dom";
 import { hitMark } from "../ui/weaponHud";
 import { keys } from "../input";
 import { onFriendlyHit, hostileReset, hurtPlayer, onPlayerShot } from "./hostile";
+import { classifyHit, classifyBlast, reactHit, type HitInfo } from "../world/hitreact";
 import type { Entity } from "../types";
 
 /**
@@ -73,10 +74,11 @@ function trace(range: number): Hit {
 }
 
 /* ───────────── Sát thương ───────────── */
-function damageEntity(e: Entity, dmg: number, head: boolean) {
+function damageEntity(e: Entity, dmg: number, head: boolean, hit: HitInfo | null = null) {
   if (e.stun > 0 || e.dead || e.out) return;
   e.hp -= dmg; e.flash = 0.18; sfx.hit();
-  if (e.hp > 0) { hitMark(head ? 2 : 1); e.g.userData.face?.(1); e.g.userData.painT = 0.8; onFriendlyHit(e); return; }   // trúng đạn: nhăn mặt nhắm mắt                  // trúng đạn: đồng đội hét lên, chất vấn, chĩa súng lại
+  if (hit) e.g.userData.lastHit = { info: hit, at: performance.now() };   // markDead đọc để chọn kiểu gục ngã theo vùng trúng / hướng đạn
+  if (e.hp > 0) { hitMark(head ? 2 : 1); e.g.userData.face?.(1); e.g.userData.painT = 0.8; if (hit) reactHit(e, hit); onFriendlyHit(e); return; }   // trúng đạn: nhăn mặt + phản ứng theo vùng (tay / vai / chân / đầu…)   // trúng đạn: nhăn mặt nhắm mắt                  // trúng đạn: đồng đội hét lên, chất vấn, chĩa súng lại
   hitMark(3);
   if (G.role === 1 && !G.killUsed && !G.ghost && G.phase === "play") hooks.lethal(e);   // gián điệp: hạ gục thật (on-chain), 1 lần/lượt
   else { e.hp = 0; hooks.friendlyKill(e); }                                          // anyone else: the victim is dead for good (on-chain)
@@ -98,7 +100,8 @@ function fire() {
     onPlayerShot(O, D, r.t);   // bot bị trúng / thấy đường đạn thì nhìn quanh tìm người bắn
     if (r.e) {
       const fall = r.t < g.range * 0.4 ? 1 : 1 - 0.45 * ((r.t - g.range * 0.4) / (g.range * 0.6));   // xa thì yếu đi
-      impact(P, "blood"); damageEntity(r.e, g.dmg * fall * (r.head ? COMBAT.headMul : 1), r.head);
+      const dm = g.dmg * fall * (r.head ? COMBAT.headMul : 1);
+      impact(P, "blood"); damageEntity(r.e, dm, r.head, classifyHit(r.e, P, D, r.head, dm));
     } else if (r.kind === "water") { splash(P, g.id === "sniper" ? 1.5 : 1); sfx.waterShot(Math.hypot(me().x - P.x, me().z - P.z)); }   // đạn chạm nước: tóe nước + tiếng riêng
     else if (r.kind === "ground") { impact(P, "dust"); hole(P, HN); }
     else if (r.kind === "wall") { impact(P, "spark"); hole(P, HN); }
@@ -211,7 +214,7 @@ function explode(p: THREE.Vector3, water = false, bot = false) {
     if (d < GRENADE.radius) {
       let dmg = GRENADE.dmg * Math.pow(1 - d / GRENADE.radius, 1.3) * (bot ? 0.6 : 1);   // lựu đạn của bot yếu hơn 40%: trúng chính giữa không chết ngay
       U.copy(T).sub(p).normalize(); rc.set(p, U); rc.far = d; if (rc.intersectObjects(wallMeshes, false).length) dmg *= 0.25;
-      hooks.shake(0.5); hurtPlayer(dmg);
+      hooks.shake(0.5); hurtPlayer(dmg, p, true);
     }
   }
   if (!bot) for (const e of entities) {   // lựu đạn của bot không làm đồng đội bị thương
@@ -221,7 +224,7 @@ function explode(p: THREE.Vector3, water = false, bot = false) {
     U.copy(T).sub(p).normalize(); rc.set(p, U); rc.far = d;
     if (rc.intersectObjects(wallMeshes, false).length) dmg *= 0.25;             // có vật chắn: giảm mạnh
     const push = Math.min(1.5, 2.5 / (d + 1)); e.x += U.x * push; e.z += U.z * push;  // hất ra
-    damageEntity(e, dmg, false);
+    damageEntity(e, dmg, false, classifyBlast(e, p, dmg));
   }
 }
 /** Bot ném lựu đạn về phía (tx, ty, tz): tính đường bay parabol để rơi gần đích (bay ~0,7–2 s), nổ sau khi chạm đất ~0,9 s để người chơi kịp chạy. */

@@ -1,4 +1,4 @@
-import { ownCorpse } from "../world/characters";
+import { ownCorpse, startOwnDeath, restoreAvatar } from "../world/characters";
 import { captureCrew } from "./snapshot";
 import { sfx } from "../audio";
 
@@ -10,6 +10,7 @@ let dim: HTMLDivElement | null = null, snapped = false, onDark: () => void = () 
 
 /** Bắt đầu cảnh chết. fall=false (bị loại do vắng mặt…) thì không ngã, chụp ngay và resolve ngay. */
 export function beginDeath(fall = true): Promise<void> {
+  if (fall) startOwnDeath();   // avatar quỳ rồi đổ (góc thứ ba thấy rõ; góc thứ nhất camera theo cùng nhịp)
   const body = ownCorpse(); body.g.visible = false;   // xác chỉ hiện ở ảnh chụp (camera đang nằm đúng chỗ đầu nó)
   dim?.remove(); dim = document.createElement("div");
   dim.style.cssText = "position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:7";
@@ -30,4 +31,4 @@ export function tickDeath(dt: number) {
 }
 
 /** Gỡ lớp tối + camera chết (gọi khi bảng kết quả cuối hiện ra). */
-export function endDeathView() { DEATH.active = false; dim?.remove(); dim = null; }
+export function endDeathView() { DEATH.active = false; restoreAvatar(); dim?.remove(); dim = null; }

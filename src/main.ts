@@ -17,6 +17,7 @@ import { ejecting, updateCall } from "./gameplay/meeting";
 import { startSolo } from "./gameplay/session";
 import { initPvp, open as openPvp } from "./gameplay/pvp";
 import { PLAYER_SPEED, LIGHT, NAMES, WATER } from "./config";
+import { PV } from "./world/hitreact";
 import { sfx } from "./audio";
 import { updateFootsteps } from "./world/footsteps";
 import { UI } from "./story";
@@ -41,6 +42,7 @@ import { tribunalUpdate } from "./gameplay/tribunal";
 import { preloadVoices } from "./meetVoice";
 import { tickDeath } from "./ui/deathSeq";
 import { updateAltitude } from "./world/altitude";
+import { updateDayCycle } from "./world/daycycle";
 
 bindInput({ onWeapon: selectWeapon, onReload: startReload, onGrenade: throwGrenade, onInteract: interact, onKill: doKill, onView: cycleView, onJump: () => { const m = me(); if (G.phase === "play" && m.y <= groundAt(m.x, m.z) + 0.05 && m.seat < 0 && !swimmable(m.x, m.z)) m.vy = 5.6; } });
 initIntro(startSolo, openPvp); initPvp(); initHowTo();
@@ -74,7 +76,7 @@ function update(dt: number) {
         const sp = PLAYER_SPEED * (0.5 + 1.5 * (MV.roll / ROLL_T));   // lao ra nhanh, chậm dần
         m.x += MV.dx * sp * dt; m.z += MV.dz * sp * dt; m.rot = m.legRot = Math.atan2(MV.dx, MV.dz); m.legBack = false;
       } else {
-        const sp = PLAYER_SPEED * (MV.inWater ? (MV.under ? WATER.diveMove : WATER.swimMove) : 1);   // bơi chậm hơn đi bộ, lặn còn chậm hơn
+        const sp = PLAYER_SPEED * PV.slow * (MV.inWater ? (MV.under ? WATER.diveMove : WATER.swimMove) : 1);   // bơi chậm hơn đi bộ, lặn còn chậm hơn
         if (l) { m.x += (vx / l) * sp * dt; m.z += (vz / l) * sp * dt; }
         // Thân (từ hông lên) luôn xoay theo chuột; khi bơi thì cả người hướng theo hướng bơi
         m.rot = MV.swimming && l ? Math.atan2(vx, vz) : rig.yaw;
@@ -144,7 +146,9 @@ function update(dt: number) {
   tNow += dt; updateFx(dt); updateWeaponHud(); updateMinimap(dt); animateCrew(dt, tNow); tribunalUpdate(dt); updateMap(tNow, dt); updateTerrain(tNow, dt);
   cineUpdate(dt); tickDeath(dt);
   updateCamera(dt, tNow, shake.v);
-  followSun(m.x, m.y, m.z); torch.position.set(m.x, m.y + 3, m.z);
+  updateDayCycle(dt);   // giờ thật của người chơi (IP → múi giờ + vị trí): nắng/trăng/sao/màu trời/sương; nhường cho cảnh phim khi CINE.active
+  if (!CINE.hero) followSun(m.x, m.y, m.z);   // cú máy bung dù tự đặt đèn mặt trời (backlight)
+  torch.position.set(m.x, m.y + 3, m.z);
   if (!CINE.active) (scene.fog as THREE.FogExp2).density = G.ghost ? LIGHT.fogGhost : LIGHT.fogPlay;
   updateWater(dt, tNow);      // lặn + nín thở + màn nước + âm thanh nước (sau camera và sau khi đặt sương)
   updateBlizzard(dt, tNow);   // gió thổi + tuyết bay trên đỉnh núi

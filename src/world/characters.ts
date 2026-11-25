@@ -8,6 +8,7 @@ import { buildSoldier, defOf } from "./soldier";
 import { attachGun, type GunRig } from "./guns";
 import { poseFull, curlArm } from "./gunpose";
 import { layDown, standUp, pickPose } from "./corpse";
+import { beginDying, beginPlayerDying, tickDying, tickHit, cancelHit, defaultHit, type HitInfo } from "./hitreact";
 import { bloodPool } from "./fx";
 import { COLORS, NAMES, SQUAD, PLAYERS, GUNS, COMBAT, type GunId } from "../config";
 import { W, MV, ROLL_T } from "../weaponState";
@@ -84,10 +85,24 @@ export function ownCorpse(): Body {
   let b = bodies.find((x) => x.own);
   if (!b) { const g = makeCrew(e.i); gray(g); b = { x: e.x, z: e.z, g, own: true }; bodies.push(b); }
   b.x = e.x; b.z = e.z;
-  if (b.pose === undefined) { b.pose = pickPose(); b.yaw = (Math.random() - 0.5) * 1.2; bloodPool(e.x, e.z, e.rot, 1.1); }
+  if (b.pose === undefined) { const u = e.g.userData; b.pose = (u.downPose ?? pickPose()) as number; b.yaw = (u.downYaw ?? (Math.random() - 0.5) * 1.2) as number;   // cùng tư thế với lúc avatar gục xuống
+    bloodPool(e.x, e.z, e.rot, 1.1); }
   layDown(b.g, e.x, e.z, e.rot, b.pose, b.yaw!, !!defOf(SQUAD[e.i]).pack);
   b.g.userData.face?.(2 + (b.pose % 3));   // mặt người chết: nhắm mắt há miệng / mắt chữ X lè lưỡi / trợn mắt kinh hoàng
   return b;
+}
+/** Cảnh chết của CHÍNH người chơi: avatar quỳ → đổ theo hướng đạn (góc thứ ba nhìn thấy; góc thứ nhất camera đi theo, xem camera.ts). Gọi từ deathSeq.beginDeath. */
+export function startOwnDeath() {
+  const e = entities[G.slot], u = e.g.userData;
+  for (const m of u.mats as THREE.Material[]) { m.transparent = false; m.opacity = 1; }   // (markDead đã làm mờ thành hồn ma — đang diễn cảnh chết thì phải đặc)
+  const r = beginPlayerDying(e, !!defOf(SQUAD[e.i]).pack);
+  const b = bodies.find((x) => x.own); if (b) { b.pose = u.downPose; b.yaw = u.downYaw; }
+  return r;
+}
+/** Hết cảnh chết: đưa avatar về trạng thái bình thường (đứng thẳng, màu gốc). */
+export function restoreAvatar() {
+  const e = entities[G.slot], u = e.g.userData; if (!u.dying && u.downPose === undefined) return;
+  reviveEntity(e); u.finalSnap = undefined; u.layered = false; suitMat(e.g).color.setHex(0xffffff);
 }
 /** Ngã xuống (ngất / chết): chọn tư thế ngẫu nhiên, bỏ súng. Gọi mỗi khung hình khi còn ngất để giữ đúng chỗ. */
 export function layEntity(e: Entity) {
@@ -96,7 +111,7 @@ export function layEntity(e: Entity) {
   u.face?.(e.dead ? 2 + (u.downPose % 3) : 5);   // chết: biểu cảm chết · ngất: nhắm mắt
 }
 /** Hết ngất: đứng dậy. */
-export function reviveEntity(e: Entity) { e.g.userData.downPose = undefined; e.g.userData.face?.(0); standUp(e.g, e.rot); }
+export function reviveEntity(e: Entity) { cancelHit(e.g); e.g.userData.dying = undefined; e.g.userData.downPose = undefined; e.g.userData.face?.(0); standUp(e.g, e.rot); }
 export function markDead(i: number, toast: (m: string) => void) {
   if (G.dead.has(i)) return;
   G.dead.add(i);
@@ -108,7 +123,12 @@ export function markDead(i: number, toast: (m: string) => void) {
     toast(t("toast.killed"));
     deathHooks.selfKilled();
   } else {
-    e.dead = true; layEntity(e); gray(e.g); bloodPool(e.x, e.z, e.rot, 1);   // ngã nhiều kiểu (dang tay chân, sấp, ngửa, nghiêng), súng rơi khỏi tay, máu loang trên sàn mãi mãi
+    e.dead = true; const u = e.g.userData, lh = u.lastHit as { info: HitInfo; at: number } | undefined; u.lastHit = undefined;
+    if (G.phase === "play" && e.g.visible && e.seat < 0) {   // đang giao tranh và có người nhìn thấy: giật theo vùng trúng → khuỵu quỳ → gục (ngửa / sấp / nghiêng), súng rời tay, rồi máu loang
+      const info = lh && performance.now() - lh.at < 600 ? lh.info : defaultHit(e, me());
+      u.tag.visible = false;
+      beginDying(e.g, { x: e.x, y: e.y, z: e.z, rot: e.rot, pack: !!defOf(SQUAD[e.i]).pack, info, land: () => bloodPool(e.x, e.z, e.rot, 1), done: () => gray(e.g) });
+    } else { layEntity(e); gray(e.g); bloodPool(e.x, e.z, e.rot, 1); }   // chết khi không ai thấy (họp, tải ván…): nằm ngay, không cần diễn
     bodies.push({ x: e.x, z: e.z, g: e.g });
   }
 }
@@ -120,6 +140,7 @@ function bendKnees(u: any) { for (const l of [u.legL, u.legR]) { const a = l.rot
 export function animateCrew(dt: number, t: number) {
   for (const e of entities) {
     const u = e.g.userData;
+    if (u.dying) { tickDying(e.g, dt); continue; }   // đang gục: hoạt ảnh quỳ → đổ do hitreact.ts điều khiển hoàn toàn
     if (u.painT > 0 && !e.dead && e.stun <= 0) { u.painT -= dt; if (u.painT <= 0) u.face?.(0); }   // nét mặt đau sau khi trúng đạn rồi trở lại bình thường
     if (e.dead || e.stun > 0) continue;
     const sp = dt > 0 ? Math.hypot(e.x - u.lx, e.z - u.lz) / dt : 0; u.lx = e.x; u.lz = e.z;
@@ -133,6 +154,7 @@ export function animateCrew(dt: number, t: number) {
       if (!(e.i === G.slot && (MV.roll > 0 || MV.swimK > 0.02))) { u.hip.rotation.y = tw - sw * 0.2; u.hip.rotation.z = Math.sin(u.ph) * 0.035 * k; }
       else u.hip.rotation.y = 0;
     }
+    if (u.head && u.headOff) { u.head.rotation.x -= u.headOff.x; u.head.rotation.y -= u.headOff.y; u.head.rotation.z -= u.headOff.z; u.headOff.x = u.headOff.y = u.headOff.z = 0; }   // bỏ phần đầu bị giật của khung trước (hitreact.ts) trước khi làm mượt
     if (u.head) { const hp = isMe && MV.swimK < 0.3 && MV.roll <= 0 ? Math.max(-1.0, Math.min(0.9, e.pitch)) * 0.75 : 0; u.head.rotation.x += (hp - u.head.rotation.x) * Math.min(1, dt * 14); }   // đầu gật / ngẩng theo góc chuột   // khớp hông: chậu xoay ngược với vai khi bước, nghiêng nhẹ theo nhịp chân
     const gr = u.gunRig as GunRig | undefined;
     let gl = 0;
@@ -152,6 +174,7 @@ export function animateCrew(dt: number, t: number) {
       gr.pivot.rotation.x = lerp(0.1, th + Math.PI / 2, e.aim); gr.pivot.position.y = 1.344 - 0.14 * (1 - e.aim);   // hạ súng nhưng vẫn cầm NGANG, hai tay gập trước ngực
     } else { u.armL.rotation.set(-sw * 0.9 + br, 0, 0); u.armR.rotation.set(sw * 0.9 - br, 0, 0); u.armL.userData.elbow.rotation.x = -0.2 - 0.6 * Math.max(0, sw); u.armR.userData.elbow.rotation.x = -0.2 - 0.6 * Math.max(0, -sw); curlArm(u.armL, 0.9, 0.5); curlArm(u.armR, 0.9, 0.5); }
     if (e.i === G.slot) poseMe(e, t, gr, gl);
+    tickHit(e, dt, e.i === G.slot && !!u.posed);   // phản ứng trúng đạn (giật đầu / vai / tay / ngực / bụng / quỵ gối) cộng lên tư thế vừa đặt (người chơi: sau poseMe để cộng lên tư thế lăn / bơi)
   }
 }
 

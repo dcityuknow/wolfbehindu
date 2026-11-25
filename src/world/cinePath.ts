@@ -43,17 +43,22 @@ export const SEAT = [
 export const RANK: number[] = (() => { const o = [...Array(N).keys()].sort((a, b) => SEAT[b].z - SEAT[a].z), r: number[] = []; o.forEach((id, k) => (r[id] = k)); return r; })();
 export const TJ = (k: number) => 3.6 + 0.45 * k;    // thời điểm nhảy theo thứ tự hàng (k = RANK); người cuối (id 6) nhảy sau cùng
 const TS = (k: number) => 0.3 + 0.12 * k;           // thời điểm đứng dậy
+/** Trực thăng Black Hawk: lính thoát qua CỬA TRƯỢT HAI BÊN HÔNG (không còn ramp sau). DZ = tâm cửa dọc khoang (lz), DOOR_X = lx của ngưỡng cửa. SIDE[id] = -1 băng ghế trái · +1 băng ghế phải: mỗi bên xếp một hàng riêng trước cửa bên mình. */
+export const DZ = 2.5, DOOR_X = 2.15;
+export const SIDE: number[] = SEAT.map((s) => (s.x < 0 ? -1 : 1));
+const ORD: number[] = []; RANK.forEach((k, id) => { ORD[k] = id; });
+const wrapPi = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 /** Thời điểm dù bung / chạm đất theo id. Người chơi (id 0) là nhân vật bị ngất: dù bung muộn nhất, chạm đất ngay sau màn đen (đầu cảnh 5). */
 export const TO = (i: number) => (i === 0 ? 28.4 + EXT : 26 + T_DEP(i));
 export const TL = (i: number) => (i === 0 ? 38.9 + EXT : TO(i) + 8.5);
-const QZ = 9.9, QS = 0.85, WALK = 3.0, M = PL.v * 0.9, TAU = 1.2, TC = 0.4, H_OPEN = 60;   // dù bung ở độ cao 60m trên mặt đất (gần đất mới bung)
+const QS = 0.85, WALK = 3.0, M = PL.v * 0.9, TAU = 1.2, TC = 0.4, H_OPEN = 60;   // dù bung ở độ cao 60m trên mặt đất (gần đất mới bung)
 /** Điểm hạ cánh của từng người. Mặc định: vòng tròn quanh lửa trại; cine3d.cineBegin() thay bằng vị trí NGẪU NHIÊN rải khắp đảo mỗi ván. */
 export const LAND: { x: number; z: number; a: number }[] = [...Array(N).keys()].map((i) => { const a = 0.4 + (i * Math.PI * 2) / N; return { x: 5.2 * Math.cos(a), z: 5.2 * Math.sin(a), a }; });
 /** Độ mạnh của bão theo ct (0..1): vào bão ở 0:22, dịu đi khi dù đã bung. */
 export const storm = (ct: number) => smooth(10, 12, ct) * (1 - smooth(28 + EXT, 33 + EXT, ct));
 
 export type Mode = "seat" | "walk" | "fall" | "chute" | "landed" | "crash";
-export interface St { mode: Mode; wx: number; wy: number; wz: number; wyaw: number; lx: number; lz: number; stand: number; open: number; land: number; walking: boolean; ou: number; spin?: number; hs?: number; hd?: number }
+export interface St { mode: Mode; wx: number; wy: number; wz: number; wyaw: number; lx: number; lz: number; stand: number; open: number; land: number; walking: boolean; ou: number; spin?: number; hs?: number; hd?: number; js?: number; ey?: number }
 
 /** Mô phỏng rơi không dù từ lúc hết hạn (d = 0) tới khi nằm im (tối đa 14 s, bước 1/120 s, lưu 1/60 s). Trọng lực 12 m/s² (khớp quãng rơi nhanh dần của quỹ đạo cũ);
  *  chạm tán cây → mất ~55% tốc độ rơi + bị hất ngang + lăn tít (ghi DIVE.treeHit) · chạm đất → nảy (lần đầu 17% tốc độ, sau đó 32%), trượt/lăn có ma sát, va vào bậc đất cao thì dội lại. */
@@ -104,19 +109,21 @@ function simFall(hx: (sx: number) => { x: number; z: number }, so: number, yo: n
 /** Trạng thái người i tại thời điểm ct. gl = độ cao mặt đất chỗ hạ cánh. gAt (tuỳ chọn) = độ cao mặt đất tại (x, z) — chỉ cần cho cảnh người chơi rơi mà không bung dù (không rơi đúng chỗ hạ cánh dự kiến). */
 export function stateOf(i: number, ct: number, gl: number, gAt?: (x: number, z: number) => number): St {
   const k = RANK[i], seat = SEAT[i], tj = TJ(k);
-  if (ct < tj) { // còn trong máy bay: ngồi → đứng dậy → đi tới ramp xếp hàng
-    const t = ct - TS(k), lx = lerp(seat.x, 0, smooth(0, 0.6, t)), yaw = lerp(seat.yaw, 0, smooth(0.1, 0.7, t));
-    const zFree = seat.z + WALK * Math.max(0, t - 0.6);
-    let ahead = 0; for (let kj = 0; kj < k; kj++) ahead += 1 - smooth(TJ(kj) - 0.35, TJ(kj), ct);
-    const zStop = QZ - QS * ahead, lz = Math.min(zFree, zStop), w = toWorld(ct, lx, 0, lz);
-    return { mode: t < 0 ? "seat" : "walk", wx: w.x, wy: w.y, wz: w.z, wyaw: yaw + PLANE_YAW, lx, lz, stand: smooth(0, 0.6, t), open: 0, land: 0, walking: zFree < zStop - 0.02, ou: 0 };
+  if (ct < tj) { // còn trong trực thăng: ngồi → đứng dậy → đi vào hàng trước cửa hông bên mình → bước ra ngưỡng cửa
+    const side = SIDE[i], lane = side * 0.7, t = ct - TS(k), stand = smooth(0, 0.6, t);
+    let n0 = 0, ahead = 0; for (let kj = 0; kj < k; kj++) if (SIDE[ORD[kj]] === side) { n0++; ahead += 1 - smooth(TJ(kj) - 0.35, TJ(kj), ct); }
+    const back = DZ - QS * n0 >= seat.z ? 0 : seat.yaw > 0 ? Math.PI : -Math.PI;      // hướng đi dọc lối giữa (về phía đuôi hoặc phía mũi)
+    const yawW = seat.yaw + wrapPi(back - seat.yaw) * smooth(0.1, 0.7, t);
+    const dz = DZ - QS * ahead - seat.z, P = WALK * Math.max(0, t - 0.6), lzQ = seat.z + Math.sign(dz) * Math.min(P, Math.abs(dz));
+    const ex = smooth(tj - 0.6, tj, ct), lx = lerp(lerp(seat.x, lane, stand), side * DOOR_X, ex), lz = lerp(lzQ, DZ, ex), yaw = yawW + wrapPi(side * Math.PI / 2 - yawW) * ex, w = toWorld(ct, lx, 0, lz);
+    return { mode: t < 0 ? "seat" : "walk", wx: w.x, wy: w.y, wz: w.z, wyaw: yaw + PLANE_YAW, lx, lz, stand, open: 0, land: 0, walking: P < Math.abs(dz) - 0.02 || (ex > 0 && ex < 1), ou: 0 };
   }
-  const s = ct - tj, so = TO(i) - tj, sl = TL(i) - tj, L = LAND[i], pe = planeAt(tj), xe = pe.x - QZ, ze = pe.z, ye = pe.y;
+  const s = ct - tj, so = TO(i) - tj, sl = TL(i) - tj, L = LAND[i], pe = planeAt(tj), sd = SIDE[i], xe = pe.x - DZ, ze = pe.z + sd * DOOR_X, ye = pe.y;
   const fd = (x: number) => x - TAU * (1 - Math.exp(-x / TAU));                 // quãng rơi tự do / vận tốc cuối
   const vt = (ye - gl - H_OPEN) / fd(so);                                       // vận tốc rơi sao cho dù bung ở độ cao H_OPEN trên mặt đất
   const sA = (c: number) => 14 * storm(c);                                      // bão quật lính ra nhiều hướng
   const hx = (sx: number) => { const c = tj + sx, f = 0.7 * smooth(0, 1, sx / so);
-    return { x: xe + M * (1 - Math.exp(-sx / 0.9)) + (L.x - xe - M) * f + Math.sin(c * 0.9 + i * 2.1) * sA(c), z: ze + (L.z - ze) * f + Math.cos(c * 0.7 + i * 1.3) * sA(c) * 1.3 }; };
+    return { x: xe + M * (1 - Math.exp(-sx / 0.9)) + (L.x - xe - M) * f + Math.sin(c * 0.9 + i * 2.1) * sA(c), z: ze + (L.z - ze) * f + sd * 5.5 * (1 - Math.exp(-sx / 0.6)) + Math.cos(c * 0.7 + i * 1.3) * sA(c) * 1.3 }; };
   let wx: number, wy: number, wz: number, mode: Mode = "fall", open = 0, land = 0, ou = 0;
   if (i === 0 && DIVE.fail && s >= so) {   // KHÔNG bấm E: không có dù — rơi nhanh dần, có thể đâm vào tán cây (gãy cành, rụng lá), đập đất, nảy lên, lăn lốc rồi nằm im (mô phỏng 1 lần, xem simFall)
     const yo = ye - vt * fd(so), gnd = (x: number, z: number) => (gAt ? gAt(x, z) : gl);
@@ -135,5 +142,5 @@ export function stateOf(i: number, ct: number, gl: number, gAt?: (x: number, z: 
     wx += Math.sin(ct * 1.3 + i * 1.7) * A; wz += Math.cos(ct * 1.1 + i) * A;
   }
   if (s >= sl) { mode = "landed"; wx = L.x; wz = L.z; wy = gl; land = smooth(0, 0.8, s - sl); }
-  return { mode, wx, wy: Math.max(gl, wy), wz, wyaw: 0, lx: 0, lz: 0, stand: 1, open, land, walking: false, ou };
+  return { mode, wx, wy: Math.max(gl, wy), wz, wyaw: 0, lx: 0, lz: 0, stand: 1, open, land, walking: false, ou, js: mode === "fall" ? s : undefined, ey: sd * Math.PI / 2 + PLANE_YAW };
 }
